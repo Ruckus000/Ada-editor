@@ -14,7 +14,10 @@
     "preview:build": "node scripts/build-preview.mjs",
     "a11y": "node scripts/verify-a11y.mjs",
     "verify": "npm run typecheck && node scripts/test-verifier.mjs && node scripts/verify-tokens.mjs && node scripts/build-preview.mjs && node scripts/verify-a11y.mjs",
-    "preview": "node scripts/serve-preview.mjs"
+    "preview": "node scripts/serve-preview.mjs",
+    "a11y:orca": "node scripts/verify-orca.mjs --verbose",
+    "a11y:nvda": "playwright test --project=nvda",
+    "a11y:voiceover": "playwright test --project=voiceover"
   },
   "comment": "Runtime deps are used by the design-system primitives. Dev deps drive the verification harness: tsc typechecks the components, esbuild renders them for the a11y gate, axe-core audits the result.",
   "dependencies": {
@@ -27,11 +30,14 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@guidepup/guidepup": "^0.34.0",
+    "@guidepup/playwright": "^0.19.1",
+    "@playwright/test": "^1.63.0",
     "@types/react": "^19.0.0",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.6.0",
     "@types/react-dom": "^19.0.0",
     "axe-core": "^4.13.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.0"
   }
 }

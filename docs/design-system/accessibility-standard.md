@@ -62,32 +62,30 @@ These are not machine-checkable yet. They are the review checklist:
 
 Stated plainly rather than discovered later.
 
-1. **Only one screen reader has been run: Orca 46.1 on Linux.** That run is
-   recorded in [`screen-reader-test-plan.md`](./screen-reader-test-plan.md),
-   and it found a real defect the automated gate had missed — activating a
-   finding's button dropped focus to `<body>`, so the outcome was never
-   announced and the user lost their place. Fixed, and now covered by a
-   focus-continuity check.
-
-   **NVDA, JAWS and VoiceOver remain untested.** They are different
-   implementations with different browse-mode semantics; Orca passing does not
-   speak for them. This is still the highest-priority gap, but it is now a gap
-   about coverage rather than a total absence of evidence.
-2. **forced-colors was smoke-tested, not OS-tested.** Verified by forcing the
-   block on in headless Chromium. Not run under real Windows High Contrast,
-   where system colour mapping can differ.
-3. **Partial-severity CVD matrices are interpolated.** The severity-1.0 Machado
+1. **NVDA, JAWS and VoiceOver have not actually been run.** NVDA and VoiceOver
+   tests exist (`tests/screen-reader/`) and run in CI on Windows and macOS
+   runners, but they were written on Linux and have never executed. The first CI
+   run is the test of the tests; expect timing and phrasing assumptions to need
+   correction. **JAWS is not covered at all** — it is commercial and licensed,
+   and Guidepup does not drive it. Until a CI run goes green, treat NVDA and
+   VoiceOver as unverified.
+2. **Orca is one implementation.** The Linux gate is real and repeatable, but
+   browse-mode semantics differ between screen readers. Orca passing does not
+   predict NVDA or VoiceOver.
+3. **forced-colors is emulated, not run on Windows.** `verify-a11y.mjs` now
+   activates the real `forced-colors: active` media feature through CDP and
+   asserts that every severity collapses to one system colour while the four
+   underline shapes stay distinct. That is a genuine test of the media query,
+   but not of Windows High Contrast, where system colour mapping differs.
+4. **Partial-severity CVD matrices are interpolated.** The severity-1.0 Machado
    transforms are the published ones; intermediate severities are interpolated
    from identity rather than transcribed from the paper's per-severity tables.
-   Good enough to show the palette degrades gracefully, not a substitute for
-   testing with people who have colour-vision deficiency.
-4. **Contrast is still computed on flat pairs.** The verifier now *rejects*
+5. **Contrast is still computed on flat pairs.** The verifier rejects
    translucent and gradient tokens that do not declare a backdrop, so the gap
    cannot reopen silently — but compositing is not implemented, because nothing
-   in the system needs it yet.
-5. **The gates cover the harness, not the product.** They exercise the real
+   in the system needs it.
+6. **The gates cover the harness, not the product.** They exercise the real
    components with fixture findings. There is no application, so no route, no
-   ProseMirror editor instance and no real document are covered.
-6. **Keyboard-trap testing (plan step 6) was not exercised under a screen
-   reader.** The automated gate checks Tab coverage and that focus is never
-   stuck, but the plan's explicit trap test has not been run.
+   ProseMirror editor instance and no real document are covered. **This is now
+   the largest gap in the project** — the design system is verified well past
+   the point where the product concept is.

@@ -1,9 +1,17 @@
 # Screen reader test plan
 
-**Status: run once, with Orca 46.1 on Linux.** Results are in the table at the
-bottom, and the run found a real defect that the automated gate had missed.
-NVDA, JAWS and VoiceOver remain untested — they are different implementations
-with different browse-mode semantics, and Orca passing does not speak for them.
+**Status: automated for Orca; written but unrun for NVDA and VoiceOver.**
+
+All six steps below now run as a gate — `node scripts/verify-orca.mjs` — rather
+than as a manual checklist. It drives Orca and asserts on what it actually says,
+and it found a real defect the tree-level gate had missed.
+
+NVDA and VoiceOver equivalents live in `tests/screen-reader/` and run in CI on
+Windows and macOS runners. They have never executed: they were written on Linux,
+where neither screen reader exists. **JAWS is not covered** — commercial,
+licensed, and not driven by Guidepup.
+
+The manual steps below remain the specification; the gate automates them.
 
 `scripts/verify-a11y.mjs` verifies the accessibility *tree* — the roles, names
 and live regions the browser hands assistive technology. What a screen reader
@@ -137,7 +145,7 @@ Three things are easy to get wrong:
 
 | Date | Screen reader / browser | Tester | 1 | 2 | 3 | 4 | 5 | 6 | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| 2026-09-17 | Orca 46.1 / Chromium 131 | automated | PASS | PASS | PASS | **FAIL → fixed** | PASS | not run | See below |
+| 2026-09-17 | Orca 46.1 / Chromium 131 | `verify-orca.mjs` | PASS | PASS | PASS | **FAIL → fixed** | PASS | PASS | Automated; 7 checks, reproducible |
 | | NVDA / Firefox | | | | | | | | |
 | | JAWS / Chrome | | | | | | | | |
 | | VoiceOver / Safari | | | | | | | | |

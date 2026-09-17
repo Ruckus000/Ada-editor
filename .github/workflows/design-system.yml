@@ -56,6 +56,21 @@ jobs:
 
       - name: Accessibility gate (axe-core + accessibility tree + keyboard)
         run: node scripts/verify-a11y.mjs --verbose
-        env:
-          # verify-a11y.mjs honours CHROME_PATH; resolve whatever playwright installed.
-          CHROME_PATH: ''
+
+      # A real screen reader. The tree-level gate above passed while activating a
+      # finding dropped focus to <body>; only running Orca caught that.
+      - name: Install Orca and the AT-SPI stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            orca at-spi2-core xvfb speech-dispatcher speech-dispatcher-espeak-ng \
+            espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool
+          # speech-dispatcher blocks forever without an audio device.
+          printf 'pcm.!default { type null }\nctl.!default { type null }\n' | sudo tee /etc/asound.conf
+
+      - name: Orca screen reader gate
+        run: |
+          ./scripts/a11y-stack.sh &
+          until [ -f /tmp/a11y-env.sh ] && grep -q DBUS /tmp/a11y-env.sh; do sleep 2; done
+          set -a && . /tmp/a11y-env.sh && set +a
+          node scripts/verify-orca.mjs --verbose

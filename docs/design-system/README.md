@@ -60,7 +60,9 @@ scripts/
   build-tokens.mjs      tokens.json -> css + ts
   build-preview.mjs     real components -> design-system/preview.html
   verify-tokens.mjs     token gate: contrast, CVD, encoding, css vars
-  verify-a11y.mjs       component gate: axe, accessibility tree, keyboard
+  verify-a11y.mjs       component gate: axe, accessibility tree, keyboard, forced-colors
+  verify-orca.mjs       screen reader gate: drives Orca, asserts on what it says
+  a11y-stack.sh         Xvfb + dbus + AT-SPI, so Orca can run headlessly
   test-verifier.mjs     tests for the gates themselves
   palette-ceiling.mjs   how much colour separation is achievable at all
   serve-preview.mjs     static server (the preview needs HTTP, not file://)

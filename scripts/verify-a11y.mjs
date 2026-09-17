@@ -303,6 +303,72 @@ try {
     note(`focus survives removal (landed on: ${focusAfter})`);
   }
 
+  /**
+   * Forced colours: the real test of principle 1.
+   *
+   * Emulated through CDP so the actual `forced-colors: active` media query
+   * evaluates — an earlier version of this test hand-edited the stylesheet,
+   * which proved only that the CSS parsed. Under forced colours every severity
+   * collapses to the same system colour, so if anything still depends on hue
+   * the interface breaks here and nowhere else.
+   */
+  // Reload first: the keyboard tests above dismissed findings, and this check is
+  // worthless unless every severity is present. An earlier run silently
+  // compared two underlines instead of four.
+  await send('Page.reload', { ignoreCache: false });
+  await sleep(900);
+  await evaluate(send, readFileSync(AXE, 'utf8'));
+
+  const severitiesPresent = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
+  if (severitiesPresent < 4) {
+    fail(`FORCED-COLORS  only ${severitiesPresent} severities on the page; the check needs all 4`);
+  }
+
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }] });
+  await sleep(200);
+
+  const forced = await evaluate(send, `matchMedia('(forced-colors: active)').matches`);
+  if (!forced) fail('FORCED-COLORS  emulation did not take effect; the check proves nothing');
+
+  const severityColours = await evaluate(send, `(() => {
+    const root = getComputedStyle(document.documentElement);
+    return ['blocker','violation','advisory','manual']
+      .map(s => root.getPropertyValue('--ada-severity-' + s + '-fg').trim());
+  })()`);
+  const distinctColours = new Set(severityColours);
+  if (distinctColours.size > 1) {
+    note(`forced-colors: severities keep ${distinctColours.size} distinct colours (${[...distinctColours].join(', ')})`);
+  } else {
+    note(`forced-colors: all severities collapse to ${[...distinctColours][0]} — colour carries nothing`);
+  }
+
+  const underlineStyles = await evaluate(send, `(() => {
+    const out = {};
+    for (const el of document.querySelectorAll('.ada-underline')) {
+      out[el.dataset.severity] = getComputedStyle(el).textDecorationStyle;
+    }
+    return out;
+  })()`);
+  const shapes = Object.values(underlineStyles);
+  const distinctShapes = new Set(shapes);
+  if (distinctShapes.size !== shapes.length) {
+    fail(`FORCED-COLORS  underline shapes are not distinct under forced colours ` +
+         `(${JSON.stringify(underlineStyles)}) — with colour gone, nothing distinguishes severities`);
+  } else {
+    note(`forced-colors: ${shapes.length} severities keep distinct underline shapes (${shapes.join(', ')})`);
+  }
+
+  // axe again, under forced colours: contrast rules behave differently here.
+  const axeForced = JSON.parse(await evaluate(send, `
+    axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa'] } })
+      .then(r => JSON.stringify({ violations: r.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })) }))
+  `));
+  for (const v of axeForced.violations) fail(`AXE(forced-colors)  ${v.id} (${v.impact}) x${v.nodes}`);
+  if (axeForced.violations.length === 0) note('forced-colors: axe-core reports 0 violations');
+
+  await send('Emulation.setEmulatedMedia', { features: [] });
+  await sleep(150);
+
   // F6 cycles regions, and is not swallowed by the list.
   await evaluate(send, `document.querySelector('main').focus()`);
   await key(send, 'F6');

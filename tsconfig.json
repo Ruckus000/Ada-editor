@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -17,5 +21,10 @@
     "noEmit": true,
     "isolatedModules": true
   },
-  "include": ["design-system/**/*.ts", "design-system/**/*.tsx", "scripts/harness/**/*.tsx"]
+  "include": [
+    "design-system/**/*.ts",
+    "design-system/**/*.tsx",
+    "scripts/harness/**/*.tsx",
+    "tests/**/*.ts"
+  ]
 }
