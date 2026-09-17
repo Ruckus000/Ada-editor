@@ -28,6 +28,13 @@ const VERBOSE = process.argv.includes('--verbose');
 const SPEECH_LOG = '/tmp/orca-gate-speech.log';
 const ORCA_PY = '/usr/bin/python3.12';
 
+// Node 20 has no global WebSocket, and CDP needs one. Fail with a sentence
+// rather than a bare ReferenceError three frames deep.
+if (typeof WebSocket === 'undefined') {
+  console.error(`This gate needs Node 22 or newer for the global WebSocket (running ${process.version}).`);
+  process.exit(1);
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const failures = [];
 const notes = [];
