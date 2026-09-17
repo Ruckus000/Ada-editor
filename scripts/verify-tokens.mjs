@@ -48,26 +48,51 @@ export const contrast = (a, b) => {
   return (l1 + 0.05) / (l2 + 0.05);
 };
 
-/* ---------- Vienot (1999) dichromat simulation ---------- */
+/* ---------- Machado et al. (2009) colour-vision-deficiency simulation ---------- */
 
-const encode = (v) => {
+/**
+ * Replaces the Viénot (1999) model used previously.
+ *
+ * Two reasons. Viénot is a dichromat-only linear approximation, and it models
+ * the severe end exclusively — but most colour-vision deficiency is anomalous
+ * trichromacy, a partial shift. A palette can look fine under full dichromacy
+ * simulation and still fail the much larger population with mild deuteranomaly,
+ * or vice versa. Machado's model is defined over a severity range, so we check
+ * both ends.
+ *
+ * Matrices are the published severity-1.0 transforms, applied to LINEAR RGB.
+ * Each row sums to 1, so white maps to white.
+ */
+const CVD_MATRICES = {
+  deuteranopia: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.011820, 0.042940, 0.968881],
+  protanopia:   [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
+  tritanopia:   [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.303900],
+};
+
+const encodeChannel = (v) => {
   const c = Math.max(0, Math.min(1, v));
   const s = c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
   return Math.round(s * 255).toString(16).padStart(2, '0');
 };
 
-export const simulate = (hex, kind) => {
+/**
+ * @param severity 0 (typical vision) to 1 (full dichromacy). Values between are
+ *   interpolated from identity toward the published transform. Machado provides
+ *   per-severity matrices; interpolation is an approximation of those, used here
+ *   rather than transcribing numbers that cannot be checked from this repo.
+ */
+export const simulate = (hex, kind, severity = 1) => {
+  const base = CVD_MATRICES[kind];
+  if (!base) throw new Error(`unknown deficiency: ${kind}`);
+  const t = Math.max(0, Math.min(1, severity));
+  const identity = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const m = base.map((v, i) => identity[i] + (v - identity[i]) * t);
+
   const [r, g, b] = parseHex(hex).map(srgbToLinear);
-  let l = 0.31399 * r + 0.63951 * g + 0.04649 * b;
-  let m = 0.15537 * r + 0.75789 * g + 0.08670 * b;
-  let s = 0.01775 * r + 0.10945 * g + 0.87247 * b;
-  if (kind === 'protanopia') l = 1.05118 * m - 0.05116 * s;
-  if (kind === 'deuteranopia') m = 0.9513092 * l + 0.04866992 * s;
-  if (kind === 'tritanopia') s = -0.86744736 * l + 1.86727089 * m;
-  const R = 5.47221206 * l - 4.64196010 * m + 0.16963708 * s;
-  const G = -1.12524190 * l + 2.29317094 * m - 0.16789520 * s;
-  const B = 0.02980165 * l - 0.19318073 * m + 1.16364789 * s;
-  return `#${encode(R)}${encode(G)}${encode(B)}`.toUpperCase();
+  const R = m[0] * r + m[1] * g + m[2] * b;
+  const G = m[3] * r + m[4] * g + m[5] * b;
+  const B = m[6] * r + m[7] * g + m[8] * b;
+  return `#${encodeChannel(R)}${encodeChannel(G)}${encodeChannel(B)}`.toUpperCase();
 };
 
 /* ---------- perceptual colour difference (CIEDE2000) ---------- */
@@ -251,6 +276,11 @@ function checkDichromatSeparation(doc) {
   // difference, and below ~10 two colours read as shades of one another.
   const JND = 2.3;
   const SAME_COLOUR = 10;
+  // Full dichromacy AND moderate anomalous trichromacy, which is far more common.
+  const CVD_CASES = [
+    ['deuteranopia', 1], ['protanopia', 1],
+    ['deuteranopia', 0.6], ['protanopia', 0.6],
+  ];
   const severities = ['blocker', 'violation', 'advisory', 'manual'];
 
   for (const theme of ['light', 'dark']) {
@@ -274,26 +304,59 @@ function checkDichromatSeparation(doc) {
           continue;
         }
 
-        for (const kind of ['deuteranopia', 'protanopia']) {
-          const d = deltaE(simulate(colours[a], kind), simulate(colours[b], kind));
+        for (const [kind, sev] of CVD_CASES) {
+          const d = deltaE(simulate(colours[a], kind, sev), simulate(colours[b], kind, sev));
+          const label = `${kind}@${sev}`;
           if (d >= SAME_COLOUR) {
-            notes.push(`  ok  ${theme}/${kind}: ${a} vs ${b} dE ${d.toFixed(1)} — stays distinguishable`);
+            notes.push(`  ok  ${theme}/${label}: ${a} vs ${b} dE ${d.toFixed(1)} — stays distinguishable`);
             continue;
           }
           // Collapses under CVD. Permitted only because nothing depends on it.
           const chA = (doc.encoding?.[a]?.channels ?? []).filter((c) => c !== 'colour').length;
           const chB = (doc.encoding?.[b]?.channels ?? []).filter((c) => c !== 'colour').length;
           if (chA < 2 || chB < 2) {
-            fail(`CVD  ${theme}/${kind}: ${a} vs ${b} dE ${d.toFixed(1)} and no non-colour fallback`);
+            fail(`CVD  ${theme}/${label}: ${a} vs ${b} dE ${d.toFixed(1)} and no non-colour fallback`);
           } else {
             const how = d < JND ? 'below the just-noticeable difference' : 'reads as the same colour';
-            notes.push(`  ok  ${theme}/${kind}: ${a} vs ${b} dE ${d.toFixed(1)} — ${how}; ` +
+            notes.push(`  ok  ${theme}/${label}: ${a} vs ${b} dE ${d.toFixed(1)} — ${how}; ` +
                        `shape+glyph+label carry it`);
           }
         }
       }
     }
   }
+}
+
+function checkOpaqueSurfaces(doc) {
+  /**
+   * Contrast maths assumes flat, opaque colours. A translucent overlay or a
+   * gradient composites against whatever is behind it, so its real ratio is not
+   * the one computed from its own value — and the computed number would be
+   * wrong in the reassuring direction.
+   *
+   * Everything is opaque hex today, so this is a forward guard: it stops the
+   * gap reopening silently the first time someone reaches for rgba().
+   */
+  for (const { path, token } of walkTokens(doc)) {
+    if (token.$type !== 'color') continue;
+    const raw = String(token.$value);
+    if (raw.startsWith('{')) continue; // alias; the target is checked on its own
+
+    const translucent =
+      /^#([0-9a-f]{4}|[0-9a-f]{8})$/i.test(raw) ||
+      /rgba?\([^)]*\/[^)]*\)/i.test(raw) ||
+      /(rgba|hsla)\(/i.test(raw) ||
+      /gradient/i.test(raw);
+
+    if (!translucent) continue;
+    if (!token.$extensions?.ada?.compositedOver) {
+      fail(`SURFACE  ${path} is translucent or a gradient (${raw}) but declares no ` +
+           `$extensions.ada.compositedOver — its contrast cannot be computed`);
+    } else {
+      notes.push(`  ok  ${path} translucent, composited over ${token.$extensions.ada.compositedOver}`);
+    }
+  }
+  notes.push('  ok  all colour tokens opaque or declare a backdrop');
 }
 
 function checkCssVarIntegrity() {
@@ -356,6 +419,7 @@ if (!invokedDirectly) {
   checkContrastAssertions(doc);
   checkEncodingChannels(doc);
   checkDichromatSeparation(doc);
+  checkOpaqueSurfaces(doc);
   checkCssVarIntegrity();
 
   const verbose = argv.includes('--verbose');

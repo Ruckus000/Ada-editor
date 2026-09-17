@@ -112,6 +112,41 @@ check('rejects a palette whose severities match in NORMAL vision', () => {
 check('simulate: returns a parseable hex', () =>
   assert(/^#[0-9A-F]{6}$/.test(simulate('#1F5EA8', 'protanopia')), 'malformed output'));
 
+check('simulate: severity 0 is a no-op (identity transform)', () => {
+  close(deltaE('#B3261E', simulate('#B3261E', 'deuteranopia', 0)), 0, 0.5);
+});
+
+check('simulate: severity is monotonic — more deficiency, more distortion', () => {
+  const mild = deltaE('#B3261E', simulate('#B3261E', 'deuteranopia', 0.4));
+  const full = deltaE('#B3261E', simulate('#B3261E', 'deuteranopia', 1));
+  assert(full > mild, `expected full dichromacy to distort more (mild ${mild.toFixed(1)}, full ${full.toFixed(1)})`);
+});
+
+check('simulate: white is preserved under every deficiency', () => {
+  for (const kind of ['deuteranopia', 'protanopia', 'tritanopia']) {
+    close(deltaE('#FFFFFF', simulate('#FFFFFF', kind)), 0, 1.0);
+  }
+});
+
+check('simulate: rejects an unknown deficiency rather than silently passing through', () => {
+  let threw = false;
+  try { simulate('#B3261E', 'not-a-deficiency'); } catch { threw = true; }
+  assert(threw, 'unknown deficiency should throw');
+});
+
+check('rejects a translucent token with no declared backdrop', () => {
+  copyFileSync(TOKENS, BACKUP);
+  try {
+    const doc = JSON.parse(readFileSync(TOKENS, 'utf8'));
+    doc.semantic.light.surface.overlay = { $type: 'color', $value: 'rgba(0,0,0,0.6)' };
+    writeFileSync(TOKENS, JSON.stringify(doc, null, 2));
+    assert(runVerifier() !== 0, 'verifier accepted a translucent token with no backdrop');
+  } finally {
+    copyFileSync(BACKUP, TOKENS);
+    rmSync(BACKUP, { force: true });
+  }
+});
+
 /* ---------- the guarantees ---------- */
 
 check('baseline: the committed tokens pass', () =>

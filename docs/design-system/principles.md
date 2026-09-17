@@ -32,25 +32,37 @@ another.
 
 ### What is actually true
 
-Measured properly, 18 of the 24 pair-checks come through colour-vision
-deficiency intact:
+Measured with CIEDE2000 over the Machado (2009) model — which, unlike Viénot,
+covers partial severities, and most colour-vision deficiency is partial — most
+pairs come through intact:
 
 ```
-deuteranopia: blocker vs advisory   dE 60.4   stays distinguishable
-              violation vs advisory dE 59.1   stays distinguishable
-              violation vs manual   dE 56.8   stays distinguishable
+light/deuteranopia@0.6: blocker vs violation dE 10.9
+light/protanopia@0.6: blocker vs violation dE 15.8
+light/deuteranopia@1: blocker vs advisory dE 52.2
+light/protanopia@1: blocker vs advisory dE 44.7
 ```
 
-Two pairs collapse, and they are the ones that matter most:
+Two pairs collapse at full dichromacy:
 
 ```
-deuteranopia: blocker vs violation  dE  4.1   reads as the same colour
-              advisory vs manual    dE  1.8   below the JND
+light/deuteranopia@1: blocker vs violation dE 3.1
+light/protanopia@1: blocker vs violation dE 6.1
+light/deuteranopia@1: advisory vs manual dE 1.5
 ```
 
 `blocker` vs `violation` is red against amber — the exact axis red-green
 deficiency removes, and the single most consequential distinction in the
 product (does this block a user, or merely fail AA?).
+
+The redeeming detail is that the palette degrades gracefully. At moderate
+severity, the common case, those same pairs are usable again:
+
+```
+light/deuteranopia@0.6: blocker vs violation dE 10.9
+light/protanopia@0.6: blocker vs violation dE 15.8
+light/deuteranopia@0.6: advisory vs manual dE 9.6
+```
 
 ### And a CVD-safe palette does exist
 

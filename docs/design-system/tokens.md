@@ -91,47 +91,58 @@ by hand.
   ok  semantic.dark.severity.checked.fg [badge text on own tint] #7BD9AE on #0F2620  9.39:1 (min 4.5)
 ```
 
-## Dichromat separation
+## Colour-vision deficiency
 
-Measured with **CIEDE2000**, not WCAG contrast. This matters: contrast is a
-luminance ratio and cannot see hue, so it reports two colours as identical
-whenever they share a lightness — which ours do by construction, since they are
-all tuned to roughly equal contrast on white. An earlier version of this
-document used contrast here and drew a false conclusion from it.
+Measured with **CIEDE2000** over the **Machado et al. (2009)** model, at full
+dichromacy (severity 1.0) and at moderate anomalous trichromacy (0.6). The
+second case matters more than it might look: most colour-vision deficiency is
+partial, so a palette judged only at severity 1.0 is judged on the rarest case.
+
+Two earlier versions of this section were wrong. The first measured separation
+with WCAG contrast, which is a luminance ratio and cannot see hue at all. The
+second used Viénot, a dichromat-only approximation. Both are fixed; the numbers
+below come from `node scripts/verify-tokens.mjs --verbose`.
 
 dE 2.3 is the just-noticeable difference; below ~10 two colours read as shades
 of one another.
 
-Most pairs survive colour-vision deficiency intact:
+Most pairs stay distinguishable:
 
 ```
-light/deuteranopia: blocker vs advisory    dE 60.4   stays distinguishable
-light/deuteranopia: violation vs advisory  dE 59.1   stays distinguishable
-light/deuteranopia: violation vs manual    dE 56.8   stays distinguishable
-light/protanopia:   blocker vs manual      dE 53.2   stays distinguishable
+light/deuteranopia@0.6: blocker vs violation dE 10.9
+light/protanopia@0.6: blocker vs violation dE 15.8
+light/deuteranopia@1: blocker vs advisory dE 52.2
+light/protanopia@1: blocker vs advisory dE 44.7
 ```
 
-Two do not:
+The palette degrades gracefully rather than collapsing: at moderate severity —
+the common case — even the weakest pairs hold up.
 
 ```
-light/deuteranopia: blocker vs violation   dE  4.1   reads as the same colour
-light/deuteranopia: advisory vs manual     dE  1.8   below the JND
-dark/deuteranopia:  advisory vs manual     dE  1.5   below the JND
+light/deuteranopia@0.6: blocker vs violation dE 10.9
+light/protanopia@0.6: blocker vs violation dE 15.8
+```
+
+At full dichromacy, two pairs do collapse:
+
+```
+light/deuteranopia@1: blocker vs violation dE 3.1
+light/protanopia@1: blocker vs violation dE 6.1
+light/deuteranopia@1: advisory vs manual dE 1.5
 ```
 
 `blocker` vs `violation` is red against amber, the axis red-green deficiency
 removes — and the distinction that matters most in this product.
 
-A CVD-safe four-colour palette **is** achievable (`scripts/palette-ceiling.mjs`
-finds sets at dE ~30). We do not use one, because reaching it means abandoning
-the conventional red/amber severity ramp. That is a stated trade-off, not an
-impossibility — see
+A CVD-safe four-colour palette **is** achievable (`scripts/palette-ceiling.mjs`).
+We do not use one, because reaching it means abandoning the conventional
+red/amber severity ramp. That is a stated trade-off, not an impossibility — see
 [principles §1](./principles.md#1-colour-is-never-the-only-channel).
 
 The verifier therefore does not require colour separation under CVD. It
-requires that each severity declare **at least two non-colour channels**, and
-it additionally fails if any two severities are within dE 10 **in normal
-vision** — that would be a plain palette defect affecting everyone.
+requires that each severity declare **at least two non-colour channels**, and it
+additionally fails if any two severities are within dE 10 **in normal vision** —
+that would be a plain palette defect affecting everyone.
 
 ## Encoding table
 

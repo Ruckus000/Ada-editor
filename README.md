@@ -32,11 +32,13 @@ Pre-application. This repository contains the **design system** and the
 ## Quick start
 
 ```bash
-node scripts/verify-tokens.mjs --verbose   # verify every token
-node scripts/build-tokens.mjs              # regenerate css + ts from tokens.json
+npm install
+npm run verify     # typecheck, token gate, accessibility gate
+npm run preview    # serve the live preview at http://127.0.0.1:8080
 ```
 
-No dependencies required for either.
+`node scripts/verify-tokens.mjs --verbose` and `node scripts/palette-ceiling.mjs`
+run with no dependencies at all.
 
 ## Three decisions worth knowing up front
 

@@ -31,13 +31,16 @@ while (pool.length < 6000) {
   if (contrast(c, '#FFFFFF') >= MIN_ON_WHITE) pool.push(c);
 }
 
-/** Worst pairwise CIEDE2000 across all pairs, under both red-green deficiencies. */
+/** Full dichromacy and moderate anomalous trichromacy, which is far more common. */
+const CASES = [['deuteranopia', 1], ['protanopia', 1], ['deuteranopia', 0.6], ['protanopia', 0.6]];
+
+/** Worst pairwise CIEDE2000 across all pairs, across every deficiency case. */
 const worstPair = (set) => {
   let min = Infinity;
-  for (const kind of ['deuteranopia', 'protanopia']) {
+  for (const [kind, severity] of CASES) {
     for (let i = 0; i < set.length; i++) {
       for (let j = i + 1; j < set.length; j++) {
-        min = Math.min(min, deltaE(simulate(set[i], kind), simulate(set[j], kind)));
+        min = Math.min(min, deltaE(simulate(set[i], kind, severity), simulate(set[j], kind, severity)));
       }
     }
   }
@@ -55,7 +58,8 @@ for (let n = 0; n < ITERATIONS; n++) {
 const shipped = ['#B3261E', '#8A4B00', '#1F5EA8', '#6B3FA0'];
 
 console.log(`Searched ${ITERATIONS.toLocaleString()} four-colour sets, each >= ${MIN_ON_WHITE}:1 on white.`);
-console.log('Metric: CIEDE2000. JND = 2.3; below 10 two colours read as the same.\n');
+console.log('Metric: CIEDE2000 over Machado 2009, at severity 1.0 and 0.6.');
+console.log('JND = 2.3; below 10 two colours read as the same.\n');
 console.log(`Unconstrained best:  ${best.join(' ')}`);
 console.log(`  worst pair:        dE ${bestScore.toFixed(1)} under dichromacy`);
 console.log(`Our shipped palette: ${shipped.join(' ')}`);

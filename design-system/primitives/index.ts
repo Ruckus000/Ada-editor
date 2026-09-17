@@ -4,6 +4,8 @@ export { IssueCard } from './IssueCard';
 export { IssueList } from './IssueList';
 export { LiveAnnouncer, useAnnounce } from './LiveAnnouncer';
 export { SeverityBadge } from './SeverityBadge';
+export { useRegionCycling } from './useRegionCycling';
+export type { RegionRef } from './useRegionCycling';
 export { VisuallyHidden } from './VisuallyHidden';
 export { issueUnderlinePlugin, issueUnderlineKey } from './issueUnderline';
 export { SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK } from './severity';

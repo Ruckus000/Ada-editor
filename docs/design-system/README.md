@@ -48,7 +48,8 @@ design-system/
   tokens.json           source of truth — edit this
   tokens.css            GENERATED
   tailwind-theme.css    GENERATED
-  preview.html          visual harness; real stylesheets, hand-written markup
+  preview.html          GENERATED from the real components (server-rendered)
+  preview/harness.js    GENERATED hydration bundle (gitignored; npm run preview:build)
   primitives/
     severity.ts         GENERATED from tokens.json `encoding`
     primitives.css      component styles (no literal colours)
@@ -57,26 +58,35 @@ design-system/
     issueUnderline.ts   ProseMirror decoration plugin
 scripts/
   build-tokens.mjs      tokens.json -> css + ts
-  verify-tokens.mjs     the thing that says no
-  test-verifier.mjs     tests for the thing that says no
+  build-preview.mjs     real components -> design-system/preview.html
+  verify-tokens.mjs     token gate: contrast, CVD, encoding, css vars
+  verify-a11y.mjs       component gate: axe, accessibility tree, keyboard
+  test-verifier.mjs     tests for the gates themselves
   palette-ceiling.mjs   how much colour separation is achievable at all
+  serve-preview.mjs     static server (the preview needs HTTP, not file://)
+  harness/              the React tree both the preview and the gate render
 ```
 
 ## Usage
 
 ```
-node scripts/build-tokens.mjs
-node scripts/verify-tokens.mjs --verbose
+npm install
+npm run verify        # typecheck + both gates, end to end
+npm run preview       # serve the preview at http://127.0.0.1:8080
+
 node scripts/verify-tokens.mjs --pair '#15C39A' '#FFFFFF'
-node scripts/test-verifier.mjs
 node scripts/palette-ceiling.mjs
 ```
 
-Both scripts are dependency-free Node — they run without `npm install`.
+`verify-tokens.mjs`, `palette-ceiling.mjs` and `serve-preview.mjs` are
+dependency-free. The typecheck, the preview build and the accessibility gate
+need `npm install`.
 
-Open `design-system/preview.html` in a browser to see the whole system. Add the
-`grayscale` class to `<body>` to run the colour-independence test from
-[principle 1](./principles.md#1-colour-is-never-the-only-channel).
+`design-system/preview.html` is **generated from the real components** by
+`build-preview.mjs` — it is server-rendered and then hydrates, so it is the same
+tree the accessibility gate verifies. It must be served (`npm run preview`), not
+opened from disk: Chromium blocks ES modules on a `file://` origin, and the page
+is silently inert without them.
 
 ```css
 @import "tailwindcss";
@@ -87,12 +97,13 @@ Open `design-system/preview.html` in a browser to see the whole system. Add the
 
 ## Status
 
-The token layer, the verifier and the primitives are complete and checked. The
-application, the WCAG rule engine, persistence and auth do not exist yet. The
-React components are written against declared dependencies that are **not
-installed** in this repository, so they have not been compiled or rendered —
-treat them as specification-grade, and expect to fix import-level details when
-the app is first scaffolded.
+The token layer, the primitives, and both gates are complete and checked. The
+components typecheck under `strict`, render, and pass axe-core plus an
+accessibility-tree and keyboard audit. The application, the WCAG rule engine,
+persistence and auth do not exist.
 
-The most significant outstanding gap is that **nothing here has been tested with
-a screen reader.** See [known gaps](./accessibility-standard.md#known-gaps).
+The most significant outstanding gap is that **nothing here has been run with a
+screen reader** — impossible in the container this was built in.
+[`screen-reader-test-plan.md`](./screen-reader-test-plan.md) is the script for
+someone who can. See [known gaps](./accessibility-standard.md#known-gaps) for
+the rest.

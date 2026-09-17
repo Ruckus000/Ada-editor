@@ -2,18 +2,24 @@ name: design system
 
 on:
   push:
-    paths: ['design-system/**', 'scripts/**', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'scripts/**', 'package.json', 'tsconfig.json', '.github/workflows/design-system.yml']
   pull_request:
-    paths: ['design-system/**', 'scripts/**', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'scripts/**', 'package.json', 'tsconfig.json', '.github/workflows/design-system.yml']
 
 jobs:
-  verify-tokens:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck the components
+        run: npx tsc --noEmit
 
       - name: Test the verifier
         run: node scripts/test-verifier.mjs
@@ -24,8 +30,32 @@ jobs:
       - name: Check generated files are up to date
         run: |
           node scripts/build-tokens.mjs
+          node scripts/build-preview.mjs
           if ! git diff --quiet -- design-system/; then
-            echo "::error::Generated files are stale. Run 'node scripts/build-tokens.mjs' and commit the result."
+            echo "::error::Generated files are stale. Run 'npm run tokens:build && npm run preview:build' and commit."
             git diff --stat -- design-system/
             exit 1
           fi
+
+  accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium for the accessibility gate
+        run: npx --yes playwright@1.49.0 install --with-deps chromium
+
+      - name: Build the preview from the real components
+        run: node scripts/build-preview.mjs
+
+      - name: Accessibility gate (axe-core + accessibility tree + keyboard)
+        run: node scripts/verify-a11y.mjs --verbose
+        env:
+          # verify-a11y.mjs honours CHROME_PATH; resolve whatever playwright installed.
+          CHROME_PATH: ''

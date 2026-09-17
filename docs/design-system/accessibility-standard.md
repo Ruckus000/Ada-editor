@@ -60,28 +60,35 @@ These are not machine-checkable yet. They are the review checklist:
 
 ## Known gaps
 
-Stated plainly rather than discovered later:
+Stated plainly rather than discovered later. Four of the seven gaps recorded
+in the previous round are now closed; what follows is what genuinely remains.
 
-1. **No screen reader testing has been done.** Nothing here has been driven with
-   NVDA, JAWS or VoiceOver. The ARIA is written to spec, which is not the same
-   as being verified against implementations. This is the highest-priority gap.
-2. **The dichromacy simulation is Viénot (1999)**, a linear approximation.
-   Good enough to prove colours are indistinguishable; not a substitute for
-   testing with users who have colour-vision deficiency.
-3. **No automated axe/Lighthouse pass**, because there is no running app yet.
-   Wire `axe-core` into CI with the first rendered route.
-4. **Contrast is checked on flat token pairs only.** Text over an image,
-   gradient or translucent surface is not covered.
-5. **`F6` region cycling is specified but not implemented.** It belongs to the
-   application shell, which does not exist yet. `patterns-suggestion.md`
-   documents it as part of the keyboard model; treat that as a specification,
-   not a description of working code.
-6. **The arrow-key model is unverified against real screen readers.** It is
-   written as a sighted-keyboard enhancement precisely because NVDA and JAWS
-   intercept arrows in browse mode, but that reasoning has not been confirmed
-   by testing. Heading navigation and `Tab` are the paths expected to carry AT
-   users, and those are also untested.
-7. **forced-colors was smoke-tested, not OS-tested.** The block was verified by
-   forcing it on in headless Chromium and rendering `preview.html`; the layout
-   holds and every severity stays distinguishable. It has not been run under
-   real Windows High Contrast, where system colour mapping can differ.
+1. **No screen reader has been run against this.** The highest-priority gap,
+   and the one that cannot be closed from here: this container has no AT-SPI
+   stack and no NVDA, JAWS or VoiceOver. `scripts/verify-a11y.mjs` verifies the
+   accessibility *tree* — the roles, names and live regions the browser hands
+   assistive technology, plus keyboard mechanics driven through the DevTools
+   Protocol — which is the layer beneath a screen reader, not a substitute for
+   one. [`screen-reader-test-plan.md`](./screen-reader-test-plan.md) is a
+   step-by-step script a non-specialist can run; until one row of its results
+   table is filled in, treat every claim here as **reasoned and
+   tree-verified, but unverified at the assistive-technology layer**.
+2. **The arrow-key assumption is untested.** The design treats arrow keys as a
+   sighted-keyboard convenience because NVDA and JAWS intercept them in browse
+   mode, and routes assistive technology through headings and `F6` instead.
+   The mechanics are verified; the premise is not. It is step 5 of the test plan.
+3. **forced-colors was smoke-tested, not OS-tested.** Verified by forcing the
+   block on in headless Chromium. Not run under real Windows High Contrast,
+   where system colour mapping can differ.
+4. **Partial-severity CVD matrices are interpolated.** The severity-1.0
+   Machado transforms are the published ones; intermediate severities are
+   interpolated from identity rather than transcribed from the paper's
+   per-severity tables. Good enough to show the palette degrades gracefully,
+   not a substitute for testing with people who have colour-vision deficiency.
+5. **Contrast is still computed on flat pairs.** The verifier now *rejects*
+   translucent and gradient tokens that do not declare a backdrop, so the gap
+   cannot reopen silently — but compositing is not implemented, because nothing
+   in the system needs it yet.
+6. **The a11y gate covers the harness, not the product.** It exercises the real
+   components with fixture findings. There is no application, so no route, no
+   ProseMirror editor instance and no real document are covered.

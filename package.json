@@ -9,9 +9,14 @@
     "tokens:verify": "node scripts/verify-tokens.mjs --verbose",
     "contrast": "node scripts/verify-tokens.mjs --pair",
     "test": "node scripts/test-verifier.mjs",
-    "palette:ceiling": "node scripts/palette-ceiling.mjs"
+    "palette:ceiling": "node scripts/palette-ceiling.mjs",
+    "typecheck": "tsc --noEmit",
+    "preview:build": "node scripts/build-preview.mjs",
+    "a11y": "node scripts/verify-a11y.mjs",
+    "verify": "npm run typecheck && node scripts/test-verifier.mjs && node scripts/verify-tokens.mjs && node scripts/build-preview.mjs && node scripts/verify-a11y.mjs",
+    "preview": "node scripts/serve-preview.mjs"
   },
-  "comment": "Dependencies below record the stack decision documented in docs/design-system/README.md. They are NOT installed in this repository; the app has not been scaffolded. Both scripts/ tools are dependency-free and run on plain Node.",
+  "comment": "Runtime deps are used by the design-system primitives. Dev deps drive the verification harness: tsc typechecks the components, esbuild renders them for the a11y gate, axe-core audits the result.",
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.4",
@@ -24,6 +29,9 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "@types/react-dom": "^19.0.0",
+    "axe-core": "^4.13.0",
+    "esbuild": "^0.25.0"
   }
 }
