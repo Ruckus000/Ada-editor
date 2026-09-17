@@ -7,9 +7,10 @@ than as a manual checklist. It drives Orca and asserts on what it actually says,
 and it found a real defect the tree-level gate had missed.
 
 NVDA and VoiceOver equivalents live in `tests/screen-reader/` and run in CI on
-Windows and macOS runners. They have never executed: they were written on Linux,
-where neither screen reader exists. **JAWS is not covered** — commercial,
-licensed, and not driven by Guidepup.
+Windows and macOS runners. Both now start and drive the page; **all four
+assertions currently fail on both**, so they are attempted and failing rather
+than verified. **JAWS is not covered** — commercial, licensed, and not driven
+by Guidepup.
 
 The manual steps below remain the specification; the gate automates them.
 
@@ -146,9 +147,9 @@ Three things are easy to get wrong:
 | Date | Screen reader / browser | Tester | 1 | 2 | 3 | 4 | 5 | 6 | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-09-17 | Orca 46.1 / Chromium 131 | `verify-orca.mjs` | PASS | PASS | PASS | **FAIL → fixed** | PASS | PASS | Automated; 7 checks, reproducible |
-| | NVDA / Firefox | | | | | | | | |
-| | JAWS / Chrome | | | | | | | | |
-| | VoiceOver / Safari | | | | | | | | |
+| 2026-09-17 | NVDA / Chromium | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
+| 2026-09-17 | VoiceOver / WebKit | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
+| | JAWS / Chrome | | | | | | | | not covered |
 
 ### What Orca actually said
 

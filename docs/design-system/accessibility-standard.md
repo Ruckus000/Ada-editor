@@ -62,13 +62,18 @@ These are not machine-checkable yet. They are the review checklist:
 
 Stated plainly rather than discovered later.
 
-1. **NVDA, JAWS and VoiceOver have not actually been run.** NVDA and VoiceOver
-   tests exist (`tests/screen-reader/`) and run in CI on Windows and macOS
-   runners, but they were written on Linux and have never executed. The first CI
-   run is the test of the tests; expect timing and phrasing assumptions to need
-   correction. **JAWS is not covered at all** — it is commercial and licensed,
-   and Guidepup does not drive it. Until a CI run goes green, treat NVDA and
-   VoiceOver as unverified.
+1. **NVDA and VoiceOver run in CI but do not pass.** As of run 5 on
+   `4e45d6c`, both screen readers start and drive the page for roughly two and
+   a half minutes each, and all four assertions fail on both platforms. The
+   infrastructure is proven; the assertions are not. The visible failure is
+   real rather than environmental — after `sr.act()` the finding is never
+   removed, so the navigation helper is probably not landing on a button that
+   removes anything, the same class of mistake the Orca gate needed
+   structural navigation to fix.
+
+   **JAWS is not covered at all** — commercial, licensed, and not driven by
+   Guidepup. Treat NVDA and VoiceOver as **attempted and failing**, which is a
+   better position than untested but is not verification.
 2. **Orca is one implementation.** The Linux gate is real and repeatable, but
    browse-mode semantics differ between screen readers. Orca passing does not
    predict NVDA or VoiceOver.
