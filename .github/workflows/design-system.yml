@@ -1,0 +1,28 @@
+name: design system
+
+on:
+  push:
+    paths: ['design-system/**', 'scripts/**', '.github/workflows/design-system.yml']
+  pull_request:
+    paths: ['design-system/**', 'scripts/**', '.github/workflows/design-system.yml']
+
+jobs:
+  verify-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify design tokens
+        run: node scripts/verify-tokens.mjs --verbose
+
+      - name: Check generated files are up to date
+        run: |
+          node scripts/build-tokens.mjs
+          if ! git diff --quiet -- design-system/; then
+            echo "::error::Generated files are stale. Run 'node scripts/build-tokens.mjs' and commit the result."
+            git diff --stat -- design-system/
+            exit 1
+          fi

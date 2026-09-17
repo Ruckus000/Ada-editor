@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ada-editor design system preview</title>
+<!-- Uses the REAL generated stylesheets, so this page cannot drift from the tokens. -->
+<link rel="stylesheet" href="./tokens.css">
+<link rel="stylesheet" href="./primitives/primitives.css">
+<style>
+  /* Preview-harness only. Not part of the system. */
+  .harness { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: var(--ada-space-6); align-items: start; padding: var(--ada-space-5); }
+  .harness__doc { background: var(--ada-surface-canvas); }
+  h1 { font-size: var(--ada-type-size-xl); margin: 0 0 var(--ada-space-4); }
+  .swatches { display: flex; flex-wrap: wrap; gap: var(--ada-space-2); margin-bottom: var(--ada-space-5); }
+  .grayscale { filter: grayscale(1); }
+</style>
+</head>
+<body>
+<div class="harness">
+  <main class="harness__doc">
+    <h1>Design system preview</h1>
+
+    <div class="swatches">
+      <span class="ada-badge" data-severity="blocker"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 1h7.6L19 6.2v7.6L13.8 19H6.2L1 13.8V6.2z"/><path d="M10 5.4v5.4M10 13.4v.1"/></svg><span class="ada-badge__label">Blocks access</span></span>
+      <span class="ada-badge" data-severity="violation"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 1.6 19 18H1z"/><path d="M10 7.4v4.2M10 14.2v.1"/></svg><span class="ada-badge__label">Fails AA</span></span>
+      <span class="ada-badge" data-severity="advisory"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/><path d="M10 5.2v1.6M10 9v5.6"/></svg><span class="ada-badge__label">Advisory</span></span>
+      <span class="ada-badge" data-severity="manual"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 1 19 10l-9 9-9-9z"/><path d="M8.4 8.2a1.7 1.7 0 1 1 1.9 1.8v1.4M10 14.2v.1"/></svg><span class="ada-badge__label">Needs your call</span></span>
+    </div>
+
+    <div class="ada-editor">
+      <p>The quarterly report includes <span class="ada-underline" data-severity="blocker" style="text-decoration-line:underline;text-decoration-style:double;text-decoration-thickness:2px;text-underline-offset:3px">a chart image with no description</span>, which readers using a screen reader will not receive at all.</p>
+      <p>Our findings <span class="ada-underline" data-severity="violation" style="text-decoration-line:underline;text-decoration-style:wavy;text-underline-offset:3px">are detailed in the document that can be found by clicking here</span>, alongside supporting data.</p>
+      <p>We <span class="ada-underline" data-severity="advisory" style="text-decoration-line:underline;text-decoration-style:dotted;text-underline-offset:3px">utilise a methodology predicated upon</span> longitudinal sampling.</p>
+      <p>See <span class="ada-underline" data-severity="manual" style="text-decoration-line:underline;text-decoration-style:dashed;text-underline-offset:3px">Figure 3 (alt: "chart")</span> for the breakdown.</p>
+    </div>
+  </main>
+
+  <section class="ada-issues" aria-labelledby="ada-issues-heading">
+    <h2 id="ada-issues-heading" class="ada-issues__heading">Accessibility findings<span class="ada-issues__count"> (4)</span></h2>
+    <ul class="ada-issues__list" role="list">
+      <li class="ada-card" data-severity="blocker" tabindex="0">
+        <span class="ada-badge" data-severity="blocker"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 1h7.6L19 6.2v7.6L13.8 19H6.2L1 13.8V6.2z"/><path d="M10 5.4v5.4M10 13.4v.1"/></svg><span class="ada-badge__label">Blocks access</span></span>
+        <h3 class="ada-card__title">Image has no alternative text</h3>
+        <p class="ada-card__body">Screen readers will announce nothing for this chart, so its content is unavailable.</p>
+        <p class="ada-card__criterion">WCAG 1.1.1 Non-text Content</p>
+        <p class="ada-card__suggestion ada-card__suggestion--none">No automatic fix — this one needs your judgement.</p>
+        <div class="ada-card__actions"><button class="ada-button ada-button--ghost">Dismiss</button></div>
+      </li>
+      <li class="ada-card" data-severity="violation" tabindex="-1">
+        <span class="ada-badge" data-severity="violation"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 1.6 19 18H1z"/><path d="M10 7.4v4.2M10 14.2v.1"/></svg><span class="ada-badge__label">Fails AA</span></span>
+        <h3 class="ada-card__title">Link text is not meaningful out of context</h3>
+        <p class="ada-card__body">"Clicking here" tells a user navigating by links nothing about the destination.</p>
+        <p class="ada-card__criterion">WCAG 2.4.4 Link Purpose</p>
+        <p class="ada-card__suggestion"><code>are detailed in the full findings report</code></p>
+        <div class="ada-card__actions"><button class="ada-button ada-button--primary">Apply fix</button><button class="ada-button ada-button--ghost">Dismiss</button></div>
+      </li>
+      <li class="ada-card" data-severity="advisory" tabindex="-1">
+        <span class="ada-badge" data-severity="advisory"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/><path d="M10 5.2v1.6M10 9v5.6"/></svg><span class="ada-badge__label">Advisory</span></span>
+        <h3 class="ada-card__title">Reading level is above the target</h3>
+        <p class="ada-card__body">This sentence reads at roughly grade 16. Plain language aids every reader.</p>
+        <p class="ada-card__criterion">WCAG 3.1.5 Reading Level</p>
+        <p class="ada-card__suggestion"><code>use a method based on</code></p>
+        <div class="ada-card__actions"><button class="ada-button ada-button--primary">Apply fix</button><button class="ada-button ada-button--ghost">Dismiss</button></div>
+      </li>
+      <li class="ada-card" data-severity="manual" tabindex="-1">
+        <span class="ada-badge" data-severity="manual"><svg class="ada-badge__glyph" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 1 19 10l-9 9-9-9z"/><path d="M8.4 8.2a1.7 1.7 0 1 1 1.9 1.8v1.4M10 14.2v.1"/></svg><span class="ada-badge__label">Needs your call</span></span>
+        <h3 class="ada-card__title">Alt text may not describe the image</h3>
+        <p class="ada-card__body">"chart" is present but may not convey what the figure shows. Only you can tell.</p>
+        <p class="ada-card__criterion">WCAG 1.1.1 Non-text Content</p>
+        <p class="ada-card__suggestion ada-card__suggestion--none">No automatic fix — this one needs your judgement.</p>
+        <div class="ada-card__actions"><button class="ada-button ada-button--ghost">Dismiss</button></div>
+      </li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
