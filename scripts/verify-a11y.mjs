@@ -279,7 +279,12 @@ try {
   await evaluate(send, `(() => {
     const card = document.querySelector('.ada-card');
     card.dataset.gateMarked = 'removing';
-    card.querySelector('button').focus();
+    // Target a button that actually REMOVES the finding. Since the rule-set
+    // spike, the first button in a card is "Go to text", which deliberately
+    // leaves the card in place — selecting blind would test nothing.
+    const remover = [...card.querySelectorAll('button')]
+      .find((b) => /apply fix|dismiss/i.test(b.textContent ?? ''));
+    remover.focus();
   })()`);
   const focusedButton = await focused();
   if (!focusedButton.startsWith('BUTTON')) fail(`KEYBOARD  could not focus a finding's button (got ${focusedButton})`);

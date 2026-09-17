@@ -217,7 +217,17 @@ try {
   // Re-enter the content, land on a finding's button, activate it.
   key('F5');
   await sleep(5000);
-  key('b'); await sleep(1400);          // structural nav to the first button
+  // Seek a button that actually REMOVES the finding. Since the rule-set spike
+  // the first button in a card is "Go to text", which deliberately leaves the
+  // card in place, so stopping at the first button would test nothing.
+  let onRemover = false;
+  for (let i = 0; i < 6 && !onRemover; i++) {
+    key('b');
+    await sleep(1300);
+    const last = spoken().at(-1) ?? '';
+    onRemover = /apply fix|dismiss/i.test(last);
+  }
+  if (!onRemover) fail('SR-FOCUS  never reached an Apply fix or Dismiss button');
   mark = spoken().length;
   key('Return');
   await sleep(3500);

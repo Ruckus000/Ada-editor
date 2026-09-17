@@ -159,10 +159,9 @@
   color: var(--ada-text-primary);
 }
 
-.ada-card__suggestion--none {
+.ada-card__suggestion--judgement {
   font-family: var(--ada-type-family-ui);
   color: var(--ada-text-secondary);
-  font-style: italic;
 }
 
 .ada-card__actions { display: flex; gap: var(--ada-space-2); flex-wrap: wrap; }

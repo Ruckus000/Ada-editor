@@ -17,7 +17,9 @@
     "preview": "node scripts/serve-preview.mjs",
     "a11y:orca": "node scripts/verify-orca.mjs --verbose",
     "a11y:nvda": "playwright test --project=nvda",
-    "a11y:voiceover": "playwright test --project=voiceover"
+    "a11y:voiceover": "playwright test --project=voiceover",
+    "spike:corpus": "node scripts/spike/fetch-corpus.mjs",
+    "spike": "node scripts/spike/report.mjs"
   },
   "comment": "Runtime deps are used by the design-system primitives. Dev deps drive the verification harness: tsc typechecks the components, esbuild renders them for the a11y gate, axe-core audits the result.",
   "dependencies": {
@@ -37,6 +39,8 @@
     "@types/react-dom": "^19.0.0",
     "axe-core": "^4.13.0",
     "esbuild": "^0.25.0",
+    "linkedom": "^0.18.13",
+    "marked": "^18.0.13",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.0"
   }

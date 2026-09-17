@@ -58,20 +58,41 @@ export const IssueCard = forwardRef<HTMLLIElement, IssueCardProps>(function Issu
           <span className="ada-visually-hidden">Suggested replacement: </span>
           <code>{issue.suggestion}</code>
         </p>
-      ) : (
-        /* No machine fix. Saying so plainly is the whole point of `manual`. */
-        <p className="ada-card__suggestion ada-card__suggestion--none">
-          No automatic fix — this one needs your judgement.
+      ) : issue.severity === 'manual' ? (
+        /* We cannot tell whether this is a problem. Different from knowing it is
+         * one and being unable to fix it — the card used to conflate the two. */
+        <p className="ada-card__suggestion ada-card__suggestion--judgement">
+          This one needs your judgement — it cannot be determined automatically.
         </p>
-      )}
+      ) : null}
 
       <div className="ada-card__actions">
+        {/*
+          Action order follows docs/audit/rule-set-spike.md. Measured over 28 real
+          documents, only 4.8% of findings carry an automatic fix, and almost all
+          of those are "declare a language" — a property of the export, not of the
+          prose. Fixing an accessibility finding needs to know what the image
+          shows or where the link goes, which is the author's knowledge.
+
+          So the default primary action is to take the author to the text, and
+          "Apply fix" is promoted only in the rare case where a fix exists. This
+          is the part of Grammarly's model that does not transfer: its central
+          interaction is accepting a computed correction, and here there usually
+          isn't one.
+        */}
         {issue.suggestion ? (
           <Button variant="primary" onClick={() => onAccept(issue)}>
             Apply fix
             <span className="ada-visually-hidden"> for {issue.title}</span>
           </Button>
         ) : null}
+        <Button
+          variant={issue.suggestion ? 'secondary' : 'primary'}
+          onClick={() => onReveal(issue)}
+        >
+          Go to text
+          <span className="ada-visually-hidden"> for {issue.title}</span>
+        </Button>
         <Button variant="ghost" onClick={() => onDismiss(issue)}>
           Dismiss
           <span className="ada-visually-hidden"> {issue.title}</span>

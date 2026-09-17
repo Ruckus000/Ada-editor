@@ -40,6 +40,15 @@ npm run preview    # serve the live preview at http://127.0.0.1:8080
 `node scripts/verify-tokens.mjs --verbose` and `node scripts/palette-ceiling.mjs`
 run with no dependencies at all.
 
+## Is the form right?
+
+Tested, not assumed. [The rule-set spike](docs/audit/rule-set-spike.md) ran 13
+WCAG rules over 28 real documents against criteria registered before the run.
+Three of four assumptions held: findings are mostly machine-decidable (18%
+manual), anchor to text ranges (95%), and are plentiful (median 12 per
+document). One failed: **only 4.8% carry an automatic fix**, which moved the
+card's primary action from "Apply fix" to "Go to text".
+
 ## Three decisions worth knowing up front
 
 1. **Colour never carries meaning alone.** Severity is encoded in underline

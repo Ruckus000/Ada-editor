@@ -14,10 +14,29 @@ Each finding renders as an `IssueCard` carrying, in DOM order:
 1. `SeverityBadge` — glyph + **visible text label**
 2. Title — what is wrong, imperative
 3. Explanation — why it matters, plain language, never truncated behind a
-   "learn more"
+   "learn more". This carries most of the card's value, because the fix itself
+   is usually the author's to make
 4. The WCAG success criterion
-5. The suggested replacement, **or** an explicit "no automatic fix" statement
-6. Actions — `Apply fix` (only when one exists) and `Dismiss`
+5. The suggested replacement when one exists; for `manual` findings, a line
+   saying the call is the author's
+6. Actions — `Go to text` (primary), `Apply fix` (only when a fix exists, and
+   primary when it does), and `Dismiss`
+
+### Why `Go to text` is the primary action
+
+Measured over 28 real documents in
+[the rule-set spike](../audit/rule-set-spike.md), **4.8% of findings carry an
+automatic fix** — and almost all of those are "declare a language", a property
+of the export rather than the prose. Fixing an accessibility finding means
+knowing what the image shows or where the link goes, which is the author's
+knowledge and not the document's.
+
+So the card's default primary action takes the author to the passage.
+`Apply fix` is promoted only in the rare case where a fix exists.
+
+**This is the part of Grammarly's model that does not transfer.** Its central
+interaction is accepting a computed correction; here there usually isn't one.
+The audit did not catch this — only measuring the finding set did.
 
 ### Keyboard model
 
