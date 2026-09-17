@@ -1,10 +1,13 @@
 # Screen reader test plan
 
-**Status: not yet run.** Nothing in this repository has been driven with a
-screen reader. `scripts/verify-a11y.mjs` verifies the accessibility *tree* —
-the roles, names, and live regions the browser hands assistive technology — but
-what a screen reader does with that tree is a separate question, and the only
-way to answer it is to run one.
+**Status: run once, with Orca 46.1 on Linux.** Results are in the table at the
+bottom, and the run found a real defect that the automated gate had missed.
+NVDA, JAWS and VoiceOver remain untested — they are different implementations
+with different browse-mode semantics, and Orca passing does not speak for them.
+
+`scripts/verify-a11y.mjs` verifies the accessibility *tree* — the roles, names
+and live regions the browser hands assistive technology. What a screen reader
+does with that tree is a separate question, which is what this plan answers.
 
 This is the script for doing that. It needs no accessibility expertise: every
 step gives the keys to press and the announcement to expect, so a mismatch is
@@ -105,13 +108,107 @@ sighted-keyboard convenience.
 
 ---
 
+## Running Orca headlessly
+
+Orca can be driven in a container with no audio device and no desktop, which is
+how the run below was done. `scripts/a11y-stack.sh` brings the whole thing up.
+
+```bash
+sudo apt-get install -y --no-install-recommends \
+  orca at-spi2-core xvfb speech-dispatcher speech-dispatcher-espeak-ng \
+  espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool
+
+./scripts/a11y-stack.sh          # Xvfb + dbus + AT-SPI bus + registry
+```
+
+Three things are easy to get wrong:
+
+- **Chromium must not be headless.** Headless does not expose the platform
+  accessibility API. Run it windowed on the virtual display with
+  `--force-renderer-accessibility`.
+- **speech-dispatcher blocks without an audio sink.** With no device, `spd-say`
+  hangs forever and Orca never starts speaking. An ALSA null device
+  (`pcm.!default { type null }`) fixes it; the speech is discarded and captured
+  from Orca's log instead.
+- **Orca's speech is captured from `--debug --debug-file`**, which records every
+  `SPEECH OUTPUT` line regardless of whether audio plays.
+
 ## Results
 
 | Date | Screen reader / browser | Tester | 1 | 2 | 3 | 4 | 5 | 6 | Notes |
 |---|---|---|---|---|---|---|---|---|---|
+| 2026-09-17 | Orca 46.1 / Chromium 131 | automated | PASS | PASS | PASS | **FAIL → fixed** | PASS | not run | See below |
 | | NVDA / Firefox | | | | | | | | |
 | | JAWS / Chrome | | | | | | | | |
 | | VoiceOver / Safari | | | | | | | | |
 
-Until at least one row is filled in, treat every accessibility claim in this
-repository as **reasoned but unverified at the assistive-technology layer**.
+### What Orca actually said
+
+**Step 1 — headings.** All four findings reachable, announced with level:
+
+```
+'Image has no alternative text heading level 3.'
+'Link text is not meaningful out of context heading level 3.'
+'Design system preview heading level 1.'
+'Accessibility findings (4) heading level 2.'
+```
+
+**Step 2 — severity as words.** The central design claim, confirmed by a real
+screen reader:
+
+```
+'Blocks access.'
+'(Fails Level A, 1.1.1 Non-text Content)'
+```
+
+**Step 3 — button names.** All six distinct and self-describing:
+
+```
+'Dismiss Image has no alternative text push button.'
+'Apply fix for Link text is not meaningful out of context push button.'
+'Dismiss Link text is not meaningful out of context push button.'
+```
+
+**Step 5 — arrow keys.** The assumption the architecture rests on, confirmed:
+pressing `Down` in browse mode made Orca *read the content* rather than firing
+the roving-tabindex handler.
+
+```
+'List with 4 items.'  'Blocks access.'  'Image has no alternative text heading level 3.'
+```
+
+Arrows belong to the screen reader. Routing assistive technology through
+headings and `F6` was the right call.
+
+### Step 4 — the defect this run found
+
+Activating a finding's button removed the card and **dropped focus to
+`<body>`**. Orca then announced the document instead of the outcome, and the
+user lost their place in the list:
+
+```
+'Ada-editor design system preview - Chromium'
+'Ada-editor design system preview document web.'
+```
+
+The live region was correct the entire time
+(`"Dismissed Image has no alternative text. 2 findings remaining. 1 still needs
+your review."`) — which is exactly why the automated gate missed it. It checked
+the announcement text, not focus continuity.
+
+`IssueList` now restores focus to whatever takes the removed finding's place.
+Re-run, Orca announces the next finding:
+
+```
+'Link text is not meaningful out of context.'
+'"Clicking here" tells a user navigating by links nothing about the destination.'
+```
+
+`verify-a11y.mjs` now has a focus-continuity check covering this, verified to
+fail when the fix is reverted. Note it must activate a **button inside** the
+card: an earlier version pressed `Escape` on the card itself and passed even
+with the fix removed, because React can reuse the `<li>` node.
+
+**Still unverified:** NVDA, JAWS and VoiceOver. Orca is a real screen reader
+consuming the real platform accessibility API, but browse-mode behaviour differs
+between implementations, and step 6 (keyboard trap) was not exercised.

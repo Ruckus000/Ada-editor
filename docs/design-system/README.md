@@ -102,8 +102,9 @@ components typecheck under `strict`, render, and pass axe-core plus an
 accessibility-tree and keyboard audit. The application, the WCAG rule engine,
 persistence and auth do not exist.
 
-The most significant outstanding gap is that **nothing here has been run with a
-screen reader** — impossible in the container this was built in.
-[`screen-reader-test-plan.md`](./screen-reader-test-plan.md) is the script for
-someone who can. See [known gaps](./accessibility-standard.md#known-gaps) for
-the rest.
+It has been run with a real screen reader — Orca 46.1, driven headlessly — which
+found and fixed a focus-management defect the automated gate had missed. NVDA,
+JAWS and VoiceOver are still untested. See
+[`screen-reader-test-plan.md`](./screen-reader-test-plan.md) for what Orca
+actually said, and [known gaps](./accessibility-standard.md#known-gaps) for the
+rest.

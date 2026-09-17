@@ -120,9 +120,11 @@ const key = async (send, k, modifiers = 0) => {
     F6: { windowsVirtualKeyCode: 117, code: 'F6', key: 'F6' },
   };
   const base = codes[k];
-  for (const type of ['rawKeyDown', 'keyUp']) {
-    await send('Input.dispatchKeyEvent', { type, modifiers, ...base });
-  }
+  // Enter must carry text, or the browser never performs the default action on a
+  // focused button — handlers fire, but the button is not activated.
+  const text = k === 'Enter' ? '\r' : undefined;
+  await send('Input.dispatchKeyEvent', { type: text ? 'keyDown' : 'rawKeyDown', modifiers, ...base, ...(text ? { text } : {}) });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', modifiers, ...base });
   await sleep(60);
 };
 
@@ -259,6 +261,47 @@ try {
   const announced = await evaluate(send, `(document.querySelector('[role=status]')||{}).textContent || ''`);
   if (!announced.trim()) fail('AX-LIVE  live region stayed empty after a dismiss — the outcome was never announced');
   else note(`live region announced: ${JSON.stringify(announced.trim().slice(0, 70))}`);
+
+  /**
+   * Focus must survive removing the focused finding.
+   *
+   * This check exists because running Orca found that it did not: focus fell to
+   * <body>, the screen reader announced the document instead of the outcome, and
+   * the user lost their place. The live region was correct throughout, which is
+   * why checking the announcement text alone was not enough.
+   *
+   * It must activate a BUTTON INSIDE the card, not press Escape on the card
+   * itself. Removing a card whose own <li> holds focus can leave focus on a
+   * reused node by luck of reconciliation; removing the card that contains the
+   * focused button is what actually destroys it. The first version of this
+   * check tested the easy path and passed with the fix reverted.
+   */
+  await evaluate(send, `(() => {
+    const card = document.querySelector('.ada-card');
+    card.dataset.gateMarked = 'removing';
+    card.querySelector('button').focus();
+  })()`);
+  const focusedButton = await focused();
+  if (!focusedButton.startsWith('BUTTON')) fail(`KEYBOARD  could not focus a finding's button (got ${focusedButton})`);
+  const cardsBefore = await evaluate(send, `document.querySelectorAll('.ada-card').length`);
+  await key(send, 'Enter');
+  await sleep(300);
+  const cardsNow = await evaluate(send, `document.querySelectorAll('.ada-card').length`);
+  if (cardsNow !== cardsBefore - 1) fail(`KEYBOARD  activating a finding's button did not remove it (${cardsBefore} -> ${cardsNow})`);
+
+  const focusAfter = await evaluate(send, `(() => {
+    const a = document.activeElement;
+    if (!a || a === document.body) return 'BODY';
+    const card = a.closest('.ada-card');
+    if (card) return card.dataset.gateMarked === 'removing' ? 'STALE-CARD' : 'card';
+    return a.closest('.ada-issues') ? 'findings-region' : a.tagName;
+  })()`);
+  if (focusAfter === 'BODY' || focusAfter === 'STALE-CARD') {
+    fail(`KEYBOARD  focus landed on ${focusAfter} after activating a finding's button — ` +
+         'the user loses their place and the announcement is preempted');
+  } else {
+    note(`focus survives removal (landed on: ${focusAfter})`);
+  }
 
   // F6 cycles regions, and is not swallowed by the list.
   await evaluate(send, `document.querySelector('main').focus()`);

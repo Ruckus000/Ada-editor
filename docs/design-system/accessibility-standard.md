@@ -60,35 +60,34 @@ These are not machine-checkable yet. They are the review checklist:
 
 ## Known gaps
 
-Stated plainly rather than discovered later. Four of the seven gaps recorded
-in the previous round are now closed; what follows is what genuinely remains.
+Stated plainly rather than discovered later.
 
-1. **No screen reader has been run against this.** The highest-priority gap,
-   and the one that cannot be closed from here: this container has no AT-SPI
-   stack and no NVDA, JAWS or VoiceOver. `scripts/verify-a11y.mjs` verifies the
-   accessibility *tree* — the roles, names and live regions the browser hands
-   assistive technology, plus keyboard mechanics driven through the DevTools
-   Protocol — which is the layer beneath a screen reader, not a substitute for
-   one. [`screen-reader-test-plan.md`](./screen-reader-test-plan.md) is a
-   step-by-step script a non-specialist can run; until one row of its results
-   table is filled in, treat every claim here as **reasoned and
-   tree-verified, but unverified at the assistive-technology layer**.
-2. **The arrow-key assumption is untested.** The design treats arrow keys as a
-   sighted-keyboard convenience because NVDA and JAWS intercept them in browse
-   mode, and routes assistive technology through headings and `F6` instead.
-   The mechanics are verified; the premise is not. It is step 5 of the test plan.
-3. **forced-colors was smoke-tested, not OS-tested.** Verified by forcing the
+1. **Only one screen reader has been run: Orca 46.1 on Linux.** That run is
+   recorded in [`screen-reader-test-plan.md`](./screen-reader-test-plan.md),
+   and it found a real defect the automated gate had missed — activating a
+   finding's button dropped focus to `<body>`, so the outcome was never
+   announced and the user lost their place. Fixed, and now covered by a
+   focus-continuity check.
+
+   **NVDA, JAWS and VoiceOver remain untested.** They are different
+   implementations with different browse-mode semantics; Orca passing does not
+   speak for them. This is still the highest-priority gap, but it is now a gap
+   about coverage rather than a total absence of evidence.
+2. **forced-colors was smoke-tested, not OS-tested.** Verified by forcing the
    block on in headless Chromium. Not run under real Windows High Contrast,
    where system colour mapping can differ.
-4. **Partial-severity CVD matrices are interpolated.** The severity-1.0
-   Machado transforms are the published ones; intermediate severities are
-   interpolated from identity rather than transcribed from the paper's
-   per-severity tables. Good enough to show the palette degrades gracefully,
-   not a substitute for testing with people who have colour-vision deficiency.
-5. **Contrast is still computed on flat pairs.** The verifier now *rejects*
+3. **Partial-severity CVD matrices are interpolated.** The severity-1.0 Machado
+   transforms are the published ones; intermediate severities are interpolated
+   from identity rather than transcribed from the paper's per-severity tables.
+   Good enough to show the palette degrades gracefully, not a substitute for
+   testing with people who have colour-vision deficiency.
+4. **Contrast is still computed on flat pairs.** The verifier now *rejects*
    translucent and gradient tokens that do not declare a backdrop, so the gap
    cannot reopen silently — but compositing is not implemented, because nothing
    in the system needs it yet.
-6. **The a11y gate covers the harness, not the product.** It exercises the real
+5. **The gates cover the harness, not the product.** They exercise the real
    components with fixture findings. There is no application, so no route, no
    ProseMirror editor instance and no real document are covered.
+6. **Keyboard-trap testing (plan step 6) was not exercised under a screen
+   reader.** The automated gate checks Tab coverage and that focus is never
+   stuck, but the plan's explicit trap test has not been run.

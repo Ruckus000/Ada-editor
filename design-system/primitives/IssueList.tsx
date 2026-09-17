@@ -36,16 +36,36 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
   const [activeIndex, setActiveIndex] = useState(0);
   const refs = useRef<Array<HTMLLIElement | null>>([]);
   const announce = useAnnounce();
+  /**
+   * Set when the user removes a finding, so focus can be restored once the list
+   * has re-rendered without it.
+   *
+   * Found by running Orca against this component: removing the focused card
+   * dropped focus to <body>. The screen reader then announced the document
+   * instead of the outcome, and the user lost their place in the list entirely.
+   * The live region was correct; the focus was not.
+   */
+  const restoreFocus = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const sorted = useMemo(
     () => [...issues].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]),
     [issues]
   );
 
-  // Keep the active index in range as findings are applied or dismissed.
+  // Keep the active index in range as findings are applied or dismissed, and
+  // put focus back on whatever now occupies that position.
   useEffect(() => {
-    setActiveIndex((i) => Math.max(0, Math.min(i, sorted.length - 1)));
-  }, [sorted.length]);
+    const next = Math.max(0, Math.min(activeIndex, sorted.length - 1));
+    if (next !== activeIndex) setActiveIndex(next);
+
+    if (!restoreFocus.current) return;
+    restoreFocus.current = false;
+    // The card that took the removed one's place, or the heading when the list
+    // is empty — never nothing.
+    const target = refs.current[next] ?? headingRef.current;
+    target?.focus();
+  }, [sorted.length, activeIndex]);
 
   const focusAt = useCallback((index: number) => {
     setActiveIndex(index);
@@ -98,6 +118,7 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
       case 'Enter':
         if (issue?.suggestion && event.target === refs.current[activeIndex]) {
           event.preventDefault();
+          restoreFocus.current = true;
           onAccept(issue);
           announce(`Applied fix for ${issue.title}. ${remaining(issue)}`);
         }
@@ -105,6 +126,7 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
       case 'Escape':
         if (issue) {
           event.preventDefault();
+          restoreFocus.current = true;
           onDismiss(issue);
           announce(`Dismissed ${issue.title}. ${remaining(issue)}`);
         }
@@ -117,7 +139,7 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
   if (sorted.length === 0) {
     return (
       <section className="ada-issues" aria-labelledby="ada-issues-heading">
-        <h2 id="ada-issues-heading" className="ada-issues__heading">
+        <h2 id="ada-issues-heading" className="ada-issues__heading" ref={headingRef} tabIndex={-1}>
           Accessibility findings
         </h2>
         {/*
@@ -141,7 +163,7 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
 
   return (
     <section className="ada-issues" aria-labelledby="ada-issues-heading">
-      <h2 id="ada-issues-heading" className="ada-issues__heading">
+      <h2 id="ada-issues-heading" className="ada-issues__heading" ref={headingRef} tabIndex={-1}>
         Accessibility findings
         <span className="ada-issues__count"> ({sorted.length})</span>
       </h2>
@@ -162,10 +184,12 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
             issue={issue}
             active={index === activeIndex}
             onAccept={(i) => {
+              restoreFocus.current = true;
               onAccept(i);
               announce(`Applied fix for ${i.title}. ${remaining(i)}`);
             }}
             onDismiss={(i) => {
+              restoreFocus.current = true;
               onDismiss(i);
               announce(`Dismissed ${i.title}. ${remaining(i)}`);
             }}
