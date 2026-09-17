@@ -31,6 +31,12 @@ jobs:
       - # Pinned to a commit: the action publishes no version tags.
         uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
 
+      # The setup action configures the OS; the screen reader's own assets are
+      # a separate, per-project install. Without it VoiceOver and NVDA fail to
+      # start with "Failed to mount Guidepup preferences".
+      - name: Install Guidepup screen reader assets
+        run: npx --yes @guidepup/setup install
+
       - run: npx playwright install --with-deps chromium
       - name: Build the preview from the real components
         run: node scripts/build-preview.mjs
@@ -59,6 +65,9 @@ jobs:
       # Enables VoiceOver and grants the automation permissions it needs.
       - # Pinned to a commit: the action publishes no version tags.
         uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+
+      - name: Install Guidepup screen reader assets
+        run: npx --yes @guidepup/setup install
 
       - run: npx playwright install --with-deps webkit
       - name: Build the preview from the real components
