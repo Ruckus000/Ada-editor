@@ -9,34 +9,74 @@ Five rules. They are ordered: when they conflict, the earlier one wins.
 Not "prefer not to use colour alone" — *never*. Every state that carries
 meaning must be identifiable with colour removed entirely.
 
-This is not a stylistic preference, it is arithmetic. Here is the evidence, from
-this repository's own verifier running over its own palette. Each severity
-colour clears 6.4:1 against its background. Under simulated dichromacy, the
-pairwise contrast *between* them:
+WCAG 1.4.1 requires this outright, so it is the floor regardless of what any
+measurement says. What follows is why it also happens to be good engineering
+here — and a correction, because the first version of this argument was wrong
+in an instructive way.
+
+### The mistake, kept on the record
+
+An earlier draft measured the distance between severity colours using **WCAG
+contrast ratio**, found every pair scoring 1.00–1.32:1 under simulated
+dichromacy, and concluded that no four-colour palette could ever work.
+
+That was wrong. Contrast is a *luminance* ratio — it cannot see hue at all.
+Pure red against pure green scores 2.91:1. Our own severity colours scored
+~1.0:1 against each other in **perfectly normal vision**, purely because they
+are tuned to equal contrast against white. The "collapse" had nothing to do
+with colour-vision deficiency; it was an artefact of the instrument.
+
+The check now uses **CIEDE2000**, which is perceptually uniform: dE 2.3 is the
+just-noticeable difference, and below ~10 two colours read as shades of one
+another.
+
+### What is actually true
+
+Measured properly, 18 of the 24 pair-checks come through colour-vision
+deficiency intact:
 
 ```
-light/deuteranopia: blocker   vs violation = 1.17:1
-light/deuteranopia: violation vs advisory  = 1.12:1
-light/deuteranopia: advisory  vs manual    = 1.01:1
-light/protanopia:   blocker   vs manual    = 1.00:1
+deuteranopia: blocker vs advisory   dE 60.4   stays distinguishable
+              violation vs advisory dE 59.1   stays distinguishable
+              violation vs manual   dE 56.8   stays distinguishable
 ```
 
-All twenty-four severity pairs — four severities, two themes, two dichromacy
-types — land between 1.00:1 and 1.32:1. **Identical, or near enough.**
+Two pairs collapse, and they are the ones that matter most:
 
-The reason is structural, and worth internalising because it means no palette
-can fix it: forcing every semantic colour to hit the same contrast ratio forces
-them to the same *luminance*, and equal luminance is exactly what destroys
-separation once hue information is gone. Meeting AA and encoding four states in
-colour are mutually exclusive goals.
+```
+deuteranopia: blocker vs violation  dE  4.1   reads as the same colour
+              advisory vs manual    dE  1.8   below the JND
+```
 
-So colour in this system is decoration. Shape, glyph and text carry the meaning.
-Run `node scripts/verify-tokens.mjs --verbose` to see all twenty-four pairs.
+`blocker` vs `violation` is red against amber — the exact axis red-green
+deficiency removes, and the single most consequential distinction in the
+product (does this block a user, or merely fail AA?).
+
+### And a CVD-safe palette does exist
+
+`scripts/palette-ceiling.mjs` searches AA-passing colours and finds four-colour
+sets reaching **dE ~30** under both dichromacies — comfortably distinguishable.
+So the honest statement is not "impossible." It is a trade-off:
+
+> Reaching CVD-safe colour separation means giving up red = blocker and
+> amber = violation. That convention is worth a great deal to the ~92% of
+> users with typical colour vision, and the severity ramp is the first thing
+> anyone learns about the product.
+
+We keep the convention, accept that two pairs collapse, and carry the meaning
+in underline shape, glyph silhouette and visible text — which 1.4.1 requires
+anyway. Colour is a fifth wheel by design, which is precisely why it is allowed
+to be imperfect.
+
+Re-test either claim yourself:
+
+```
+node scripts/verify-tokens.mjs --verbose   # all 24 pair measurements
+node scripts/palette-ceiling.mjs           # the achievable ceiling
+```
 
 **Test:** screenshot the UI, desaturate it, and confirm every severity is still
 identifiable. If it isn't, the design is wrong — not the screenshot.
-
----
 
 ## 2. The list is the product; the editor is a view of it
 

@@ -14,7 +14,7 @@ const PATHS: Record<string, string> = {
   triangle: 'M10 1.6 19 18H1z',
   'circle-i': 'M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
   'diamond-q': 'M10 1 19 10l-9 9-9-9z',
-  check: 'M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
+  check: 'M4 1h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4a3 3 0 0 1 3-3z',
 };
 
 const MARKS: Record<string, string> = {

@@ -93,50 +93,45 @@ by hand.
 
 ## Dichromat separation
 
-Here is the finding that shapes the whole system. Every severity colour clears
-6.4:1 individually — and every pair is indistinguishable from every other pair
-once hue information is gone:
+Measured with **CIEDE2000**, not WCAG contrast. This matters: contrast is a
+luminance ratio and cannot see hue, so it reports two colours as identical
+whenever they share a lightness — which ours do by construction, since they are
+all tuned to roughly equal contrast on white. An earlier version of this
+document used contrast here and drew a false conclusion from it.
+
+dE 2.3 is the just-noticeable difference; below ~10 two colours read as shades
+of one another.
+
+Most pairs survive colour-vision deficiency intact:
 
 ```
-  ok  light/deuteranopia: blocker vs violation = 1.17:1
-  ok  light/deuteranopia: blocker vs advisory = 1.31:1
-  ok  light/deuteranopia: blocker vs manual = 1.32:1
-  ok  light/deuteranopia: violation vs advisory = 1.12:1
-  ok  light/deuteranopia: violation vs manual = 1.13:1
-  ok  light/deuteranopia: advisory vs manual = 1.01:1
-  ok  light/protanopia: blocker vs violation = 1.06:1
-  ok  light/protanopia: blocker vs advisory = 1.22:1
-  ok  light/protanopia: blocker vs manual = 1.00:1
-  ok  light/protanopia: violation vs advisory = 1.15:1
-  ok  light/protanopia: violation vs manual = 1.06:1
-  ok  light/protanopia: advisory vs manual = 1.22:1
-  ok  dark/deuteranopia: blocker vs violation = 1.01:1
-  ok  dark/deuteranopia: blocker vs advisory = 1.13:1
-  ok  dark/deuteranopia: blocker vs manual = 1.07:1
-  ok  dark/deuteranopia: violation vs advisory = 1.12:1
-  ok  dark/deuteranopia: violation vs manual = 1.05:1
-  ok  dark/deuteranopia: advisory vs manual = 1.06:1
-  ok  dark/protanopia: blocker vs violation = 1.01:1
-  ok  dark/protanopia: blocker vs advisory = 1.05:1
-  ok  dark/protanopia: blocker vs manual = 1.03:1
-  ok  dark/protanopia: violation vs advisory = 1.05:1
-  ok  dark/protanopia: violation vs manual = 1.04:1
-  ok  dark/protanopia: advisory vs manual = 1.01:1
+light/deuteranopia: blocker vs advisory    dE 60.4   stays distinguishable
+light/deuteranopia: violation vs advisory  dE 59.1   stays distinguishable
+light/deuteranopia: violation vs manual    dE 56.8   stays distinguishable
+light/protanopia:   blocker vs manual      dE 53.2   stays distinguishable
 ```
 
-Twenty-four pairs, all between 1.00:1 and 1.32:1. `blocker` vs `manual` under
-protanopia is **1.00:1** — the same colour.
+Two do not:
 
-This is not a palette that needs improving. It is proof that the approach
-cannot work: forcing every semantic colour to the same contrast ratio forces
-them to the same luminance, and equal luminance is what destroys separation
-under colour-vision deficiency. Meeting AA and encoding four states in colour
-are mutually exclusive.
+```
+light/deuteranopia: blocker vs violation   dE  4.1   reads as the same colour
+light/deuteranopia: advisory vs manual     dE  1.8   below the JND
+dark/deuteranopia:  advisory vs manual     dE  1.5   below the JND
+```
 
-The verifier therefore does not demand colour separation. It demands that each
-severity declare **at least two non-colour channels**, and it fails the build if
-one does not. Colour is permitted to be useless here, because nothing depends
-on it.
+`blocker` vs `violation` is red against amber, the axis red-green deficiency
+removes — and the distinction that matters most in this product.
+
+A CVD-safe four-colour palette **is** achievable (`scripts/palette-ceiling.mjs`
+finds sets at dE ~30). We do not use one, because reaching it means abandoning
+the conventional red/amber severity ramp. That is a stated trade-off, not an
+impossibility — see
+[principles §1](./principles.md#1-colour-is-never-the-only-channel).
+
+The verifier therefore does not require colour separation under CVD. It
+requires that each severity declare **at least two non-colour channels**, and
+it additionally fails if any two severities are within dE 10 **in normal
+vision** — that would be a plain palette defect affecting everyone.
 
 ## Encoding table
 
@@ -168,9 +163,13 @@ colour and nothing more.
 
 ## Preview
 
-`design-system/preview.html` renders the whole system from the real generated
-stylesheets, so it cannot drift from the tokens. Open it directly — no build
-step, no server.
+`design-system/preview.html` renders the system from the real generated
+stylesheets, so its *styling* cannot drift from the tokens. Open it directly —
+no build step, no server.
+
+Its **markup is hand-written**, duplicating what the React components emit, so
+that part can drift. It is a visual harness, not a source of truth; when a
+component's structure changes, update it by hand or it will quietly lie.
 
 It exists to make principle 1 falsifiable. Apply `filter: grayscale(1)` to the
 page (the harness has a `.grayscale` class) and every severity must still be

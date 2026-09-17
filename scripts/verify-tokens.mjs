@@ -70,6 +70,100 @@ export const simulate = (hex, kind) => {
   return `#${encode(R)}${encode(G)}${encode(B)}`.toUpperCase();
 };
 
+/* ---------- perceptual colour difference (CIEDE2000) ---------- */
+
+/**
+ * WCAG contrast is a LUMINANCE ratio. It cannot measure hue separation at all:
+ * pure red against pure green scores 2.91:1, and two of our severity colours
+ * score 1.00:1 in perfectly normal vision purely because we tuned them to the
+ * same contrast against white.
+ *
+ * So contrast is the wrong tool for asking "can these two states be told
+ * apart?" That question needs a perceptually uniform metric. CIEDE2000 gives
+ * one: dE ~2.3 is the just-noticeable difference, and below ~10 two colours
+ * read as shades of the same thing rather than as different colours.
+ */
+
+const toXyz = (hex) => {
+  const [r, g, b] = parseHex(hex).map(srgbToLinear);
+  return [
+    (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047,
+    0.2126729 * r + 0.7151522 * g + 0.0721750 * b,
+    (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883,
+  ];
+};
+
+const toLab = (hex) => {
+  const f = (t) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+  const [x, y, z] = toXyz(hex).map(f);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+};
+
+const rad = (deg) => (deg * Math.PI) / 180;
+const deg = (r) => (r * 180) / Math.PI;
+
+/** CIEDE2000 colour difference between two hex colours. */
+export const deltaE = (hexA, hexB) => {
+  const [L1, a1, b1] = toLab(hexA);
+  const [L2, a2, b2] = toLab(hexB);
+
+  const C1 = Math.hypot(a1, b1);
+  const C2 = Math.hypot(a2, b2);
+  const Cbar = (C1 + C2) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Cbar ** 7 / (Cbar ** 7 + 25 ** 7)));
+
+  const ap1 = (1 + G) * a1;
+  const ap2 = (1 + G) * a2;
+  const Cp1 = Math.hypot(ap1, b1);
+  const Cp2 = Math.hypot(ap2, b2);
+
+  const hp = (b, ap) => {
+    if (b === 0 && ap === 0) return 0;
+    const h = deg(Math.atan2(b, ap));
+    return h >= 0 ? h : h + 360;
+  };
+  const hp1 = hp(b1, ap1);
+  const hp2 = hp(b2, ap2);
+
+  const dLp = L2 - L1;
+  const dCp = Cp2 - Cp1;
+
+  let dhp = 0;
+  if (Cp1 * Cp2 !== 0) {
+    dhp = hp2 - hp1;
+    if (dhp > 180) dhp -= 360;
+    else if (dhp < -180) dhp += 360;
+  }
+  const dHp = 2 * Math.sqrt(Cp1 * Cp2) * Math.sin(rad(dhp) / 2);
+
+  const Lbp = (L1 + L2) / 2;
+  const Cbp = (Cp1 + Cp2) / 2;
+
+  let hbp = hp1 + hp2;
+  if (Cp1 * Cp2 !== 0) {
+    if (Math.abs(hp1 - hp2) > 180) hbp += hbp < 360 ? 360 : -360;
+    hbp /= 2;
+  }
+
+  const T =
+    1 -
+    0.17 * Math.cos(rad(hbp - 30)) +
+    0.24 * Math.cos(rad(2 * hbp)) +
+    0.32 * Math.cos(rad(3 * hbp + 6)) -
+    0.20 * Math.cos(rad(4 * hbp - 63));
+
+  const dTheta = 30 * Math.exp(-(((hbp - 275) / 25) ** 2));
+  const Rc = 2 * Math.sqrt(Cbp ** 7 / (Cbp ** 7 + 25 ** 7));
+  const Sl = 1 + (0.015 * (Lbp - 50) ** 2) / Math.sqrt(20 + (Lbp - 50) ** 2);
+  const Sc = 1 + 0.045 * Cbp;
+  const Sh = 1 + 0.015 * Cbp * T;
+  const Rt = -Math.sin(rad(2 * dTheta)) * Rc;
+
+  return Math.sqrt(
+    (dLp / Sl) ** 2 + (dCp / Sc) ** 2 + (dHp / Sh) ** 2 + Rt * (dCp / Sc) * (dHp / Sh)
+  );
+};
+
 /* ---------- token graph ---------- */
 
 const getPath = (obj, path) =>
@@ -144,28 +238,57 @@ function checkEncodingChannels(doc) {
 }
 
 function checkDichromatSeparation(doc) {
+  // Measured with CIEDE2000, NOT WCAG contrast.
+  //
+  // This check originally used contrast ratio and was wrong. Contrast is a
+  // luminance ratio: it cannot see hue at all. Pure red against pure green
+  // scores 2.91:1, and our severity colours scored ~1.0:1 against each other in
+  // perfectly normal vision purely because they are tuned to equal contrast on
+  // white. The old check therefore "proved" a collapse that had nothing to do
+  // with colour-vision deficiency.
+  //
+  // CIEDE2000 is perceptually uniform: dE 2.3 is the just-noticeable
+  // difference, and below ~10 two colours read as shades of one another.
+  const JND = 2.3;
+  const SAME_COLOUR = 10;
   const severities = ['blocker', 'violation', 'advisory', 'manual'];
+
   for (const theme of ['light', 'dark']) {
     const colours = {};
     for (const s of severities) {
       const t = getPath(doc, `semantic.${theme}.severity.${s}.fg`);
       if (t) colours[s] = resolveValue(doc, t.$value);
     }
-    for (const kind of ['deuteranopia', 'protanopia']) {
-      for (let i = 0; i < severities.length; i++) {
-        for (let j = i + 1; j < severities.length; j++) {
-          const [a, b] = [severities[i], severities[j]];
-          if (!colours[a] || !colours[b]) continue;
-          const ratio = contrast(simulate(colours[a], kind), simulate(colours[b], kind));
-          if (ratio < 1.5) {
-            const chA = (doc.encoding?.[a]?.channels ?? []).filter((c) => c !== 'colour').length;
-            const chB = (doc.encoding?.[b]?.channels ?? []).filter((c) => c !== 'colour').length;
-            if (chA < 2 || chB < 2) {
-              fail(`CVD  ${theme}/${kind}: ${a} vs ${b} = ${ratio.toFixed(2)}:1 and no non-colour fallback`);
-            } else {
-              notes.push(`  ok  ${theme}/${kind}: ${a} vs ${b} = ${ratio.toFixed(2)}:1 ` +
-                         `(indistinguishable by colour, as expected — shape+glyph+label carry it)`);
-            }
+
+    for (let i = 0; i < severities.length; i++) {
+      for (let j = i + 1; j < severities.length; j++) {
+        const [a, b] = [severities[i], severities[j]];
+        if (!colours[a] || !colours[b]) continue;
+
+        // A pair that is indistinguishable even to a trichromat is a plain
+        // palette defect, not a CVD trade-off. Always a failure.
+        const normal = deltaE(colours[a], colours[b]);
+        if (normal < SAME_COLOUR) {
+          fail(`PALETTE  ${theme}: ${a} vs ${b} differ by only dE ${normal.toFixed(1)} ` +
+               `in NORMAL vision — they are the same colour to everyone`);
+          continue;
+        }
+
+        for (const kind of ['deuteranopia', 'protanopia']) {
+          const d = deltaE(simulate(colours[a], kind), simulate(colours[b], kind));
+          if (d >= SAME_COLOUR) {
+            notes.push(`  ok  ${theme}/${kind}: ${a} vs ${b} dE ${d.toFixed(1)} — stays distinguishable`);
+            continue;
+          }
+          // Collapses under CVD. Permitted only because nothing depends on it.
+          const chA = (doc.encoding?.[a]?.channels ?? []).filter((c) => c !== 'colour').length;
+          const chB = (doc.encoding?.[b]?.channels ?? []).filter((c) => c !== 'colour').length;
+          if (chA < 2 || chB < 2) {
+            fail(`CVD  ${theme}/${kind}: ${a} vs ${b} dE ${d.toFixed(1)} and no non-colour fallback`);
+          } else {
+            const how = d < JND ? 'below the just-noticeable difference' : 'reads as the same colour';
+            notes.push(`  ok  ${theme}/${kind}: ${a} vs ${b} dE ${d.toFixed(1)} — ${how}; ` +
+                       `shape+glyph+label carry it`);
           }
         }
       }
@@ -214,7 +337,12 @@ function checkCssVarIntegrity() {
 
 const argv = process.argv.slice(2);
 
-if (argv[0] === '--pair') {
+// Only run when invoked directly. Without this guard, importing `contrast` or
+// `simulate` from another script silently executes the whole verification.
+const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (!invokedDirectly) {
+  // Imported as a library: export the colour maths and stop here.
+} else if (argv[0] === '--pair') {
   const [, fg, bg] = argv;
   const ratio = contrast(fg, bg);
   const verdict = (min) => (ratio >= min ? 'PASS' : 'FAIL');
@@ -223,23 +351,23 @@ if (argv[0] === '--pair') {
   console.log(`  text AAA (7.0:1) ${verdict(7)}`);
   console.log(`  non-text (3.0:1) ${verdict(3)}`);
   process.exit(ratio >= 3 ? 0 : 1);
+} else {
+  const doc = JSON.parse(readFileSync(TOKENS, 'utf8'));
+  checkContrastAssertions(doc);
+  checkEncodingChannels(doc);
+  checkDichromatSeparation(doc);
+  checkCssVarIntegrity();
+
+  const verbose = argv.includes('--verbose');
+  console.log('Ada-editor token verification\n');
+  if (verbose) console.log(notes.join('\n') + '\n');
+
+  if (failures.length) {
+    console.error(`FAILED (${failures.length})\n`);
+    for (const f of failures) console.error('  ' + f);
+    console.error('\nFix the tokens. Do not lower the assertion.');
+    process.exit(1);
+  }
+  console.log(`PASSED — ${notes.length} checks, 0 failures.`);
+  console.log('Run with --verbose to see every measured ratio.');
 }
-
-const doc = JSON.parse(readFileSync(TOKENS, 'utf8'));
-checkContrastAssertions(doc);
-checkEncodingChannels(doc);
-checkDichromatSeparation(doc);
-checkCssVarIntegrity();
-
-const verbose = argv.includes('--verbose');
-console.log('Ada-editor token verification\n');
-if (verbose) console.log(notes.join('\n') + '\n');
-
-if (failures.length) {
-  console.error(`FAILED (${failures.length})\n`);
-  for (const f of failures) console.error('  ' + f);
-  console.error('\nFix the tokens. Do not lower the assertion.');
-  process.exit(1);
-}
-console.log(`PASSED — ${notes.length} checks, 0 failures.`);
-console.log('Run with --verbose to see every measured ratio.');

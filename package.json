@@ -2,12 +2,14 @@
   "name": "ada-editor",
   "version": "0.0.0",
   "private": true,
-  "description": "Write ADA compliant documents.",
+  "description": "Write documents that meet WCAG 2.1 AA, Section 508 and PDF/UA.",
   "type": "module",
   "scripts": {
     "tokens:build": "node scripts/build-tokens.mjs",
     "tokens:verify": "node scripts/verify-tokens.mjs --verbose",
-    "contrast": "node scripts/verify-tokens.mjs --pair"
+    "contrast": "node scripts/verify-tokens.mjs --pair",
+    "test": "node scripts/test-verifier.mjs",
+    "palette:ceiling": "node scripts/palette-ceiling.mjs"
   },
   "comment": "Dependencies below record the stack decision documented in docs/design-system/README.md. They are NOT installed in this repository; the app has not been scaffolded. Both scripts/ tools are dependency-free and run on plain Node.",
   "dependencies": {

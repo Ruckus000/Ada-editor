@@ -30,11 +30,34 @@ but bound to a permanent region rather than a floating card.
 | `Home` / `End` | First / last finding |
 | `Enter` | Apply the fix, when one exists |
 | `Escape` | Dismiss the focused finding |
-| `Tab` | Into the focused card's buttons, then out of the list |
-| `F6` / `Shift+F6` | Cycle between editor and findings region |
+| `Tab` | Through each card and its buttons in order |
 
-The list holds **one tab stop**, not one per card. Twenty findings must not mean
-twenty tab presses to get past them.
+### What the arrow keys are, and are not
+
+**The arrow keys are a sighted-keyboard convenience, not the assistive-technology
+mechanism.** This distinction was initially got wrong here and is worth stating
+plainly, because it is the difference between the list actually being canonical
+and merely claiming to be.
+
+NVDA and JAWS intercept the arrow keys in browse mode to read the document.
+`role="list"` is not a composite widget, so it does not trigger focus mode, and
+a handler bound to arrow keys on the list will simply never fire for those
+users. A design that *depended* on arrow keys would therefore be unreachable
+for exactly the audience this product exists to serve.
+
+So the list is deliberately **not** a focus-trapping composite widget:
+
+- Every card carries an `<h3>`, so screen reader users navigate findings with
+  their heading commands (`H` / `1`-`6`) — the idiomatic and robust path.
+- Every action is a real `<button>` reachable by `Tab`, in DOM order. There are
+  several tab stops per card, and that is correct: a roving tabindex that hid
+  the buttons from `Tab` would trade a real capability for a tidier count.
+- Arrow keys, `Home`/`End`, `Enter` and `Escape` layer on top for sighted
+  keyboard users, who are not in browse mode and for whom they do fire.
+
+`F6` region cycling is **specified but not yet implemented** — it belongs to the
+application shell, which does not exist. Tracked in the
+[known gaps](./accessibility-standard.md#known-gaps).
 
 ### Announcements
 

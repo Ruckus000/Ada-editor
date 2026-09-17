@@ -28,6 +28,12 @@ The bar is deliberately set above what we ask of users' documents.
 | Non-colour encoding | Any severity with fewer than two usable non-colour channels |
 | Dichromat separation | An indistinguishable severity pair with no declared non-colour fallback |
 | CSS var integrity | A `var(--ada-*)` reference with no definition, across all three stylesheets |
+| Palette sanity | Any two severities within dE 10 (CIEDE2000) in normal vision |
+
+The verifier itself is covered by `scripts/test-verifier.mjs` (18 tests). That
+suite is not ceremony: it caught a real defect in which the colour-vision check
+was measuring luminance rather than hue, and had been reporting a collapse that
+was an artefact of the metric.
 
 ## Enforced by review
 
@@ -66,7 +72,16 @@ Stated plainly rather than discovered later:
    Wire `axe-core` into CI with the first rendered route.
 4. **Contrast is checked on flat token pairs only.** Text over an image,
    gradient or translucent surface is not covered.
-5. **forced-colors was smoke-tested, not OS-tested.** The block was verified by
+5. **`F6` region cycling is specified but not implemented.** It belongs to the
+   application shell, which does not exist yet. `patterns-suggestion.md`
+   documents it as part of the keyboard model; treat that as a specification,
+   not a description of working code.
+6. **The arrow-key model is unverified against real screen readers.** It is
+   written as a sighted-keyboard enhancement precisely because NVDA and JAWS
+   intercept arrows in browse mode, but that reasoning has not been confirmed
+   by testing. Heading navigation and `Tab` are the paths expected to carry AT
+   users, and those are also untested.
+7. **forced-colors was smoke-tested, not OS-tested.** The block was verified by
    forcing it on in headless Chromium and rendering `preview.html`; the layout
    holds and every severity stays distinguishable. It has not been run under
    real Windows High Contrast, where system colour mapping can differ.

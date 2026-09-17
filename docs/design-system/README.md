@@ -19,9 +19,9 @@ it does.
 
 Grammarly encodes its four suggestion categories in underline colour alone, on a
 brand green that measures 2.26:1 against white — below even the 3:1 non-text
-threshold. Trying to fix that with a better palette does not work, and we proved
-it: at AA-compliant contrast, all twenty-four severity pairs are indistinguishable
-under simulated dichromacy, because equal contrast forces equal luminance. So
+threshold. A better palette can help — measured with CIEDE2000, a CVD-safe four-colour set
+is achievable — but only by abandoning the conventional red/amber severity ramp,
+whose two colours sit on the exact axis red-green deficiency removes. So
 colour here is decorative, meaning is carried by underline shape, glyph and
 visible text, and a verifier in CI fails the build if any severity starts
 depending on colour. The findings list — not the inline underline — is the
@@ -48,7 +48,7 @@ design-system/
   tokens.json           source of truth — edit this
   tokens.css            GENERATED
   tailwind-theme.css    GENERATED
-  preview.html          renders the system from the real stylesheets
+  preview.html          visual harness; real stylesheets, hand-written markup
   primitives/
     severity.ts         GENERATED from tokens.json `encoding`
     primitives.css      component styles (no literal colours)
@@ -58,6 +58,8 @@ design-system/
 scripts/
   build-tokens.mjs      tokens.json -> css + ts
   verify-tokens.mjs     the thing that says no
+  test-verifier.mjs     tests for the thing that says no
+  palette-ceiling.mjs   how much colour separation is achievable at all
 ```
 
 ## Usage
@@ -66,6 +68,8 @@ scripts/
 node scripts/build-tokens.mjs
 node scripts/verify-tokens.mjs --verbose
 node scripts/verify-tokens.mjs --pair '#15C39A' '#FFFFFF'
+node scripts/test-verifier.mjs
+node scripts/palette-ceiling.mjs
 ```
 
 Both scripts are dependency-free Node — they run without `npm install`.

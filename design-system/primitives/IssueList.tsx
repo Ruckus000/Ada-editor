@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { IssueCard } from './IssueCard';
 import { useAnnounce } from './LiveAnnouncer';
 import { SEVERITY_RANK } from './severity';
@@ -41,8 +42,6 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
     [issues]
   );
 
-  const manualCount = sorted.filter((i) => i.severity === 'manual').length;
-
   // Keep the active index in range as findings are applied or dismissed.
   useEffect(() => {
     setActiveIndex((i) => Math.max(0, Math.min(i, sorted.length - 1)));
@@ -53,20 +52,30 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
     refs.current[index]?.focus();
   }, []);
 
+  /**
+   * What is left AFTER acting on `acted`.
+   *
+   * Derived by excluding the acted-on finding rather than by subtracting one
+   * from the total: the parent's state update has not landed yet when this
+   * runs, and `manual` findings live in the same list, so a naive
+   * `length - 1` both lags and double-counts them.
+   */
   const remaining = useCallback(
-    (after: number) => {
-      const manual = manualCount;
-      if (after === 0) {
-        return manual > 0
-          ? `No automated findings left. ${manual} still need your review.`
-          : 'No automated findings left.';
-      }
-      return `${after} finding${after === 1 ? '' : 's'} remaining.`;
+    (acted: Issue) => {
+      const after = sorted.filter((i) => i.id !== acted.id);
+      const manual = after.filter((i) => i.severity === 'manual').length;
+      const automated = after.length - manual;
+
+      const parts: string[] = [];
+      if (automated > 0) parts.push(`${automated} finding${automated === 1 ? '' : 's'} remaining`);
+      else parts.push('No automated findings left');
+      if (manual > 0) parts.push(`${manual} still need${manual === 1 ? 's' : ''} your review`);
+      return parts.join('. ') + '.';
     },
-    [manualCount]
+    [sorted]
   );
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLUListElement>) => {
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLUListElement>) => {
     const last = sorted.length - 1;
     const issue = sorted[activeIndex];
     switch (event.key) {
@@ -90,14 +99,14 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
         if (issue?.suggestion && event.target === refs.current[activeIndex]) {
           event.preventDefault();
           onAccept(issue);
-          announce(`Applied fix for ${issue.title}. ${remaining(sorted.length - 1)}`);
+          announce(`Applied fix for ${issue.title}. ${remaining(issue)}`);
         }
         break;
       case 'Escape':
         if (issue) {
           event.preventDefault();
           onDismiss(issue);
-          announce(`Dismissed ${issue.title}. ${remaining(sorted.length - 1)}`);
+          announce(`Dismissed ${issue.title}. ${remaining(issue)}`);
         }
         break;
       default:
@@ -154,11 +163,11 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
             active={index === activeIndex}
             onAccept={(i) => {
               onAccept(i);
-              announce(`Applied fix for ${i.title}. ${remaining(sorted.length - 1)}`);
+              announce(`Applied fix for ${i.title}. ${remaining(i)}`);
             }}
             onDismiss={(i) => {
               onDismiss(i);
-              announce(`Dismissed ${i.title}. ${remaining(sorted.length - 1)}`);
+              announce(`Dismissed ${i.title}. ${remaining(i)}`);
             }}
             onReveal={onReveal}
           />
