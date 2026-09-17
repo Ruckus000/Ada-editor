@@ -20,8 +20,11 @@ export default defineConfig({
     timeout: 60_000,
   },
   use: { baseURL: 'http://127.0.0.1:8080' },
+  // Each project matches its own spec. These pointed at a screen-reader.spec.ts
+  // that was split into two files and never updated, so both projects matched
+  // nothing and CI reported "No tests found" as a pass-shaped failure.
   projects: [
-    { name: 'nvda', testMatch: /screen-reader\.spec\.ts/, use: { browserName: 'chromium' } },
-    { name: 'voiceover', testMatch: /screen-reader\.spec\.ts/, use: { browserName: 'webkit' } },
+    { name: 'nvda', testMatch: /nvda\.spec\.ts/, use: { browserName: 'chromium' } },
+    { name: 'voiceover', testMatch: /voiceover\.spec\.ts/, use: { browserName: 'webkit' } },
   ],
 });
