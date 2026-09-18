@@ -47,11 +47,29 @@ const open = async (page: Page, sr: ScreenReader) => {
   // Hydration must finish first, or the screen reader reads server-rendered
   // markup with no live region wired up.
   await page.waitForFunction(() => document.querySelectorAll('.ada-card').length === 4);
-  // Put the reading cursor at the top of the document. Without this the cursor
-  // sits wherever the page load left it, and reading forward starts mid-content —
-  // which is how the Orca gate produced a severity failure that was purely an
-  // artefact of caret position.
+
+  // Make the browser the frontmost application and put focus inside the
+  // document. Without this the screen reader cursor stays wherever the OS left
+  // it: the first run of these tests spent every Tab press announcing
+  // "Finder desktop guidepup-voiceover-preferences Volume" — it was reading the
+  // desktop, not the page, and every assertion below was measuring nothing.
+  await page.bringToFront();
+  await page.locator('h1').first().click();
+  await page.evaluate(() => document.querySelector('main')?.focus());
   await sr.press('Control+Home');
+
+  // Fail here, loudly, rather than let a downstream assertion report something
+  // misleading. If the screen reader is not reading this page, nothing after
+  // this point means anything.
+  const heard = (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
+  expect(
+    heard,
+    await withTranscript(
+      sr,
+      'The screen reader never reached the page. It is reading another application, ' +
+        'so no assertion below would be measuring the components.'
+    )
+  ).toMatch(/design system preview|accessibility findings|quarterly report/);
 };
 
 /**
