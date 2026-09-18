@@ -183,12 +183,17 @@ export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenRead
   // Seek a button that actually REMOVES a finding. Since the rule-set spike the
   // first button in a card is "Go to text", which deliberately leaves the card
   // in place, so stopping at the first button would test nothing.
-  const button = await seek(
-    sr,
-    'Tab',
-    (phrase) => phrase.includes('apply fix') || phrase.includes('dismiss'),
-    16
-  );
+  // `lastSpokenPhrase()` is not always one control. On a runner NVDA answered
+  // with the whole findings region as a single phrase — heading, instructions
+  // and every button in it — so matching "apply fix" anywhere in it stopped the
+  // seek while focus was still somewhere else entirely, and Enter then did
+  // nothing. A focused control is announced as its own phrase ending in
+  // "button", which a bulk region read never does.
+  const isFocusedButton = (phrase: string) =>
+    (phrase.includes('apply fix') || phrase.includes('dismiss')) &&
+    phrase.trimEnd().slice(-30).includes('button');
+
+  const button = await seek(sr, 'Tab', isFocusedButton, 16);
   expect(
     button,
     await withTranscript(sr, 'Never reached an Apply fix or Dismiss button while tabbing.')

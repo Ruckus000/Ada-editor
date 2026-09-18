@@ -74,7 +74,15 @@ Stated plainly rather than discovered later.
    else; the page snapshot attached to the same failure showed it on the right
    document throughout. The guard now reads forward until the page's own words
    appear. The claim it checks is unchanged — only the navigation that reaches
-   it. Treat the NVDA step counts and phrasing as still untuned.
+   it.
+
+   NVDA's remaining failure has the same shape. `lastSpokenPhrase()` answered
+   with the entire findings region as one phrase — heading, instructions and
+   every button in it — so the seek for a button that removes a finding stopped
+   on a match inside a bulk read, with focus still elsewhere, and Enter did
+   nothing. The seek now requires a phrase that ends in "button", which is how a
+   focused control is announced and a region dump never is. Neither of these
+   changed a threshold. Both are still unverified until a run says otherwise.
 
    **JAWS is not covered at all** — commercial, licensed, and not driven by
    Guidepup. Treat NVDA and VoiceOver as **attempted, partly passing**, which is
