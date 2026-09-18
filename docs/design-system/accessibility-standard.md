@@ -74,9 +74,16 @@ Stated plainly rather than discovered later.
    **JAWS is not covered at all** — commercial, licensed, and not driven by
    Guidepup. Treat NVDA and VoiceOver as **attempted and failing**, which is a
    better position than untested but is not verification.
-2. **Orca is one implementation.** The Linux gate is real and repeatable, but
-   browse-mode semantics differ between screen readers. Orca passing does not
-   predict NVDA or VoiceOver.
+2. **The Orca gate is reliable locally but not in CI.** It passes 7 checks
+   repeatably on a developer machine. On a GitHub runner Orca attaches and then
+   reads nothing — its entire transcript is `"Screen reader on."` and the
+   browser frame — so the job is non-blocking for now. It still runs, still
+   reports failure, and can no longer skip silently: a skip is a failure when
+   `CI` is set. Until a CI transcript shows Orca reading page content, screen
+   reader evidence for this project comes from local runs, not from CI.
+
+   Orca is also one implementation; browse-mode semantics differ between screen
+   readers, so Orca passing does not predict NVDA or VoiceOver.
 3. **forced-colors is emulated, not run on Windows.** `verify-a11y.mjs` now
    activates the real `forced-colors: active` media feature through CDP and
    asserts that every severity collapses to one system colour while the four
