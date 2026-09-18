@@ -88,6 +88,24 @@ const key = (k) => {
   execFileSync('xdotool', ['key', '--clearmodifiers', k], { stdio: 'pipe' });
 };
 
+/**
+ * Wait until the screen reader says something new, rather than sleeping a fixed
+ * guess. A CI runner is slower than a laptop, and a fixed wait produced
+ * "Orca said: []" — a failure that was entirely about timing.
+ */
+const waitForSpeech = async (from, timeoutMs = 12_000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (spoken().length > from) {
+      // Let the utterance finish rather than reading the first fragment.
+      await sleep(1200);
+      return true;
+    }
+    await sleep(300);
+  }
+  return false;
+};
+
 const said = (list, fragment) =>
   list.some((u) => u.toLowerCase().includes(fragment.toLowerCase()));
 
@@ -232,7 +250,10 @@ try {
   /* --- Step 4: activating a finding keeps the user's place --- */
   // Re-enter the content, land on a finding's button, activate it.
   key('F5');
-  await sleep(5000);
+  // Reload, then wait for Orca to finish announcing the fresh page.
+  await sleep(2000);
+  await waitForSpeech(spoken().length, 20_000);
+  await sleep(2000);
   // Seek a button that actually REMOVES the finding. Since the rule-set spike
   // the first button in a card is "Go to text", which deliberately leaves the
   // card in place, so stopping at the first button would test nothing.
@@ -246,7 +267,12 @@ try {
   if (!onRemover) fail('SR-FOCUS  never reached an Apply fix or Dismiss button');
   mark = spoken().length;
   key('Return');
-  await sleep(3500);
+  const respondedToActivation = await waitForSpeech(mark, 15_000);
+  if (!respondedToActivation) {
+    fail('SR-FOCUS  Orca said nothing at all after activating the finding; ' +
+         'either the activation never landed or speech did not arrive in time');
+  }
+  await sleep(1500);
   const after = since(mark);
   const lostPlace = after.some((u) => /document web|chromium$/i.test(u));
   const keptPlace = after.some((u) => /heading level 3|clickable|tells a user|reads at|screen readers will/i.test(u));
