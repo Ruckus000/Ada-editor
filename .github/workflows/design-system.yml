@@ -89,7 +89,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            orca at-spi2-core xvfb speech-dispatcher speech-dispatcher-espeak-ng \
+            orca at-spi2-core xvfb openbox speech-dispatcher speech-dispatcher-espeak-ng \
             espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool
           # speech-dispatcher blocks forever without an audio device.
           printf 'pcm.!default { type null }\nctl.!default { type null }\n' | sudo tee /etc/asound.conf

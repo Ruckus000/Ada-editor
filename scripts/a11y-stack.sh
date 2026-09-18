@@ -11,6 +11,15 @@ Xvfb :99 -screen 0 1600x1000x24 >/tmp/xvfb.log 2>&1 &
 sleep 2
 export DISPLAY=:99
 
+# A window manager. Without one there is no _NET_ACTIVE_WINDOW, so
+# `xdotool windowactivate` fails outright and there is no active-window concept
+# for a screen reader to follow. On a CI runner Orca announced the browser frame
+# title and then went silent; this is the most likely reason.
+if command -v openbox >/dev/null 2>&1; then
+  openbox >/tmp/openbox.log 2>&1 &
+  sleep 2
+fi
+
 eval "$(dbus-launch --sh-syntax)"
 echo "DBUS_SESSION_BUS_ADDRESS='$DBUS_SESSION_BUS_ADDRESS'" > /tmp/a11y-env.sh
 echo "export DISPLAY=:99" >> /tmp/a11y-env.sh
@@ -24,6 +33,7 @@ sleep 2
 
 {
   echo "display=$(pgrep -cf 'Xvfb :99')"
+  echo "windowmanager=$(pgrep -cf openbox)"
   echo "dbus=$(pgrep -cf 'dbus-daemon --syslog-only --fork')"
   echo "atspi_bus=$(pgrep -cf at-spi-bus-launcher)"
   echo "atspi_registry=$(pgrep -cf at-spi2-registryd)"

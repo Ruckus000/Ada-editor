@@ -53,6 +53,19 @@ jobs:
       - name: NVDA
         run: npx playwright test --project=nvda
 
+      # Playwright writes the failure message — which carries the full spoken
+      # transcript — into error-context.md. Printing it here puts it at the end
+      # of the log, where it is actually reachable; mid-log it is easy to miss,
+      # and a screen reader failure that does not explain itself costs a whole
+      # CI round to diagnose.
+      - name: Print screen reader transcripts
+        if: failure()
+        shell: bash
+        run: |
+          echo "===== SCREEN READER TRANSCRIPTS ====="
+          find test-results -name 'error-context.md' -print -exec cat {} \; 2>/dev/null || true
+          echo "===== END TRANSCRIPTS ====="
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -85,6 +98,19 @@ jobs:
         run: node scripts/build-preview.mjs
       - name: VoiceOver
         run: npx playwright test --project=voiceover
+
+      # Playwright writes the failure message — which carries the full spoken
+      # transcript — into error-context.md. Printing it here puts it at the end
+      # of the log, where it is actually reachable; mid-log it is easy to miss,
+      # and a screen reader failure that does not explain itself costs a whole
+      # CI round to diagnose.
+      - name: Print screen reader transcripts
+        if: failure()
+        shell: bash
+        run: |
+          echo "===== SCREEN READER TRANSCRIPTS ====="
+          find test-results -name 'error-context.md' -print -exec cat {} \; 2>/dev/null || true
+          echo "===== END TRANSCRIPTS ====="
 
       - uses: actions/upload-artifact@v4
         if: failure()

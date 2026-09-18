@@ -156,11 +156,17 @@ try {
         const candidates = execFileSync('xdotool', args, { encoding: 'utf8', stdio: 'pipe' })
           .trim().split('\n').filter(Boolean);
         for (const candidate of candidates.reverse()) {
-          try {
-            execFileSync('xdotool', ['windowfocus', candidate], { stdio: 'pipe' });
-            win = candidate;
-            break;
-          } catch { /* not focusable */ }
+          // windowactivate needs a window manager (the stack now starts openbox);
+          // windowfocus is the fallback for a bare Xvfb, where activate errors
+          // with "your windowmanager claims not to support _NET_ACTIVE_WINDOW".
+          for (const verb of ['windowactivate', 'windowfocus']) {
+            try {
+              execFileSync('xdotool', [verb, candidate], { stdio: 'pipe' });
+              win = candidate;
+              break;
+            } catch { /* try the next verb */ }
+          }
+          if (win) break;
         }
       } catch { /* nothing matched yet */ }
       if (win) break;
@@ -168,10 +174,70 @@ try {
     if (!win) await sleep(500);
   }
   if (!win) { fail('ORCA  could not focus the browser window'); throw new Error('no-window'); }
-  // windowfocus, not windowactivate: a bare Xvfb has no window manager, so
-  // _NET_ACTIVE_WINDOW is unsupported and activate errors out. Focus is enough
-  // for key events to reach the browser.
   await sleep(1500);
+
+  /**
+   * Can assistive technology actually see the browser?
+   *
+   * Orca reads the AT-SPI tree. On a CI runner it attached, announced the frame
+   * title and then said nothing more — which looks like a navigation problem but
+   * is really "there was nothing to read". This asks AT-SPI directly for our own
+   * page content, so the gate fails on the true cause instead of driving blind.
+   *
+   * It searches for text rather than counting nodes: a first version counted to
+   * a depth of four and reported 16 on a tree that is genuinely large, because
+   * the findings sit about eight levels down.
+   */
+  const atspiProbe = `
+import gi
+gi.require_version('Atspi','2.0')
+from gi.repository import Atspi
+
+TARGETS = ('accessibility findings', 'design system preview', 'quarterly report')
+
+def find(node, depth=0):
+    if depth > 14:
+        return False
+    try:
+        name = (node.get_name() or '').lower()
+    except Exception:
+        return False
+    if any(t in name for t in TARGETS):
+        return True
+    try:
+        for i in range(node.get_child_count()):
+            if find(node.get_child_at_index(i), depth + 1):
+                return True
+    except Exception:
+        pass
+    return False
+
+desktop = Atspi.get_desktop(0)
+for i in range(desktop.get_child_count()):
+    app = desktop.get_child_at_index(i)
+    try:
+        if 'chrom' in (app.get_name() or '').lower() and find(app):
+            print('found')
+            break
+    except Exception:
+        pass
+else:
+    print('missing')
+`;
+  let atspiSeesPage = false;
+  for (let i = 0; i < 25 && !atspiSeesPage; i++) {
+    try {
+      atspiSeesPage =
+        execFileSync(ORCA_PY, ['-c', atspiProbe], { encoding: 'utf8', stdio: 'pipe' }).trim() === 'found';
+    } catch { /* bus not ready */ }
+    if (!atspiSeesPage) await sleep(1000);
+  }
+  if (!atspiSeesPage) {
+    fail('ATSPI  the page content is not in the accessibility tree — assistive ' +
+         'technology cannot see it, so nothing below would be measuring the components');
+    throw new Error('atspi-empty');
+  }
+  note('AT-SPI exposes the page content to assistive technology');
 
   // Guard: every assertion below assumes a full set of findings.
   const loaded = spoken();
@@ -285,7 +351,7 @@ try {
     fail(`SR-FOCUS  could not confirm focus survived activation; Orca said: ${JSON.stringify(after.slice(0, 3))}`);
   }
 } catch (error) {
-  if (!['orca-silent', 'stale-page', 'no-window'].includes(error.message)) {
+  if (!['orca-silent', 'stale-page', 'no-window', 'atspi-empty'].includes(error.message)) {
     fail(`ORCA  gate error: ${error.message}`);
   }
 } finally {
