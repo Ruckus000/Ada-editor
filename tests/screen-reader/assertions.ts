@@ -50,6 +50,12 @@ const withTranscript = async (sr: ScreenReader, message: string) => {
   return `${message}\n\n--- what the screen reader said (last ${Math.min(log.length, 40)} of ${log.length}) ---\n${tail}`;
 };
 
+/** Text only this page says, used to confirm the screen reader is reading it. */
+const PAGE_WORDS = /design system preview|accessibility findings|quarterly report/;
+
+const transcriptText = async (sr: ScreenReader) =>
+  (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
+
 const open = async (page: Page, sr: ScreenReader) => {
   await page.goto(PREVIEW_PATH, { waitUntil: 'networkidle' });
   // Hydration must finish first, or the screen reader reads server-rendered
@@ -67,18 +73,28 @@ const open = async (page: Page, sr: ScreenReader) => {
   await sr.navigateToWebContent();
   await sr.press('Control+Home');
 
+  // Landing in the page announces the landmark, not its contents: VoiceOver says
+  // "Document main" and stops. An earlier version asserted immediately after
+  // Control+Home and failed every VoiceOver test for that reason alone, while
+  // the page snapshot in the same report showed the screen reader on the right
+  // document the whole time. So read forward until the page's own words appear.
+  // The claim is unchanged — only the navigation that reaches it.
+  for (let i = 0; i < 10; i++) {
+    if (PAGE_WORDS.test(await transcriptText(sr))) break;
+    await sr.next();
+  }
+
   // Fail here, loudly, rather than let a downstream assertion report something
   // misleading. If the screen reader is not reading this page, nothing after
   // this point means anything.
-  const heard = (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
   expect(
-    heard,
+    await transcriptText(sr),
     await withTranscript(
       sr,
       'The screen reader never reached the page. It is reading another application, ' +
         'so no assertion below would be measuring the components.'
     )
-  ).toMatch(/design system preview|accessibility findings|quarterly report/);
+  ).toMatch(PAGE_WORDS);
 };
 
 /**
@@ -104,9 +120,6 @@ const seek = async (
   }
   return null;
 };
-
-const transcriptText = async (sr: ScreenReader) =>
-  (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
 
 /**
  * Severity must be conveyed as words. This is the design's central claim: colour

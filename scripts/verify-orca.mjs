@@ -84,6 +84,21 @@ const spoken = () => {
 /** Utterances produced since a marker index. */
 const since = (index) => spoken().slice(index);
 
+/**
+ * How many key presses Orca itself has received from AT-SPI.
+ *
+ * Orca logs this line for every key it is handed, before deciding whether it has
+ * a handler for it, so it separates two failures that look identical from the
+ * outside: keys that never arrive, and keys that arrive and produce no speech
+ * because Orca's reading cursor is nowhere. The marker is verified against a
+ * local passing run, where it appears 86 times.
+ */
+const keysSeenByOrca = () => {
+  try {
+    return readFileSync(SPEECH_LOG, 'latin1').split('PROCESS ATSPI_KEY_PRESSED_EVENT').length - 1;
+  } catch { return 0; }
+};
+
 const key = (k) => {
   execFileSync('xdotool', ['key', '--clearmodifiers', k], { stdio: 'pipe' });
 };
@@ -290,6 +305,7 @@ else:
   }
   note(`X input focus: ${focused}${focused === win ? ' (the browser)' : ' (NOT the browser)'}`);
 
+  const keysBefore = keysSeenByOrca();
   let inputReaches = false;
   // Several keys, because this asks whether input ARRIVES, not what any one key
   // means. A single Tab is a poor probe: depending on where focus starts it can
@@ -300,11 +316,20 @@ else:
     if (await waitForSpeech(beforeKey, 6_000)) { inputReaches = true; break; }
   }
   if (!inputReaches) {
+    // Orca's own log says whether it was handed the keys. Without this the
+    // failure is ambiguous between two very different causes, and the earlier
+    // rounds of this investigation guessed at the wrong one.
+    const delivered = keysSeenByOrca() - keysBefore;
     fail('INPUT  four different keypresses produced no speech at all, with X input ' +
          `focus on ${focused} and the browser window ${win}. ` +
          (focused === win
-           ? 'Focus is correct, so XTEST synthetic input is not reaching the renderer.'
-           : 'Focus is on the wrong window, so the keys went elsewhere.') +
+           ? 'Focus is on the browser. '
+           : 'Focus is on the wrong window, so the keys went elsewhere. ') +
+         (delivered > 0
+           ? `Orca received ${delivered} of them, so input arrives and Orca stays silent: ` +
+             'its reading cursor is not on the document.'
+           : 'Orca received none of them, so the keys never reach its AT-SPI keyboard ' +
+             'listener — delivery is the problem, not Orca state.') +
          ' Nothing below would be measuring the components.');
     throw new Error('no-input');
   }

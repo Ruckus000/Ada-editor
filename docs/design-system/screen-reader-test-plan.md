@@ -38,10 +38,10 @@ focus after applying a fix). Those are step counts and expected phrasing, and
 need tuning against the transcripts each run uploads as an artifact. **Do not
 relax them to go green** — they encode claims the design makes.
 
-### Orca in CI: diagnosed, not fixed
+### Orca in CI: narrowed to one step, not yet explained
 
 The gate passes 11 checks locally and fails on a GitHub runner. Three rounds
-narrowed it to one cause, and the gate now reports that cause in about two
+narrowed it to one step, and the gate now reports that step in about two
 minutes instead of driving blind:
 
 ```
@@ -49,16 +49,12 @@ ok     Orca attached and spoke 2 phrase(s) on load
 ok     activated the window titled "Ada-editor design system preview - Chromium"
 ok     AT-SPI exposes the page content to assistive technology
 ok     X input focus: 6291459 (the browser)
-INPUT  four different keypresses produced no speech at all, with X input focus
-       on 6291459 and the browser window 6291459. Focus is correct, so XTEST
-       synthetic input is not reaching the renderer.
+INPUT  four different keypresses produced no speech at all
 ```
 
 So on a runner: Orca attaches, the right window is activated, the accessibility
-tree is fully populated, and X input focus is on the browser — **and synthetic
-keypresses still reach nothing.** `xdotool` delivers through the XTEST
-extension, and Chromium's renderer is not receiving those events in that
-environment.
+tree is fully populated, and X input focus is on the browser — and synthetic
+keypresses still produce nothing.
 
 Things ruled out along the way, each by evidence rather than assumption: a
 missing window manager (openbox is installed and running), an empty
@@ -66,16 +62,30 @@ accessibility tree (the AT-SPI probe passes), the wrong window (the title is
 checked), and headless mode (this gate launches Chromium windowed — that was
 the NVDA and VoiceOver cause, not this one).
 
-**Recommendation: drop the CI Orca job and keep `verify-orca.mjs` as a local
-tool.** What remains is speculative work on X input internals, and a
-permanently red job nobody trusts is worse than an honest absence. Linux screen
-reader evidence would then come from local runs, which is where it has always
-actually come from.
+An earlier version of this section concluded from that evidence that "XTEST
+synthetic input is not reaching the renderer." That went further than the
+evidence supports. XTEST events are indistinguishable from real input at the X
+server, and `xdotool` would have errored had the extension been absent. Silence
+is equally consistent with the keys arriving and **Orca** having nothing to say,
+because its reading cursor never landed on the document — a different problem
+with a different fix.
 
-If someone does pick it up, the next thing to test is whether XTEST is present
-and functional on the runner's Xvfb at all (`xdpyinfo -queryExtensions | grep
-XTEST`), and whether Chromium accepts `xdotool key --window` (XSendEvent) as a
-fallback — noting that many applications deliberately ignore XSendEvent.
+The gate now distinguishes the two rather than guessing between them. Orca's own
+debug log records `PROCESS ATSPI_KEY_PRESSED_EVENT` for every key it is handed,
+before it decides whether it has a handler; the marker appears 86 times in a
+local passing run. The failure message now reports how many of the probe keys
+Orca received:
+
+- **more than zero** — input arrives and Orca stays silent, so this is Orca
+  state (locus of focus, browse mode), not input delivery.
+- **zero** — the keys never reach Orca's AT-SPI keyboard listener, so the
+  keyboard grab is the problem.
+
+That makes the next run decisive rather than another guess. If it still resists
+after that, the recommendation stands: **drop the CI Orca job and keep
+`verify-orca.mjs` as a local tool.** A permanently red job nobody trusts is
+worse than an honest absence, and Linux screen reader evidence would then come
+from local runs, which is where it has always actually come from.
 
 ### Earlier dead ends, kept so they are not repeated
 

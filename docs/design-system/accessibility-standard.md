@@ -62,36 +62,37 @@ These are not machine-checkable yet. They are the review checklist:
 
 Stated plainly rather than discovered later.
 
-1. **NVDA reads the page; most assertions still fail.** Headless was the root
-   cause — screen readers cannot read a headless browser — and with that fixed
-   NVDA confirms the system's central claim: severity is announced as words.
-   Three of four assertions still fail on each platform on step counts and
-   phrasing, and need tuning against the uploaded transcripts.
+1. **Both screen readers reach the page; the assertions are still being tuned.**
+   Headless was the root cause — screen readers cannot read a headless browser —
+   and with that fixed NVDA confirms the system's central claim: severity is
+   announced as words.
 
-   Previously recorded state, now superseded: **NVDA and VoiceOver run in CI but do not pass.** As of run 5 on
-   `4e45d6c`, both screen readers start and drive the page for roughly two and
-   a half minutes each, and all four assertions fail on both platforms. The
-   infrastructure is proven; the assertions are not. The visible failure is
-   real rather than environmental — after `sr.act()` the finding is never
-   removed, so the navigation helper is probably not landing on a button that
-   removes anything, the same class of mistake the Orca gate needed
-   structural navigation to fix.
+   The remaining failures are not all findings about the components. VoiceOver
+   failed all four tests at the harness's own entry guard, which asserted that
+   the page's words had been spoken immediately after `Control+Home`. VoiceOver
+   lands in the `main` landmark and announces `"Document main"` and nothing
+   else; the page snapshot attached to the same failure showed it on the right
+   document throughout. The guard now reads forward until the page's own words
+   appear. The claim it checks is unchanged — only the navigation that reaches
+   it. Treat the NVDA step counts and phrasing as still untuned.
 
    **JAWS is not covered at all** — commercial, licensed, and not driven by
-   Guidepup. Treat NVDA and VoiceOver as **attempted and failing**, which is a
-   better position than untested but is not verification.
-2. **The Orca gate is reliable locally and cannot run in CI.** Diagnosed to one
-   cause: XTEST synthetic input does not reach Chromium's renderer on a GitHub
-   runner, even with the correct window activated, X input focus on it, and a
-   fully populated accessibility tree. The gate reports exactly that, quickly.
-   Recommendation recorded in the test plan: drop the CI job, keep the local
-   tool. Previously recorded, now superseded: **reliable locally but not in CI.** It passes 7 checks
-   repeatably on a developer machine. On a GitHub runner Orca attaches and then
-   reads nothing — its entire transcript is `"Screen reader on."` and the
-   browser frame — so the job is non-blocking for now. It still runs, still
-   reports failure, and can no longer skip silently: a skip is a failure when
-   `CI` is set. Until a CI transcript shows Orca reading page content, screen
-   reader evidence for this project comes from local runs, not from CI.
+   Guidepup. Treat NVDA and VoiceOver as **attempted, partly passing**, which is
+   a better position than untested but is not yet verification.
+2. **The Orca gate is reliable locally and does not yet run in CI.** Narrowed to
+   one step: on a GitHub runner Orca attaches, the right window is activated, X
+   input focus is on it and the accessibility tree is fully populated, and
+   synthetic keypresses still produce no speech. The gate reports exactly that,
+   in about two minutes.
+
+   An earlier version of this note called the cause "XTEST synthetic input does
+   not reach Chromium's renderer." That claimed more than the evidence supports;
+   silence is equally consistent with the keys arriving and Orca having nothing
+   to say. The gate now reads Orca's own log to tell those apart — see the test
+   plan. Until a CI transcript shows Orca reading page content the job stays
+   non-blocking, and it can no longer skip silently: a skip is a failure when
+   `CI` is set. Linux screen reader evidence for this project comes from local
+   runs, not from CI.
 
    Orca is also one implementation; browse-mode semantics differ between screen
    readers, so Orca passing does not predict NVDA or VoiceOver.
