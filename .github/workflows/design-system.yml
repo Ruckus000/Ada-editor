@@ -125,3 +125,15 @@ jobs:
           echo "== orca keyboard grabs =="
           echo "GRABS ADDED: $(grep -a -c 'GRABS ADDED' /tmp/orca-gate-speech.log || echo 0)"
           echo "listeners registered: $(grep -a -c 'registering listener for' /tmp/orca-gate-speech.log || echo 0)"
+
+      # The counts above are markers I chose in advance, which is how the last
+      # two wrong conclusions in this investigation were reached. Orca's debug
+      # log is the primary source; upload it and read it rather than grepping
+      # for what I already expect to find.
+      - name: Upload Orca's debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orca-debug-log
+          path: /tmp/orca-gate-speech.log
+          if-no-files-found: warn

@@ -113,6 +113,35 @@ the next suspect is the registry or Orca's own grab setup. `GRABS ADDED` is the
 sharper of the two numbers: Orca cannot be handed a key it never asked for, and
 677 grabs locally against zero in CI would say it never asked.
 
+#### The comparison, run
+
+| | local (gate passes) | CI runner (gate fails) |
+|---|---|---|
+| OS | Ubuntu 24.04.4 | Ubuntu 24.04.5 |
+| orca | 46.1-1ubuntu1 | 46.1-1ubuntu1 |
+| at-spi2-core | 2.52.0-1build1 | 2.52.0-1build1 |
+| xvfb | 2:21.1.12-1ubuntu1.6 | 2:21.1.12-1ubuntu1.6 |
+| at-spi2-registryd | running | running |
+| X extensions | 23 | 23, identical list |
+| XTEST / RECORD / XInputExtension / XKEYBOARD | all present | all present |
+
+**The display is not the difference.** Identical extension list, identical
+packages, same `Xvfb` invocation from the same script. That was the predicted
+outcome and it rules the hypothesis out rather than confirming it.
+
+The runner also reported `GRABS ADDED: 157` and `listeners registered: 38`, so
+**Orca did ask for keys** — the "it never asked" explanation is out too. Note
+the local figure of 677 is *not* a fair comparison: grabs accumulate as Orca
+adds and removes them on each focus change, and the CI run aborts at the input
+probe long before a local run finishes. What matters is that the number is not
+zero.
+
+So Orca registers its listeners, installs its grabs, and receives zero key
+press events. Both ends are configured and the middle does not deliver. The
+workflow now uploads Orca's full debug log as an artifact, because the counts
+above are markers chosen in advance — which is exactly how the last two wrong
+conclusions here were reached — and the log itself is the primary source.
+
 #### A probe that was cut
 
 An AT-SPI keystroke listener registered directly from `python3-gi`, with no Orca
