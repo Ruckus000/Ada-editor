@@ -1,0 +1,106 @@
+name: design system
+
+on:
+  push:
+    paths: ['design-system/**', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+  pull_request:
+    paths: ['design-system/**', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: the accessibility gates drive Chromium over CDP using the
+          # global WebSocket, which Node 20 does not have.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck the components
+        run: npx tsc --noEmit
+
+      - name: Test the verifier
+        run: node scripts/test-verifier.mjs
+
+      - name: Verify design tokens
+        run: node scripts/verify-tokens.mjs --verbose
+
+      - name: Check generated files are up to date
+        run: |
+          node scripts/build-tokens.mjs
+          node scripts/build-preview.mjs
+          if ! git diff --quiet -- design-system/; then
+            echo "::error::Generated files are stale. Run 'npm run tokens:build && npm run preview:build' and commit."
+            git diff --stat -- design-system/
+            exit 1
+          fi
+
+  accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: the accessibility gates drive Chromium over CDP using the
+          # global WebSocket, which Node 20 does not have.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium for the accessibility gate
+        run: npx --yes playwright@1.49.0 install --with-deps chromium
+
+      - name: Build the preview from the real components
+        run: node scripts/build-preview.mjs
+
+      - name: Accessibility gate (axe-core + accessibility tree + keyboard)
+        run: node scripts/verify-a11y.mjs --verbose
+
+  # Split out and NON-BLOCKING. The Orca gate passes reliably on a developer
+  # machine (7 checks) but on a runner Orca attaches and then reads nothing —
+  # its whole transcript is "Screen reader on." and the browser frame. That is an
+  # environment problem, not a finding about the components, so it must not gate
+  # the branch while it is unreliable.
+  #
+  # It still RUNS and still reports failure, and it can no longer skip silently:
+  # verify-orca.mjs treats a skip as a failure when CI is set. Remove
+  # continue-on-error once a CI transcript shows Orca reading the page content.
+  orca:
+    name: Orca screen reader (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+      - run: npx --yes playwright@1.49.0 install --with-deps chromium
+      - run: node scripts/build-preview.mjs
+
+      - name: Install Orca and the AT-SPI stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            orca at-spi2-core xvfb speech-dispatcher speech-dispatcher-espeak-ng \
+            espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool
+          # speech-dispatcher blocks forever without an audio device.
+          printf 'pcm.!default { type null }\nctl.!default { type null }\n' | sudo tee /etc/asound.conf
+
+      - name: Orca screen reader gate
+        run: |
+          ./scripts/a11y-stack.sh &
+          for i in $(seq 1 60); do
+            grep -q READY /tmp/a11y-status.txt 2>/dev/null && break
+            sleep 2
+          done
+          grep -q READY /tmp/a11y-status.txt || { echo "::error::AT-SPI stack never came up"; cat /tmp/a11y-status.txt 2>/dev/null; exit 1; }
+          set -a && . /tmp/a11y-env.sh && set +a
+          node scripts/verify-orca.mjs --verbose

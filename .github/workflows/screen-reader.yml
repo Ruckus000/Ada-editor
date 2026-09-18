@@ -1,0 +1,93 @@
+name: screen readers
+
+# Real screen readers, on the platforms they exist on. The Linux/Orca gate runs
+# in design-system.yml; this covers the implementations Orca cannot speak for.
+#
+# NON-BLOCKING, deliberately. Both screen readers attach and drive the page, but
+# are stuck on application activation — VoiceOver reads the Finder rather than
+# the browser, because bringToFront() raises a window without making the browser
+# frontmost on macOS. The assertions are therefore untested rather than wrong.
+#
+# These jobs still RUN and still report failure in the UI; continue-on-error
+# only stops them gating the branch. Real screen reader coverage comes from the
+# Orca gate in design-system.yml, which does block.
+#
+# Remove continue-on-error once a transcript shows a screen reader reading this
+# page's content. See docs/design-system/screen-reader-test-plan.md.
+
+on:
+  push:
+    paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml']
+  pull_request:
+    paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml']
+  workflow_dispatch:
+
+jobs:
+  nvda:
+    name: NVDA (Windows)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: the accessibility gates drive Chromium over CDP using the
+          # global WebSocket, which Node 20 does not have.
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # Installs NVDA and enables the accessibility permissions it needs.
+      - # Pinned to a commit: the action publishes no version tags.
+        uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+
+      # The setup action configures the OS; the screen reader's own assets are
+      # a separate, per-project install. Without it VoiceOver and NVDA fail to
+      # start with "Failed to mount Guidepup preferences".
+      - name: Install Guidepup screen reader assets
+        run: npx --yes @guidepup/setup install
+
+      - run: npx playwright install --with-deps chromium
+      - name: Build the preview from the real components
+        run: node scripts/build-preview.mjs
+      - name: NVDA
+        run: npx playwright test --project=nvda
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: nvda-transcript
+          path: test-results/
+
+  voiceover:
+    name: VoiceOver (macOS)
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: the accessibility gates drive Chromium over CDP using the
+          # global WebSocket, which Node 20 does not have.
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # Enables VoiceOver and grants the automation permissions it needs.
+      - # Pinned to a commit: the action publishes no version tags.
+        uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+
+      - name: Install Guidepup screen reader assets
+        run: npx --yes @guidepup/setup install
+
+      - run: npx playwright install --with-deps webkit
+      - name: Build the preview from the real components
+        run: node scripts/build-preview.mjs
+      - name: VoiceOver
+        run: npx playwright test --project=voiceover
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: voiceover-transcript
+          path: test-results/

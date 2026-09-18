@@ -1,0 +1,191 @@
+/* Component styles for the Ada-editor primitives.
+ * Every value comes from tokens.css. No literal colours, sizes or durations. */
+
+.ada-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Button ---------- */
+
+.ada-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ada-space-2);
+  min-height: var(--ada-target-comfortable);
+  min-width: var(--ada-target-min);
+  padding: var(--ada-space-2) var(--ada-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--ada-radius-md);
+  font: inherit;
+  font-size: var(--ada-type-size-sm);
+  line-height: var(--ada-type-line-height-tight);
+  cursor: pointer;
+  transition: background-color var(--ada-motion-fast) var(--ada-motion-ease);
+}
+
+.ada-button--icon { padding: var(--ada-space-2); }
+
+.ada-button--primary {
+  background: var(--ada-action-primary-bg);
+  color: var(--ada-action-primary-fg);
+}
+
+.ada-button--secondary {
+  background: var(--ada-action-secondary-bg);
+  color: var(--ada-action-secondary-fg);
+  border-color: var(--ada-border-control);
+}
+
+.ada-button--ghost {
+  background: transparent;
+  color: var(--ada-text-secondary);
+  border-color: var(--ada-border-control);
+}
+
+.ada-button:hover { filter: brightness(0.94); }
+
+@media (forced-colors: active) {
+  /* filter: brightness() is a no-op against forced system colours, so give
+   * hover a border-based affordance instead of losing it entirely. */
+  .ada-button:hover { border-color: Highlight; }
+}
+
+/* ---------- SeverityBadge ---------- */
+
+.ada-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ada-space-2);
+  padding: var(--ada-space-1) var(--ada-space-2);
+  border-radius: var(--ada-radius-sm);
+  font-size: var(--ada-type-size-xs);
+  font-weight: 600;
+  line-height: var(--ada-type-line-height-tight);
+}
+
+.ada-badge__glyph { flex: none; }
+
+/* Colour is applied last and adds nothing the glyph and label did not already
+ * say. Delete this block and the interface still works — that is the test. */
+.ada-badge[data-severity='blocker']   { color: var(--ada-severity-blocker-fg);   background: var(--ada-severity-blocker-bg); }
+.ada-badge[data-severity='violation'] { color: var(--ada-severity-violation-fg); background: var(--ada-severity-violation-bg); }
+.ada-badge[data-severity='advisory']  { color: var(--ada-severity-advisory-fg);  background: var(--ada-severity-advisory-bg); }
+.ada-badge[data-severity='manual']    { color: var(--ada-severity-manual-fg);    background: var(--ada-severity-manual-bg); }
+.ada-badge[data-severity='checked']   { color: var(--ada-severity-checked-fg);   background: var(--ada-severity-checked-bg); }
+
+@media (forced-colors: active) {
+  .ada-badge { border: 1px solid CanvasText; }
+}
+
+/* ---------- IssueCard ---------- */
+
+.ada-issues {
+  max-inline-size: 26rem;
+  padding: var(--ada-space-4);
+  background: var(--ada-surface-sunken);
+}
+
+.ada-issues__heading {
+  margin: 0 0 var(--ada-space-3);
+  font-size: var(--ada-type-size-lg);
+  line-height: var(--ada-type-line-height-tight);
+  color: var(--ada-text-primary);
+}
+
+.ada-issues__count { color: var(--ada-text-secondary); font-weight: 400; }
+
+.ada-issues__empty {
+  margin: 0;
+  color: var(--ada-text-secondary);
+  line-height: var(--ada-type-line-height-body);
+}
+
+.ada-issues__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ada-space-3);
+}
+
+.ada-card {
+  padding: var(--ada-space-4);
+  background: var(--ada-surface-raised);
+  border: 1px solid var(--ada-border-default);
+  border-radius: var(--ada-radius-lg);
+  /* The severity stripe repeats the badge. Redundant by design. */
+  border-inline-start-width: 4px;
+}
+
+.ada-card[data-severity='blocker']   { border-inline-start-color: var(--ada-severity-blocker-fg); }
+.ada-card[data-severity='violation'] { border-inline-start-color: var(--ada-severity-violation-fg); }
+.ada-card[data-severity='advisory']  { border-inline-start-color: var(--ada-severity-advisory-fg); }
+.ada-card[data-severity='manual']    { border-inline-start-color: var(--ada-severity-manual-fg); }
+
+.ada-card__title {
+  margin: var(--ada-space-2) 0 var(--ada-space-1);
+  font-size: var(--ada-type-size-base);
+  line-height: var(--ada-type-line-height-tight);
+  color: var(--ada-text-primary);
+}
+
+.ada-card__body {
+  margin: 0 0 var(--ada-space-2);
+  color: var(--ada-text-secondary);
+  line-height: var(--ada-type-line-height-body);
+}
+
+.ada-card__criterion {
+  margin: 0 0 var(--ada-space-2);
+  font-size: var(--ada-type-size-xs);
+  color: var(--ada-text-tertiary);
+}
+
+.ada-card__suggestion {
+  margin: 0 0 var(--ada-space-3);
+  font-family: var(--ada-type-family-mono);
+  font-size: var(--ada-type-size-sm);
+  color: var(--ada-text-primary);
+}
+
+.ada-card__suggestion--judgement {
+  font-family: var(--ada-type-family-ui);
+  color: var(--ada-text-secondary);
+}
+
+.ada-card__actions { display: flex; gap: var(--ada-space-2); flex-wrap: wrap; }
+
+/* ---------- inline underlines ---------- */
+
+/* Shape is set inline by the ProseMirror decoration; only colour lives here,
+ * so that removing colour degrades the underline to shape rather than nothing. */
+.ada-underline[data-severity='blocker']   { text-decoration-color: var(--ada-severity-blocker-fg); }
+.ada-underline[data-severity='violation'] { text-decoration-color: var(--ada-severity-violation-fg); }
+.ada-underline[data-severity='advisory']  { text-decoration-color: var(--ada-severity-advisory-fg); }
+.ada-underline[data-severity='manual']    { text-decoration-color: var(--ada-severity-manual-fg); }
+
+/* ---------- editing surface ---------- */
+
+.ada-editor {
+  max-inline-size: var(--ada-type-measure);   /* 66ch — SC 1.4.8 */
+  padding: var(--ada-space-6) var(--ada-space-5);
+  font-family: var(--ada-type-family-doc);
+  font-size: var(--ada-type-size-lg);
+  line-height: var(--ada-type-line-height-body);
+  color: var(--ada-text-primary);
+  background: var(--ada-surface-canvas);
+}
+
+/* SC 1.4.12 Text Spacing: user stylesheets must be able to push these without
+ * clipping content. Nothing in this system sets a fixed height on text. */
