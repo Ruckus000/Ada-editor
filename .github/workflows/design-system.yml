@@ -90,7 +90,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             orca at-spi2-core xvfb openbox speech-dispatcher speech-dispatcher-espeak-ng \
-            espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool
+            espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool x11-utils
           # speech-dispatcher blocks forever without an audio device.
           printf 'pcm.!default { type null }\nctl.!default { type null }\n' | sudo tee /etc/asound.conf
 
@@ -104,3 +104,24 @@ jobs:
           grep -q READY /tmp/a11y-status.txt || { echo "::error::AT-SPI stack never came up"; cat /tmp/a11y-status.txt 2>/dev/null; exit 1; }
           set -a && . /tmp/a11y-env.sh && set +a
           node scripts/verify-orca.mjs --verbose
+
+      # Runs whether the gate passed or failed. The gate established that Orca
+      # is handed none of the keys sent to it; this is the comparison against a
+      # working local display, recorded in the test plan, that says whether the
+      # display or the package versions differ at all.
+      - name: X display and AT-SPI environment
+        if: always()
+        run: |
+          set -a && . /tmp/a11y-env.sh && set +a
+          echo "== os =="
+          grep -E '^VERSION=|^ID=' /etc/os-release
+          echo "== package versions =="
+          dpkg -l orca at-spi2-core xvfb 2>/dev/null | awk '/^ii/{print $2": "$3}'
+          echo "== at-spi2-registryd =="
+          echo "running: $(pgrep -c at-spi2-registr || echo 0)"
+          echo "== X extensions =="
+          xdpyinfo -queryExtensions | grep 'opcode:' | sed 's/^ *//' | sort
+          echo "count: $(xdpyinfo -queryExtensions | grep -c 'opcode:')"
+          echo "== orca keyboard grabs =="
+          echo "GRABS ADDED: $(grep -a -c 'GRABS ADDED' /tmp/orca-gate-speech.log || echo 0)"
+          echo "listeners registered: $(grep -a -c 'registering listener for' /tmp/orca-gate-speech.log || echo 0)"

@@ -87,6 +87,42 @@ after that, the recommendation stands: **drop the CI Orca job and keep
 worse than an honest absence, and Linux screen reader evidence would then come
 from local runs, which is where it has always actually come from.
 
+It did, on its first run: **Orca received none of the four probe keys.** So
+delivery is the problem — the keys never reach Orca's AT-SPI keyboard listener —
+and the reading-cursor explanation is ruled out alongside the renderer one.
+
+#### The local baseline, for comparison
+
+Recorded so the CI dump is a comparison rather than a one-sided list. A
+`X display and AT-SPI environment` step in the workflow prints the same facts on
+every run, pass or fail.
+
+```
+os             Ubuntu 24.04.4 LTS (Noble Numbat)
+orca           46.1-1ubuntu1
+at-spi2-core   2.52.0-1build1
+xvfb           2:21.1.12-1ubuntu1.6
+registryd      1 running
+X extensions   23, including XTEST, RECORD, XInputExtension, XKEYBOARD
+GRABS ADDED    677
+```
+
+Both displays run the same `Xvfb :99 -screen 0 1600x1000x24` line from the same
+script, so if the extension lists match, the display is not the difference and
+the next suspect is the registry or Orca's own grab setup. `GRABS ADDED` is the
+sharper of the two numbers: Orca cannot be handed a key it never asked for, and
+677 grabs locally against zero in CI would say it never asked.
+
+#### A probe that was cut
+
+An AT-SPI keystroke listener registered directly from `python3-gi`, with no Orca
+involved, would have been more decisive than any of this. It is not in the repo
+because it does not work: `register_keystroke_listener` returns `False` on the
+local display where Orca reads happily, under every combination of sync flags
+tried. A probe that fails on a known-good environment cannot be trusted to
+diagnose a failing one, so it was dropped rather than shipped — it would have
+reported the CI display as broken no matter what was true.
+
 ### Earlier dead ends, kept so they are not repeated
 
 Four rounds removed four real blockers — a nonexistent action tag, a stale test

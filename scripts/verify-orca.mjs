@@ -93,9 +93,19 @@ const since = (index) => spoken().slice(index);
  * because Orca's reading cursor is nowhere. The marker is verified against a
  * local passing run, where it appears 86 times.
  */
-const keysSeenByOrca = () => {
+const keysSeenByOrca = () => countInLog('PROCESS ATSPI_KEY_PRESSED_EVENT');
+
+/**
+ * How many keyboard grabs Orca has installed.
+ *
+ * Orca cannot be handed a key it never asked for. This says whether it asked.
+ * Verified against a local passing run, where it reaches 677.
+ */
+const grabsAddedByOrca = () => countInLog('GRABS ADDED');
+
+const countInLog = (marker) => {
   try {
-    return readFileSync(SPEECH_LOG, 'latin1').split('PROCESS ATSPI_KEY_PRESSED_EVENT').length - 1;
+    return readFileSync(SPEECH_LOG, 'latin1').split(marker).length - 1;
   } catch { return 0; }
 };
 
@@ -329,7 +339,8 @@ else:
            ? `Orca received ${delivered} of them, so input arrives and Orca stays silent: ` +
              'its reading cursor is not on the document.'
            : 'Orca received none of them, so the keys never reach its AT-SPI keyboard ' +
-             'listener — delivery is the problem, not Orca state.') +
+             `listener. Orca has installed ${grabsAddedByOrca()} keyboard grabs ` +
+             '(677 on a local passing run), which says whether it even asked for them.') +
          ' Nothing below would be measuring the components.');
     throw new Error('no-input');
   }
