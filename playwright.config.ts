@@ -1,17 +1,23 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
+import { screenReaderConfig } from '@guidepup/playwright';
 
 /**
- * Screen reader projects only. The tree-level and Orca gates are plain Node
- * scripts (scripts/verify-a11y.mjs, scripts/verify-orca.mjs); Playwright is here
- * solely because Guidepup drives NVDA and VoiceOver through it.
+ * Screen reader projects only. The token, accessibility-tree and Orca gates are
+ * plain Node scripts; Playwright is here solely because Guidepup drives NVDA and
+ * VoiceOver through it.
+ *
+ * `screenReaderConfig` is Guidepup's own required baseline: one worker, no
+ * parallelism (a screen reader is a singleton), and — the part that matters —
+ * `headless: false`. Playwright defaults to headless, and a headless browser has
+ * no window for a screen reader to read. Omitting this is why NVDA announced a
+ * single phrase, "blank", and why VoiceOver read the Finder instead of the page.
  */
 export default defineConfig({
+  ...screenReaderConfig,
   testDir: './tests/screen-reader',
-  // Screen readers are slow and cannot be parallelised: there is one of them.
-  workers: 1,
-  fullyParallel: false,
   timeout: 5 * 60 * 1000,
   retries: process.env.CI ? 1 : 0,
+  reportSlowTests: null,
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
   webServer: {
     command: 'node scripts/serve-preview.mjs',
@@ -19,24 +25,27 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
-  use: { baseURL: 'http://127.0.0.1:8080' },
-  // Each project matches its own spec. These pointed at a screen-reader.spec.ts
-  // that was split into two files and never updated, so both projects matched
-  // nothing and CI reported "No tests found" as a pass-shaped failure.
   projects: [
     {
       name: 'nvda',
       testMatch: /nvda\.spec\.ts/,
       use: {
-        browserName: 'chromium',
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://127.0.0.1:8080',
+        headless: false,
         // Chromium does not expose its accessibility tree to platform assistive
-        // technology unless renderer accessibility is forced on. Without this
-        // NVDA attaches, reads the window and announces exactly one phrase —
-        // "blank" — because there is nothing there to read. The Orca gate needs
-        // the same flag for the same reason.
+        // technology unless renderer accessibility is forced on.
         launchOptions: { args: ['--force-renderer-accessibility'] },
       },
     },
-    { name: 'voiceover', testMatch: /voiceover\.spec\.ts/, use: { browserName: 'webkit' } },
+    {
+      name: 'voiceover',
+      testMatch: /voiceover\.spec\.ts/,
+      use: {
+        ...devices['Desktop Safari'],
+        baseURL: 'http://127.0.0.1:8080',
+        headless: false,
+      },
+    },
   ],
 });

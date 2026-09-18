@@ -14,6 +14,14 @@ export interface ScreenReader {
   act(): Promise<void>;
   /** Press a key on the FOCUSED item, e.g. "Tab" or "Control+Home". */
   press(key: string): Promise<void>;
+  /**
+   * Guidepup's Playwright fixtures add this; the base screen reader classes do
+   * not have it. It activates the browser at OS level, cancels any stale
+   * interaction, and injects a marker input so the screen reader listens to
+   * Playwright-driven events. Without it the cursor stays wherever the OS left
+   * it — reading the Finder rather than the page.
+   */
+  navigateToWebContent(): Promise<void>;
   lastSpokenPhrase(): Promise<string>;
   spokenPhraseLog(): Promise<string[]>;
 }
@@ -48,14 +56,15 @@ const open = async (page: Page, sr: ScreenReader) => {
   // markup with no live region wired up.
   await page.waitForFunction(() => document.querySelectorAll('.ada-card').length === 4);
 
-  // Make the browser the frontmost application and put focus inside the
-  // document. Without this the screen reader cursor stays wherever the OS left
-  // it: the first run of these tests spent every Tab press announcing
-  // "Finder desktop guidepup-voiceover-preferences Volume" — it was reading the
-  // desktop, not the page, and every assertion below was measuring nothing.
-  await page.bringToFront();
-  await page.locator('h1').first().click();
-  await page.evaluate(() => document.querySelector('main')?.focus());
+  // Hand over to Guidepup's own routine rather than improvising. It does the
+  // OS-level application activation that page.bringToFront() cannot: raising a
+  // window inside the browser is not the same as making the browser frontmost,
+  // which is what decides where the screen reader cursor goes.
+  //
+  // An earlier version of this file called this and I removed it, having grepped
+  // the base VoiceOver class where it does not exist. It is added by the
+  // Playwright fixture.
+  await sr.navigateToWebContent();
   await sr.press('Control+Home');
 
   // Fail here, loudly, rather than let a downstream assertion report something
