@@ -38,6 +38,45 @@ focus after applying a fix). Those are step counts and expected phrasing, and
 need tuning against the transcripts each run uploads as an artifact. **Do not
 relax them to go green** — they encode claims the design makes.
 
+### Orca in CI: diagnosed, not fixed
+
+The gate passes 11 checks locally and fails on a GitHub runner. Three rounds
+narrowed it to one cause, and the gate now reports that cause in about two
+minutes instead of driving blind:
+
+```
+ok     Orca attached and spoke 2 phrase(s) on load
+ok     activated the window titled "Ada-editor design system preview - Chromium"
+ok     AT-SPI exposes the page content to assistive technology
+ok     X input focus: 6291459 (the browser)
+INPUT  four different keypresses produced no speech at all, with X input focus
+       on 6291459 and the browser window 6291459. Focus is correct, so XTEST
+       synthetic input is not reaching the renderer.
+```
+
+So on a runner: Orca attaches, the right window is activated, the accessibility
+tree is fully populated, and X input focus is on the browser — **and synthetic
+keypresses still reach nothing.** `xdotool` delivers through the XTEST
+extension, and Chromium's renderer is not receiving those events in that
+environment.
+
+Things ruled out along the way, each by evidence rather than assumption: a
+missing window manager (openbox is installed and running), an empty
+accessibility tree (the AT-SPI probe passes), the wrong window (the title is
+checked), and headless mode (this gate launches Chromium windowed — that was
+the NVDA and VoiceOver cause, not this one).
+
+**Recommendation: drop the CI Orca job and keep `verify-orca.mjs` as a local
+tool.** What remains is speculative work on X input internals, and a
+permanently red job nobody trusts is worse than an honest absence. Linux screen
+reader evidence would then come from local runs, which is where it has always
+actually come from.
+
+If someone does pick it up, the next thing to test is whether XTEST is present
+and functional on the runner's Xvfb at all (`xdpyinfo -queryExtensions | grep
+XTEST`), and whether Chromium accepts `xdotool key --window` (XSendEvent) as a
+fallback — noting that many applications deliberately ignore XSendEvent.
+
 ### Earlier dead ends, kept so they are not repeated
 
 Four rounds removed four real blockers — a nonexistent action tag, a stale test

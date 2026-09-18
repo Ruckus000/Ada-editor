@@ -80,7 +80,12 @@ Stated plainly rather than discovered later.
    **JAWS is not covered at all** — commercial, licensed, and not driven by
    Guidepup. Treat NVDA and VoiceOver as **attempted and failing**, which is a
    better position than untested but is not verification.
-2. **The Orca gate is reliable locally but not in CI.** It passes 7 checks
+2. **The Orca gate is reliable locally and cannot run in CI.** Diagnosed to one
+   cause: XTEST synthetic input does not reach Chromium's renderer on a GitHub
+   runner, even with the correct window activated, X input focus on it, and a
+   fully populated accessibility tree. The gate reports exactly that, quickly.
+   Recommendation recorded in the test plan: drop the CI job, keep the local
+   tool. Previously recorded, now superseded: **reliable locally but not in CI.** It passes 7 checks
    repeatably on a developer machine. On a GitHub runner Orca attaches and then
    reads nothing — its entire transcript is `"Screen reader on."` and the
    browser frame — so the job is non-blocking for now. It still runs, still
