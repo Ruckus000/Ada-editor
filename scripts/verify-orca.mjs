@@ -273,6 +273,23 @@ else:
    * all fail together and describe symptoms rather than the cause — which is
    * exactly what the previous CI run produced. One keypress, one answer.
    */
+  // `xdotool key` delivers through XTEST to whatever holds X INPUT focus, which
+  // is not necessarily the window we activated. Check, and say so if they differ
+  // — that distinguishes "keys go to the wrong window" from "keys go nowhere".
+  let focused = '';
+  try {
+    focused = execFileSync('xdotool', ['getwindowfocus'], { encoding: 'utf8', stdio: 'pipe' }).trim();
+  } catch { focused = 'none'; }
+  if (focused !== win) {
+    note(`X input focus is window ${focused}, not the activated ${win} — retargeting`);
+    try { execFileSync('xdotool', ['windowfocus', '--sync', win], { stdio: 'pipe' }); } catch { /* best effort */ }
+    await sleep(800);
+    try {
+      focused = execFileSync('xdotool', ['getwindowfocus'], { encoding: 'utf8', stdio: 'pipe' }).trim();
+    } catch { /* keep previous */ }
+  }
+  note(`X input focus: ${focused}${focused === win ? ' (the browser)' : ' (NOT the browser)'}`);
+
   let inputReaches = false;
   // Several keys, because this asks whether input ARRIVES, not what any one key
   // means. A single Tab is a poor probe: depending on where focus starts it can
@@ -283,9 +300,12 @@ else:
     if (await waitForSpeech(beforeKey, 6_000)) { inputReaches = true; break; }
   }
   if (!inputReaches) {
-    fail('INPUT  four different keypresses produced no speech at all. Either xdotool ' +
-         'key events are not reaching the browser window, or Orca is not tracking ' +
-         'it. Nothing below would be measuring the components.');
+    fail('INPUT  four different keypresses produced no speech at all, with X input ' +
+         `focus on ${focused} and the browser window ${win}. ` +
+         (focused === win
+           ? 'Focus is correct, so XTEST synthetic input is not reaching the renderer.'
+           : 'Focus is on the wrong window, so the keys went elsewhere.') +
+         ' Nothing below would be measuring the components.');
     throw new Error('no-input');
   }
   note('key events reach the browser and Orca responds to them');
