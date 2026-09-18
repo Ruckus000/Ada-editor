@@ -62,31 +62,28 @@ These are not machine-checkable yet. They are the review checklist:
 
 Stated plainly rather than discovered later.
 
-1. **Both screen readers reach the page; the assertions are still being tuned.**
-   Headless was the root cause — screen readers cannot read a headless browser —
-   and with that fixed NVDA confirms the system's central claim: severity is
-   announced as words.
+1. **VoiceOver passes all four assertions; NVDA does not yet.** Headless was the
+   root cause — screen readers cannot read a headless browser. With that fixed,
+   and with two harness bugs of my own removed, **VoiceOver on macOS verifies the
+   whole set**: findings reachable by heading, severity announced as words,
+   buttons named distinctly, and the user's place kept after applying a fix.
+   That is the first end-to-end screen reader confirmation this system has.
 
-   The remaining failures are not all findings about the components. VoiceOver
-   failed all four tests at the harness's own entry guard, which asserted that
-   the page's words had been spoken immediately after `Control+Home`. VoiceOver
-   lands in the `main` landmark and announces `"Document main"` and nothing
-   else; the page snapshot attached to the same failure showed it on the right
-   document throughout. The guard now reads forward until the page's own words
-   appear. The claim it checks is unchanged — only the navigation that reaches
-   it.
+   Both harness bugs were the same mistake — the harness misreading a correct
+   page. VoiceOver had been failing all four tests at the entry guard, which
+   asserted the page's words had been spoken immediately after `Control+Home`;
+   VoiceOver lands in the `main` landmark, says `"Document main"` and stops, and
+   the page snapshot attached to that failure showed it on the right document
+   throughout. NVDA's seek for a button stopped on a match inside a **bulk region
+   read** — `lastSpokenPhrase()` returned the entire findings region as one
+   phrase — with focus still elsewhere, so Enter activated nothing. The guard now
+   reads forward until the page's own words appear; the seek now requires a
+   phrase ending in "button". Neither changed a threshold.
 
-   NVDA's remaining failure has the same shape. `lastSpokenPhrase()` answered
-   with the entire findings region as one phrase — heading, instructions and
-   every button in it — so the seek for a button that removes a finding stopped
-   on a match inside a bulk read, with focus still elsewhere, and Enter did
-   nothing. The seek now requires a phrase that ends in "button", which is how a
-   focused control is announced and a region dump never is. Neither of these
-   changed a threshold. Both are still unverified until a run says otherwise.
+   **NVDA remains failing** and is not yet diagnosed past that fix.
 
    **JAWS is not covered at all** — commercial, licensed, and not driven by
-   Guidepup. Treat NVDA and VoiceOver as **attempted, partly passing**, which is
-   a better position than untested but is not yet verification.
+   Guidepup.
 2. **The Orca gate is reliable locally and does not yet run in CI.** Narrowed to
    one step: on a GitHub runner Orca attaches, the right window is activated, X
    input focus is on it and the accessibility tree is fully populated, and
@@ -94,10 +91,16 @@ Stated plainly rather than discovered later.
    in about two minutes.
 
    An earlier version of this note called the cause "XTEST synthetic input does
-   not reach Chromium's renderer." That claimed more than the evidence supports;
-   silence is equally consistent with the keys arriving and Orca having nothing
-   to say. The gate now reads Orca's own log to tell those apart — see the test
-   plan. Until a CI transcript shows Orca reading page content the job stays
+   not reach Chromium's renderer." That claimed more than the evidence supports.
+   Reading Orca's own log settled it instead: **Orca received none of the probe
+   keys**, so they never reach its AT-SPI keyboard listener. Delivery is the
+   problem, not Orca's state — which also rules out the reading-cursor
+   explanation. The next thing to compare is which X extensions the runner's
+   Xvfb actually offers against a working local display
+   (`xdpyinfo -queryExtensions`), since AT-SPI's device event controller needs
+   one of them to register a keystroke listener.
+
+   Until a CI transcript shows Orca reading page content the job stays
    non-blocking, and it can no longer skip silently: a skip is a failure when
    `CI` is set. Linux screen reader evidence for this project comes from local
    runs, not from CI.
