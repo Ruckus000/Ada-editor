@@ -24,7 +24,19 @@ export default defineConfig({
   // that was split into two files and never updated, so both projects matched
   // nothing and CI reported "No tests found" as a pass-shaped failure.
   projects: [
-    { name: 'nvda', testMatch: /nvda\.spec\.ts/, use: { browserName: 'chromium' } },
+    {
+      name: 'nvda',
+      testMatch: /nvda\.spec\.ts/,
+      use: {
+        browserName: 'chromium',
+        // Chromium does not expose its accessibility tree to platform assistive
+        // technology unless renderer accessibility is forced on. Without this
+        // NVDA attaches, reads the window and announces exactly one phrase —
+        // "blank" — because there is nothing there to read. The Orca gate needs
+        // the same flag for the same reason.
+        launchOptions: { args: ['--force-renderer-accessibility'] },
+      },
+    },
     { name: 'voiceover', testMatch: /voiceover\.spec\.ts/, use: { browserName: 'webkit' } },
   ],
 });
