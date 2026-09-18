@@ -174,6 +174,24 @@ try {
     if (!win) await sleep(500);
   }
   if (!win) { fail('ORCA  could not focus the browser window'); throw new Error('no-window'); }
+
+  // Wait for the window to carry the page title. In CI Orca announced a bare
+  // "Chromium frame." where locally it says "Ada-editor design system preview -
+  // Chromium frame." — a titleless window means the gate started driving before
+  // the page was in it, or activated the wrong one of several Chromium windows.
+  let title = '';
+  for (let i = 0; i < 30; i++) {
+    try {
+      title = execFileSync('xdotool', ['getwindowname', win], { encoding: 'utf8', stdio: 'pipe' }).trim();
+    } catch { title = ''; }
+    if (/design system preview/i.test(title)) break;
+    await sleep(1000);
+  }
+  if (!/design system preview/i.test(title)) {
+    fail(`ORCA  the activated window is titled ${JSON.stringify(title)}, not the preview page`);
+    throw new Error('wrong-window');
+  }
+  note(`activated the window titled ${JSON.stringify(title)}`);
   await sleep(1500);
 
   /**
@@ -247,6 +265,30 @@ else:
     fail(`ORCA  page loaded with only ${found} findings; the session is stale and its assertions are meaningless`);
     throw new Error('stale-page');
   }
+
+  /**
+   * Do key events reach the browser at all?
+   *
+   * Every content check below drives the keyboard, so if keys go nowhere they
+   * all fail together and describe symptoms rather than the cause — which is
+   * exactly what the previous CI run produced. One keypress, one answer.
+   */
+  let inputReaches = false;
+  // Several keys, because this asks whether input ARRIVES, not what any one key
+  // means. A single Tab is a poor probe: depending on where focus starts it can
+  // legitimately move to something Orca does not announce.
+  for (const probeKey of ['ctrl+Home', 'h', 'Down', 'Tab']) {
+    const beforeKey = spoken().length;
+    key(probeKey);
+    if (await waitForSpeech(beforeKey, 6_000)) { inputReaches = true; break; }
+  }
+  if (!inputReaches) {
+    fail('INPUT  four different keypresses produced no speech at all. Either xdotool ' +
+         'key events are not reaching the browser window, or Orca is not tracking ' +
+         'it. Nothing below would be measuring the components.');
+    throw new Error('no-input');
+  }
+  note('key events reach the browser and Orca responds to them');
 
   /* --- Step 1: findings reachable by heading, announced with level --- */
   let mark = spoken().length;
@@ -351,7 +393,8 @@ else:
     fail(`SR-FOCUS  could not confirm focus survived activation; Orca said: ${JSON.stringify(after.slice(0, 3))}`);
   }
 } catch (error) {
-  if (!['orca-silent', 'stale-page', 'no-window', 'atspi-empty'].includes(error.message)) {
+  if (!['orca-silent', 'stale-page', 'no-window', 'atspi-empty', 'wrong-window', 'no-input']
+        .includes(error.message)) {
     fail(`ORCA  gate error: ${error.message}`);
   }
 } finally {
