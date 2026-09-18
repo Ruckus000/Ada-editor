@@ -7,10 +7,34 @@ than as a manual checklist. It drives Orca and asserts on what it actually says,
 and it found a real defect the tree-level gate had missed.
 
 NVDA and VoiceOver equivalents live in `tests/screen-reader/` and run in CI on
-Windows and macOS runners. Both now start and drive the page; **all four
-assertions currently fail on both**, so they are attempted and failing rather
-than verified. **JAWS is not covered** — commercial, licensed, and not driven
-by Guidepup.
+Windows and macOS runners. Both start, attach and drive; **all four assertions
+still fail on both**. **JAWS is not covered** — commercial, licensed, and not
+driven by Guidepup.
+
+### Where the CI screen readers are stuck
+
+Four rounds removed four real blockers — a nonexistent action tag, a stale test
+pattern, a missing per-project asset install, and tests that stepped the reading
+cursor while expecting focus to move. Each was genuine, and the transcripts
+attached to failures are what made each one findable.
+
+**The open blocker is application activation, not the assertions.**
+
+- **VoiceOver** is still reading the Finder: its whole transcript is
+  `Finder guidepup-voiceover-preferences-macos-26 Volume`. `page.bringToFront()`
+  raises a window inside the browser but does not make the browser the frontmost
+  *application* on macOS, which is what decides where the VoiceOver cursor goes.
+  The next thing to try is activating the app at the OS level — `osascript -e
+  'tell application "..." to activate'` against whatever process Playwright's
+  WebKit runs as — rather than another change to the assertions.
+- **NVDA** was announcing a single phrase, `blank`, because Playwright launches
+  Chromium without `--force-renderer-accessibility`. That flag is now set; its
+  effect has not yet been read from a transcript.
+
+Until a transcript shows a screen reader reading this page's content, the four
+assertions are untested rather than wrong. Do not tune them: the guard in
+`open()` fails first precisely so that nothing downstream reports a confident
+result about an application it was never reading.
 
 The manual steps below remain the specification; the gate automates them.
 
