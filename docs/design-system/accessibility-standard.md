@@ -62,7 +62,13 @@ These are not machine-checkable yet. They are the review checklist:
 
 Stated plainly rather than discovered later.
 
-1. **NVDA and VoiceOver run in CI but do not pass.** As of run 5 on
+1. **NVDA reads the page; most assertions still fail.** Headless was the root
+   cause — screen readers cannot read a headless browser — and with that fixed
+   NVDA confirms the system's central claim: severity is announced as words.
+   Three of four assertions still fail on each platform on step counts and
+   phrasing, and need tuning against the uploaded transcripts.
+
+   Previously recorded state, now superseded: **NVDA and VoiceOver run in CI but do not pass.** As of run 5 on
    `4e45d6c`, both screen readers start and drive the page for roughly two and
    a half minutes each, and all four assertions fail on both platforms. The
    infrastructure is proven; the assertions are not. The visible failure is

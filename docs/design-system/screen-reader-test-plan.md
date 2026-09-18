@@ -11,7 +11,34 @@ Windows and macOS runners. Both start, attach and drive; **all four assertions
 still fail on both**. **JAWS is not covered** — commercial, licensed, and not
 driven by Guidepup.
 
-### Where the CI screen readers are stuck
+### Application activation — solved
+
+The blocker was not activation code at all. **Playwright runs headless by
+default, and Guidepup states plainly that "Screen Readers don't work against
+headless browsers."** A headless browser has no window for `macOSActivate` to
+bring forward, which is why VoiceOver read the Finder and NVDA announced a
+single phrase, `blank`.
+
+Two changes fixed it:
+
+- `playwright.config.ts` spreads Guidepup's own `screenReaderConfig`, and both
+  projects set `headless: false` explicitly.
+- `open()` calls the fixtures' `navigateToWebContent()`, which does the OS-level
+  activation, cancels stale interactions and injects a marker input so the
+  screen reader listens to Playwright-driven events. This method is added by the
+  Playwright fixture, not the base screen reader class — which is why grepping
+  `VoiceOver.d.ts` for it earlier found nothing and led to it being removed.
+
+**NVDA now reads the page, and the first assertion passes:** *"announces
+severity as words, not colour"* — the central claim of this design system,
+confirmed by a real screen reader on Windows.
+
+Three assertions still fail on each platform (heading navigation, button names,
+focus after applying a fix). Those are step counts and expected phrasing, and
+need tuning against the transcripts each run uploads as an artifact. **Do not
+relax them to go green** — they encode claims the design makes.
+
+### Earlier dead ends, kept so they are not repeated
 
 Four rounds removed four real blockers — a nonexistent action tag, a stale test
 pattern, a missing per-project asset install, and tests that stepped the reading
