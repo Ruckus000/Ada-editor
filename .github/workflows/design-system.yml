@@ -75,6 +75,12 @@ jobs:
       - name: Orca screen reader gate
         run: |
           ./scripts/a11y-stack.sh &
-          until [ -f /tmp/a11y-env.sh ] && grep -q DBUS /tmp/a11y-env.sh; do sleep 2; done
+          # Wait for READY, not just for the env file: the file is written early,
+          # so the gate previously started before the AT-SPI registry was up.
+          for i in $(seq 1 60); do
+            grep -q READY /tmp/a11y-status.txt 2>/dev/null && break
+            sleep 2
+          done
+          grep -q READY /tmp/a11y-status.txt || { echo "::error::AT-SPI stack never came up"; cat /tmp/a11y-status.txt 2>/dev/null; exit 1; }
           set -a && . /tmp/a11y-env.sh && set +a
           node scripts/verify-orca.mjs --verbose

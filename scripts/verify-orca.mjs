@@ -22,6 +22,7 @@ import { readFileSync, rmSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { serve } from './serve-preview.mjs';
+import { findChrome } from './find-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VERBOSE = process.argv.includes('--verbose');
@@ -43,6 +44,14 @@ const note = (m) => notes.push('  ok  ' + m);
 
 const skip = (why) => {
   console.log('Orca screen reader gate\n');
+  // In CI a skip is a failure. This gate silently skipped every CI run for want
+  // of a Chromium path and reported success for a screen reader test that never
+  // ran — the precise failure mode it exists to catch in the components.
+  if (process.env.CI) {
+    console.error(`FAILED — the gate could not run: ${why}`);
+    console.error('CI is where this must run, so a skip here is a failure.');
+    process.exit(1);
+  }
   console.log(`SKIPPED — ${why}`);
   console.log('This gate needs Linux, Orca, and the AT-SPI stack (scripts/a11y-stack.sh).');
   console.log('Tree-level checks still run in scripts/verify-a11y.mjs.');
@@ -60,8 +69,8 @@ const have = (bin) => {
 };
 if (!have('xdotool')) skip('xdotool is not installed');
 
-const CHROME = process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-if (!existsSync(CHROME)) skip('no Chromium binary; set CHROME_PATH');
+const CHROME = findChrome();
+if (!CHROME) skip('no Chromium binary found; set CHROME_PATH');
 
 /* ---------- speech capture ---------- */
 

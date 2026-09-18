@@ -24,28 +24,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { serve } from './serve-preview.mjs';
+import { findChrome } from './find-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-/** Resolve a Chromium binary: explicit env, then a Playwright install, then PATH. */
-const findChrome = () => {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const roots = [process.env.PLAYWRIGHT_BROWSERS_PATH, '/opt/pw-browsers', `${process.env.HOME}/.cache/ms-playwright`];
-  for (const root of roots.filter(Boolean)) {
-    try {
-      for (const dir of readdirSync(root).filter((d) => d.startsWith('chromium'))) {
-        for (const rel of ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) {
-          const candidate = resolve(root, dir, rel);
-          if (existsSync(candidate)) return candidate;
-        }
-      }
-    } catch { /* root absent */ }
-  }
-  for (const name of ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) {
-    if (existsSync(name)) return name;
-  }
-  throw new Error('No Chromium found. Set CHROME_PATH.');
-};
 const CHROME = findChrome();
+if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
 const AXE = resolve(HERE, '../node_modules/axe-core/axe.min.js');
 const VERBOSE = process.argv.includes('--verbose');
 
