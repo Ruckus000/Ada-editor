@@ -126,6 +126,32 @@ jobs:
           echo "GRABS ADDED: $(grep -a -c 'GRABS ADDED' /tmp/orca-gate-speech.log || echo 0)"
           echo "listeners registered: $(grep -a -c 'registering listener for' /tmp/orca-gate-speech.log || echo 0)"
 
+          # Never examined until now. a11y-stack.sh sends the AT-SPI registry's
+          # and bus launcher's stderr here and nothing has read them since. If
+          # the registry cannot set up its device event controller, this is
+          # where it says so — and that is exactly where the failure sits.
+          echo "== at-spi registry stderr =="
+          cat /tmp/atspi-reg.log 2>/dev/null || echo "(no file)"
+          echo "== at-spi bus stderr =="
+          cat /tmp/atspi-bus.log 2>/dev/null || echo "(no file)"
+
+          # The artifact upload below cannot be read from the session doing this
+          # investigation: its egress proxy rejects the Azure blob host GitHub
+          # serves artifacts from. The job log can be read, and a CI-sized Orca
+          # log is ~20KB, so print it. The guard is for a local-sized log (3.5MB
+          # after a full run), which must never flood the output.
+          echo "== orca debug log =="
+          SIZE=$(stat -c%s /tmp/orca-gate-speech.log 2>/dev/null || echo 0)
+          echo "size: ${SIZE} bytes"
+          if [ "$SIZE" -gt 262144 ]; then
+            echo "(over 256KB — first and last 400 lines only)"
+            head -n 400 /tmp/orca-gate-speech.log
+            echo "... [middle omitted] ..."
+            tail -n 400 /tmp/orca-gate-speech.log
+          else
+            cat /tmp/orca-gate-speech.log 2>/dev/null || echo "(no file)"
+          fi
+
       # The counts above are markers I chose in advance, which is how the last
       # two wrong conclusions in this investigation were reached. Orca's debug
       # log is the primary source; upload it and read it rather than grepping

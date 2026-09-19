@@ -142,6 +142,40 @@ workflow now uploads Orca's full debug log as an artifact, because the counts
 above are markers chosen in advance — which is exactly how the last two wrong
 conclusions here were reached — and the log itself is the primary source.
 
+#### The same moment in both environments
+
+Every number reported from CI so far was measured at a different point in the
+run than its local counterpart, which made the comparisons worthless — 157 grabs
+in CI against 677 locally says nothing when one run aborts at the input probe
+and the other carries on for another minute. The gate now prints a fingerprint
+**at the input probe, on pass and on fail**, so the two are finally comparable.
+
+Local baseline, from a passing run:
+
+```
+log 213842B · keys 4 · grabs 278 · Chromium script loaded
+```
+
+Against that, the CI figure already in hand is stark: the runner's *entire*
+Orca debug log, for the whole job, is **20,795 bytes** — an order of magnitude
+smaller than the local log has already grown to by the probe. The earlier
+3.5 MB-versus-20 KB comparison overstated the gap (a full local run ends around
+2.8 MB), but shrinking it to a like-for-like point does not make it go away.
+
+`Chromium script loaded` is the sharpest of the four fields. Orca's browse-mode
+handlers for `h` and the arrow keys live in `orca.scripts.toolkits.Chromium`. If
+CI never loads that script, Orca has no handler for those keys whatever reaches
+it — which would fit grabs being installed while no key events are processed.
+**A hypothesis to test against the log, not a conclusion.**
+
+The workflow now prints the Orca debug log into the job output rather than only
+uploading it as an artifact, because the artifact cannot be read from the
+session doing this work: its egress proxy rejects the Azure blob host GitHub
+serves artifacts from. At CI size the whole log fits in the job log. It also
+prints `/tmp/atspi-reg.log` and `/tmp/atspi-bus.log` — the AT-SPI registry's and
+bus launcher's stderr, which `scripts/a11y-stack.sh` has been writing since the
+beginning and which nothing has ever read.
+
 #### A probe that was cut
 
 An AT-SPI keystroke listener registered directly from `python3-gi`, with no Orca

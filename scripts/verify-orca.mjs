@@ -18,7 +18,7 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { readFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, rmSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { serve } from './serve-preview.mjs';
@@ -107,6 +107,26 @@ const countInLog = (marker) => {
   try {
     return readFileSync(SPEECH_LOG, 'latin1').split(marker).length - 1;
   } catch { return 0; }
+};
+
+/**
+ * A fingerprint of Orca's state at the input probe, printed on pass and on
+ * fail.
+ *
+ * Every number reported from CI so far has been measured at a different point
+ * in the run than its local counterpart, which made the comparisons worthless:
+ * 157 grabs in CI against 677 locally says nothing when one run aborts here and
+ * the other carries on for another minute. This is the same moment in both.
+ *
+ * `Chromium script` is the sharpest of the four. Orca's browse-mode handlers
+ * for h and the arrow keys live in that script; if it never loads, Orca has no
+ * handler for those keys whatever reaches it.
+ */
+const checkpoint = () => {
+  let bytes = 0;
+  try { bytes = statSync(SPEECH_LOG).size; } catch { /* no log yet */ }
+  return `log ${bytes}B · keys ${keysSeenByOrca()} · grabs ${grabsAddedByOrca()} · ` +
+    `Chromium script ${countInLog('Active script is: Chromium') > 0 ? 'loaded' : 'NOT loaded'}`;
 };
 
 const key = (k) => {
@@ -339,12 +359,12 @@ else:
            ? `Orca received ${delivered} of them, so input arrives and Orca stays silent: ` +
              'its reading cursor is not on the document.'
            : 'Orca received none of them, so the keys never reach its AT-SPI keyboard ' +
-             `listener. Orca has installed ${grabsAddedByOrca()} keyboard grabs ` +
-             '(677 on a local passing run), which says whether it even asked for them.') +
+             'listener.') +
+         ` At this point: ${checkpoint()}.` +
          ' Nothing below would be measuring the components.');
     throw new Error('no-input');
   }
-  note('key events reach the browser and Orca responds to them');
+  note(`key events reach the browser and Orca responds to them — ${checkpoint()}`);
 
   /* --- Step 1: findings reachable by heading, announced with level --- */
   let mark = spoken().length;
