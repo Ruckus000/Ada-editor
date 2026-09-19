@@ -176,6 +176,53 @@ prints `/tmp/atspi-reg.log` and `/tmp/atspi-bus.log` — the AT-SPI registry's a
 bus launcher's stderr, which `scripts/a11y-stack.sh` has been writing since the
 beginning and which nothing has ever read.
 
+#### Diagnosed: Orca's structural navigation is suspended
+
+Reading the log rather than sampling it produced the answer in one round, and
+it is not what any of the five previous rounds guessed.
+
+```
+STRUCTURAL NAVIGATION: Bindings set up. Suspended: True
+DISABLED BINDING for 'Go to next heading (enabled: False)': h mods=0 clicks=1 grab ids=[]
+DISABLED BINDING for 'Go to next image (enabled: False)':   g mods=0 clicks=1 grab ids=[]
+DISABLED BINDING for 'Go to next landmark (enabled: False)': m mods=1 clicks=1 grab ids=[]
+```
+
+`grab ids=[]` is the whole story. **Orca holds no X grab for `h`.** The key is
+never intercepted, falls through to Chromium as an ordinary character, and
+produces no speech. Counted across both logs:
+
+| | CI runner | local (passing) |
+|---|---|---|
+| `Go to next heading (enabled: True)` | **0** | 27 |
+| `ENABLED BINDING` | 73 | 1809 |
+| `STRUCTURAL NAVIGATION: Refreshing bindings` | 1 | 8 |
+| `_inFocusMode: False` | 0 logged | 183 |
+
+In CI the bindings are created suspended and never resume. Locally Orca
+refreshes them eight times and processes `h` as a navigation event thirty times.
+
+**Every previous framing of this failure was wrong**, including two written into
+this file and retracted: "XTEST is not reaching the renderer", "Orca's reading
+cursor is not on the document", and most recently "delivery is the problem, not
+Orca state". There was never an input-delivery problem. Orca receives no key
+events for `h` because it never asked the X server for them — while still
+installing 73 other grabs, which is why the grab count looked reassuring.
+
+The predicted cause going into this round was that Orca's Chromium script would
+not be loaded. It is loaded:
+`SCRIPT MANAGER: Active script is: Chromium (module=orca.scripts.toolkits.Chromium.script)`,
+and the log shows Orca walking the document, reaching
+`[heading: 'Design system preview']` and generating speech for it. That
+prediction was wrong too. The log answered anyway, which is the point of reading
+a primary source instead of grepping for an expected marker.
+
+**Still open: why they stay suspended.** Orca suspends structural navigation in
+contexts where single letters must reach the page rather than the screen reader.
+Which condition holds on a runner and not locally is the next question, and it
+is a question about Orca's mode state — not about X, not about AT-SPI, and not
+about this design system.
+
 #### A probe that was cut
 
 An AT-SPI keystroke listener registered directly from `python3-gi`, with no Orca

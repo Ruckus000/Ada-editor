@@ -90,20 +90,23 @@ Stated plainly rather than discovered later.
    synthetic keypresses still produce no speech. The gate reports exactly that,
    in about two minutes.
 
-   An earlier version of this note called the cause "XTEST synthetic input does
-   not reach Chromium's renderer." That claimed more than the evidence supports.
-   Reading Orca's own log settled it instead: **Orca received none of the probe
-   keys**, so they never reach its AT-SPI keyboard listener. Delivery is the
-   problem, not Orca's state — which also rules out the reading-cursor
-   explanation. The next thing to compare is which X extensions the runner's
-   Xvfb actually offers against a working local display
-   (`xdpyinfo -queryExtensions`), since AT-SPI's device event controller needs
-   one of them to register a keystroke listener.
+   **Now diagnosed.** Orca's own debug log shows structural navigation set up
+   suspended and never resumed: `Bindings set up. Suspended: True`, and every
+   navigation binding reading `enabled: False` with `grab ids=[]`. Orca holds no
+   X grab for `h`, so the key falls through to Chromium as an ordinary character
+   and produces no speech. In CI `Go to next heading (enabled: True)` appears
+   zero times; locally it appears 27.
 
-   Until a CI transcript shows Orca reading page content the job stays
-   non-blocking, and it can no longer skip silently: a skip is a failure when
-   `CI` is set. Linux screen reader evidence for this project comes from local
-   runs, not from CI.
+   There was never an input-delivery problem. Three earlier conclusions recorded
+   here — that XTEST was not reaching the renderer, that Orca's reading cursor
+   was not on the document, and that delivery rather than Orca state was at
+   fault — were all wrong, and all were reached by grepping CI output for a
+   marker chosen in advance rather than reading the log.
+
+   Why the bindings stay suspended is open, and is a question about Orca's mode
+   state rather than about this design system. Until a CI transcript shows Orca
+   reading page content the job stays non-blocking, and it cannot skip silently:
+   a skip is a failure when `CI` is set.
 
    Orca is also one implementation; browse-mode semantics differ between screen
    readers, so Orca passing does not predict NVDA or VoiceOver.
