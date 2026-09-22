@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { Fragment, Slice } from 'prosemirror-model';
+import type { Node as PMNode } from 'prosemirror-model';
 import { EditorState, NodeSelection, Plugin, TextSelection } from 'prosemirror-state';
 import type { Command } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
@@ -91,7 +93,10 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const headingRef = useRef<HTMLHeadingElement>(null);
   const pendingFocus = useRef(false);
   const checkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const figureCount = useRef(0);
+  // One counter for every image id (inserted, pasted, header/footer), so ids never collide.
+  const imageSeq = useRef(0);
+  // Findings the user dismissed; the image reconcile below must not bring them back.
+  const dismissedRef = useRef(new Set<string>());
 
   useRegionCycling(useMemo(() => [docRegion, findingsRegion], []));
 
@@ -183,6 +188,23 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
         'aria-label': 'Document text',
         spellcheck: 'true',
       },
+      // Pasted or copied images get fresh ids: a copy of an image in this document
+      // would otherwise share its id, and alt-text edits would hit the wrong one.
+      transformPasted(slice) {
+        const renumber = (fragment: Fragment): Fragment => {
+          const nodes: PMNode[] = [];
+          fragment.forEach((node) => {
+            if (node.type === nodeTypes.figure) {
+              const n = ++imageSeq.current;
+              nodes.push(node.type.create({ ...node.attrs, id: `img-${n}`, label: `pasted image ${n}` }));
+            } else {
+              nodes.push(node.isLeaf ? node : node.copy(renumber(node.content)));
+            }
+          });
+          return Fragment.from(nodes);
+        };
+        return new Slice(renumber(slice.content), slice.openStart, slice.openEnd);
+      },
       handleClick(_view, _pos, event) {
         const id = (event.target as HTMLElement).closest?.('[data-issue-id]')?.getAttribute('data-issue-id');
         if (id) handlersRef.current.activate(id);
@@ -207,6 +229,16 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
             if (f.anchor.kind !== 'figure') return [f];
             const pos = figurePos(next, f.anchor.figureId);
             return pos < 0 ? [] : [{ ...f, from: pos, to: pos + 1 }];
+          });
+          // Every image without alt text is a blocker, however it arrived (toolbar,
+          // paste, drop), unless the user already dismissed that finding.
+          next.doc.descendants((node, pos) => {
+            if (node.type !== nodeTypes.figure) return true;
+            const id = node.attrs.id as string;
+            if (!node.attrs.alt && !dismissedRef.current.has(`img-alt-${id}`) && !findingsRef.current.some((f) => f.id === `img-alt-${id}`)) {
+              findingsRef.current = [...findingsRef.current, imageFinding(id, node.attrs.label as string, { kind: 'figure', figureId: id }, pos)];
+            }
+            return false;
           });
           setFindingsState(findingsRef.current);
           setWordCount(wordsIn(next));
@@ -262,14 +294,11 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const insertImage = () => {
     const view = viewRef.current;
     if (!view) return;
-    figureCount.current += 1;
-    const id = `img-${Date.now()}`;
-    const label = `inserted image ${figureCount.current}`;
-    view.dispatch(view.state.tr.replaceSelectionWith(nodeTypes.figure!.create({ id, label })).scrollIntoView());
-    const pos = figurePos(view.state, id);
-    const finding = imageFinding(id, label, { kind: 'figure', figureId: id }, pos);
-    setFindings([...findingsRef.current, finding]);
-    setActiveId(finding.id);
+    const n = ++imageSeq.current;
+    const id = `img-${n}`;
+    // The dispatch's image reconcile adds the blocking finding.
+    view.dispatch(view.state.tr.replaceSelectionWith(nodeTypes.figure!.create({ id, label: `inserted image ${n}` })).scrollIntoView());
+    setActiveId(`img-alt-${id}`);
     setFilter(null);
     announce(`Image inserted. It has no alternative text yet, so it was added as a blocking finding.`);
   };
@@ -306,6 +335,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   };
 
   const onDismiss = (f: EditorFinding) => {
+    dismissedRef.current.add(f.id);
     const rest = removeFinding(f);
     announce(`Dismissed: ${f.title}. ${remaining(rest)}`);
   };
@@ -335,15 +365,17 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const saveAlt = (alt: string) => {
     if (!altTarget) return;
     const findingId = altTarget.kind === 'figure' ? `img-alt-${altTarget.id}` : `img-alt-${sections[altTarget.section].image?.id}`;
+    // Clearing alt text is an explicit "this image is undescribed": flag it again even if dismissed.
+    if (!alt) dismissedRef.current.delete(findingId);
     const exists = findingsRef.current.some((f) => f.id === findingId);
     if (altTarget.kind === 'figure') {
       const view = viewRef.current;
       if (!view) return;
       const pos = figurePos(view.state, altTarget.id);
       if (pos < 0) return;
+      // Empty alt: the dispatch's image reconcile re-adds the finding.
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...view.state.doc.nodeAt(pos)!.attrs, alt }));
-      if (alt && exists) setFindings(findingsRef.current.filter((f) => f.id !== findingId));
-      if (!alt && !exists) setFindings([...findingsRef.current, imageFinding(altTarget.id, altTarget.label, { kind: 'figure', figureId: altTarget.id }, pos)]);
+      if (alt) setFindings(findingsRef.current.filter((f) => f.id !== findingId));
     } else {
       const { section } = altTarget;
       const image = sections[section].image;
@@ -378,7 +410,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   };
 
   const sectionInsertImage = (key: Section) => {
-    const id = `${key}-img-${Date.now()}`;
+    const id = `${key}-img-${++imageSeq.current}`;
     updateSection(key, { image: { id, alt: '' } });
     setFindings([...findingsRef.current, imageFinding(id, `${key} image`, { kind: 'section', section: key })]);
     announce(`Image added to the ${key}. It has no alternative text yet, so it was added as a blocking finding.`);
@@ -509,7 +541,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
           </h2>
 
           {active ? (
-            <div ref={activeCardRef} tabIndex={-1} className={styles.activeCard} aria-labelledby={`finding-${active.id}`}>
+            <div ref={activeCardRef} tabIndex={-1} role="group" className={styles.activeCard} aria-labelledby={`finding-${active.id}`}>
               <div className={styles.cardTop}>
                 <span className={styles.lozenge} data-severity={active.severity}>
                   <Glyph severity={active.severity} />

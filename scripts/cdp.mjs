@@ -20,6 +20,21 @@ if (typeof WebSocket === 'undefined') {
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Every Chrome still running, so a watchdog exit can take them down too.
+const running = new Set();
+
+/**
+ * Fail a hung gate instead of stalling it forever. process.exit does not stop
+ * child processes, so kill Chrome (and whatever `cleanup` owns) first.
+ */
+export const watchdog = (ms, cleanup = () => {}) =>
+  setTimeout(() => {
+    console.error(`Gate timed out after ${ms / 60_000} minutes.`);
+    for (const proc of running) proc.kill('SIGKILL');
+    cleanup();
+    process.exit(1);
+  }, ms).unref();
+
 export const launch = async (pageUrl) => {
   const port = 9222 + Math.floor(Math.random() * 1000);
   const proc = spawn(CHROME, [
@@ -27,6 +42,8 @@ export const launch = async (pageUrl) => {
     '--force-color-profile=srgb', '--disable-extensions',
     `--remote-debugging-port=${port}`, pageUrl,
   ], { stdio: 'ignore' });
+  running.add(proc);
+  proc.once('exit', () => running.delete(proc));
 
   for (let attempt = 0; attempt < 50; attempt++) {
     await sleep(200);
@@ -36,7 +53,7 @@ export const launch = async (pageUrl) => {
       if (target) return { proc, target };
     } catch { /* not up yet */ }
   }
-  proc.kill();
+  proc.kill('SIGKILL'); // SIGTERM is ignored by Chrome for Testing on macOS
   throw new Error('Chromium did not expose a debugging target');
 };
 

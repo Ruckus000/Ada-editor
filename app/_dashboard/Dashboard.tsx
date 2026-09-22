@@ -78,13 +78,16 @@ export function Dashboard({
 
   // Announce search results once typing pauses, not on every keystroke: a
   // screen reader user hears one result count instead of a stream of them.
+  // The count is read when the timer fires, so a filter change mid-pause is included.
+  const countRef = useRef(docs.length);
+  countRef.current = docs.length;
   const firstRender = useRef(true);
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
     const q = query.trim();
     if (!q) return;
     const timer = setTimeout(() => {
-      const n = matching(q, severity, showPassing).length;
+      const n = countRef.current;
       announce(`${n} document${n === 1 ? ' matches' : 's match'} “${q}”.`);
     }, 500);
     return () => clearTimeout(timer);

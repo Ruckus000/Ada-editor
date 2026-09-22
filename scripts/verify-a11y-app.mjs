@@ -17,16 +17,13 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { CHROME, connect, evaluate, key, launch, shutdown, sleep } from './cdp.mjs';
+import { CHROME, connect, evaluate, key, launch, shutdown, sleep, watchdog } from './cdp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
 const AXE = readFileSync(resolve(ROOT, 'node_modules/axe-core/axe.min.js'), 'utf8');
 const NEXT = resolve(ROOT, 'node_modules/.bin/next');
 const VERBOSE = process.argv.includes('--verbose');
-
-// A hung browser must fail the gate, not stall it forever.
-setTimeout(() => { console.error('Gate timed out after 8 minutes.'); process.exit(1); }, 8 * 60_000).unref();
 
 const failures = [];
 const notes = [];
@@ -52,6 +49,11 @@ const freePort = () => new Promise((res) => {
 const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const server = spawn(NEXT, ['start', '-p', String(port), '-H', '127.0.0.1'], { cwd: ROOT, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } });
+
+// A hung browser must fail the gate, not stall it forever, and must not leave
+// `next start` or Chrome running behind it. (`next build` above blocks timers,
+// so the clock starts here.)
+watchdog(8 * 60_000, () => server.kill('SIGKILL'));
 
 let up = false;
 for (let i = 0; i < 100 && !up; i++) {
@@ -119,12 +121,20 @@ async function checkTabOrder(send, max = 80) {
       const a = document.activeElement;
       if (!a || a === document.body) return null;
       // The indicator may be drawn by the element or by a wrapping control
-      // that styles :focus-within (search field, editor page).
-      let el = a, visible = false;
-      for (let d = 0; el && d < 4 && !visible; d++, el = el.parentElement) {
+      // that styles :focus-within (search field, editor page). Compare each
+      // with focus and without it: a card's permanent shadow is not a focus
+      // indicator. Refocusing after keyboard use keeps :focus-visible.
+      const chain = [];
+      for (let el = a, d = 0; el && d < 4; d++, el = el.parentElement) chain.push(el);
+      const look = () => chain.map((el) => {
         const cs = getComputedStyle(el);
-        visible = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== 'none';
-      }
+        return { outline: cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0, shadow: cs.boxShadow };
+      });
+      const focused = look();
+      a.blur();
+      const blurred = look();
+      a.focus();
+      const visible = focused.some((f, i) => (f.outline && !blurred[i].outline) || f.shadow !== blurred[i].shadow);
       return { id: a.tagName + ':' + (a.getAttribute('aria-label') || a.textContent || '').trim().slice(0, 40), visible };
     })()`);
     if (!stop) break;
@@ -296,6 +306,30 @@ async function editor() {
     const moved = await evaluate(send, `!!document.activeElement.closest('aside')`);
     if (!moved) fail('KEYBOARD  F6 did not move from the document to the findings region');
     else note('F6 cycles between document and findings');
+
+    // Paste goes through the same parser as the clipboard: an unsafe link must
+    // lose its href (text kept), and a pasted image without alt must be flagged
+    // like an inserted one. The id deliberately collides with the counter's first id.
+    const findingCount = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
+    const findingsBefore = await findingCount();
+    await evaluate(send, `(() => {
+      const el = document.getElementById('document-text');
+      el.focus();
+      const dt = new DataTransfer();
+      dt.setData('text/html', '<p><a href="javascript:alert(1)">pasted link</a></p><figure data-figure-id="img-1"></figure>');
+      dt.setData('text/plain', 'pasted link');
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    })()`);
+    await sleep(300);
+    const pasted = await evaluate(send, `(() => {
+      const doc = document.getElementById('document-text');
+      return { unsafe: doc.querySelectorAll('a[href^="javascript" i]').length, text: doc.textContent.includes('pasted link') };
+    })()`);
+    const findingsAfter = await findingCount();
+    if (pasted.unsafe || !pasted.text) fail(`PASTE  unsafe link kept its href (${pasted.unsafe}) or its text was lost (${pasted.text})`);
+    else note('pasted javascript: link keeps its text and loses its href');
+    if (findingsAfter !== findingsBefore + 1) fail(`PASTE  pasted image without alt text changed findings ${findingsBefore} -> ${findingsAfter}, expected +1`);
+    else note('pasted image without alt text is flagged as a finding');
 
     await send('Page.reload');
     await sleep(1200);

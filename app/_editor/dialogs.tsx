@@ -3,6 +3,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
+import { safeHref } from './editorSchema';
 import type { Section } from './findings';
 import styles from './editor.module.css';
 
@@ -31,11 +32,9 @@ function Shell({
   onSubmit?: (e: FormEvent) => void;
 }) {
   // These dialogs open from state, not a Dialog.Trigger, so Radix has nowhere
-  // to return focus on close. Remember what had focus when we opened.
+  // to return focus on close. Remember what had focus when we opened: on
+  // open-autofocus focus has not moved yet, so it is still the opener.
   const returnTo = useRef<HTMLElement | null>(null);
-  const wasOpen = useRef(false);
-  if (open && !wasOpen.current && typeof document !== 'undefined') returnTo.current = document.activeElement as HTMLElement | null;
-  wasOpen.current = open;
 
   const body = (
     <>
@@ -50,6 +49,7 @@ function Shell({
         <Dialog.Content
           className={`${styles.palette} ${styles.dialog}`}
           {...(description ? {} : { 'aria-describedby': undefined })}
+          onOpenAutoFocus={() => { returnTo.current = document.activeElement as HTMLElement | null; }}
           onCloseAutoFocus={(e) => {
             if (!returnTo.current?.isConnected) return;
             e.preventDefault();
@@ -127,8 +127,9 @@ export function LinkDialog({
   onClose: () => void;
 }) {
   const [value, setValue] = useState(initial);
+  const [invalid, setInvalid] = useState(false);
   const id = useId();
-  useEffect(() => { if (open) setValue(initial); }, [open, initial]);
+  useEffect(() => { if (open) { setValue(initial); setInvalid(false); } }, [open, initial]);
 
   return (
     <Shell
@@ -136,7 +137,12 @@ export function LinkDialog({
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="Link"
       description="The selected text becomes the link. Make sure it says where the link goes — “click here” fails SC 2.4.4."
-      onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSave(value.trim()); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const href = safeHref(value.trim());
+        if (href) onSave(href);
+        else setInvalid(true);
+      }}
       footer={
         <>
           {initial ? <button type="button" className={styles.btnSubtle} onClick={onRemove}>Remove link</button> : null}
@@ -147,8 +153,23 @@ export function LinkDialog({
     >
       <label className={styles.field} htmlFor={id}>
         <span className={styles.fieldLabel}>Address</span>
-        <input id={id} className={styles.input} type="url" inputMode="url" placeholder="https://" value={value} onChange={(e) => setValue(e.target.value)} />
+        {/* type="text": our check, not the browser's, decides what is valid (it also
+            allows relative, mailto: and tel: links, which type="url" rejects). */}
+        <input
+          id={id}
+          className={styles.input}
+          type="text"
+          inputMode="url"
+          placeholder="https://"
+          value={value}
+          aria-invalid={invalid}
+          {...(invalid ? { 'aria-describedby': `${id}-error` } : {})}
+          onChange={(e) => { setValue(e.target.value); setInvalid(false); }}
+        />
       </label>
+      {invalid ? (
+        <p id={`${id}-error`} className={styles.fieldError} role="alert">Use a web, email or phone address.</p>
+      ) : null}
     </Shell>
   );
 }

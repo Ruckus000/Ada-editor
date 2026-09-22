@@ -23,15 +23,16 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { serve } from './serve-preview.mjs';
-import { CHROME, connect, evaluate, key, launch, shutdown, sleep } from './cdp.mjs';
+import { CHROME, connect, evaluate, key, launch, shutdown, sleep, watchdog } from './cdp.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
 const AXE = resolve(HERE, '../node_modules/axe-core/axe.min.js');
 const VERBOSE = process.argv.includes('--verbose');
 
-// A hung browser must fail the gate, not stall it forever.
-setTimeout(() => { console.error('Gate timed out after 8 minutes.'); process.exit(1); }, 8 * 60_000).unref();
+// A hung browser must fail the gate, not stall it forever. The preview server
+// is in-process, so exiting stops it; the watchdog kills Chrome.
+watchdog(8 * 60_000);
 
 const failures = [];
 const notes = [];

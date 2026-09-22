@@ -60,12 +60,30 @@ const nodes: Record<string, NodeSpec> = {
   },
 };
 
+/** Only web, mail and phone links; anything else (javascript:, data:, vbscript:) is refused. */
+export function safeHref(href: string): string | null {
+  try {
+    // A dummy base lets relative links through. The URL parser strips tabs, newlines and
+    // leading control characters first, so "java\tscript:" is still caught.
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(new URL(href, 'https://x.invalid').protocol) ? href : null;
+  } catch {
+    return null;
+  }
+}
+
 const marks: Record<string, MarkSpec> = {
   link: {
     attrs: { href: {} },
     inclusive: false,
-    parseDOM: [{ tag: 'a[href]', getAttrs: (el) => ({ href: (el as HTMLElement).getAttribute('href') }) }],
-    toDOM: (mark): DOMOutputSpec => ['a', { href: mark.attrs.href, rel: 'noopener noreferrer' }, 0],
+    // A pasted link with an unsafe address keeps its text but loses the link.
+    parseDOM: [{ tag: 'a[href]', getAttrs: (el) => {
+      const href = safeHref((el as HTMLElement).getAttribute('href') ?? '');
+      return href ? { href } : false;
+    } }],
+    toDOM: (mark): DOMOutputSpec => {
+      const href = safeHref(mark.attrs.href as string);
+      return ['a', href ? { href, rel: 'noopener noreferrer' } : {}, 0];
+    },
   },
   strong: {
     parseDOM: [{ tag: 'strong' }, { tag: 'b' }, { style: 'font-weight=bold' }],

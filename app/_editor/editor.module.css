@@ -742,6 +742,9 @@
 
 .input { height: 36px; }
 .textarea { padding-block: 8px; line-height: 1.5; resize: vertical; }
+.input[aria-invalid='true'] { border-color: var(--as-blocker); }
+
+.fieldError { margin: -10px 0 0; font-size: 13px; font-weight: 600; color: var(--as-blocker); }
 
 .tabs { display: flex; gap: 4px; }
 
