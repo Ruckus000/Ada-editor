@@ -102,9 +102,14 @@ ${themeBlock('dark')}
 }
 
 /* Windows High Contrast / forced-colors. Hand every colour back to the OS:
- * in forced-colors mode our palette is not ours to choose. */
+ * in forced-colors mode our palette is not ours to choose.
+ * The selector list matches the dark blocks' specificity so this block wins by
+ * source order; a bare :root lost to them, and dark mode + forced colours kept
+ * the dark palette. */
 @media (forced-colors: active) {
-  :root {
+  :root,
+  :root:not([data-theme="light"]),
+  :root[data-theme="dark"] {
     --ada-surface-canvas: Canvas;
     --ada-surface-raised: Canvas;
     --ada-surface-sunken: Canvas;
