@@ -50,20 +50,42 @@ export const gradeLevel = (prose: string): number | null => {
   return 0.39 * (words.length / sentences.length) + 11.8 * (sylls / words.length) - 15.59;
 };
 
+export interface SentenceSpan {
+  /** Index of the sentence's first character in the input. */
+  from: number;
+  /** Index one past its terminator (exclusive). */
+  to: number;
+}
+
 /**
- * Split prose into sentences, each keeping its terminator.
+ * Sentence boundaries as index spans, so callers can map a flagged sentence
+ * back to a document range.
  *
- * Lookbehind-free equivalent of the spike's terminator-lookbehind split:
- * split on terminator-plus-whitespace while capturing the terminator, then
- * rejoin each piece with the terminator that ended it.
+ * Lookbehind-free equivalent of the spike's terminator-lookbehind split: a
+ * sentence ends at a `.`, `!` or `?` followed by whitespace or end of text.
  */
-export function splitSentences(text: string): string[] {
-  const parts = text.split(/([.!?])\s+/); // odd indices hold the captured terminators
-  const out: string[] = [];
-  for (let i = 0; i < parts.length; i += 2) {
-    const piece = parts[i] ?? '';
-    const term = parts[i + 1] ?? '';
-    if (piece.trim() || term) out.push(piece + term);
+export function sentenceSpans(text: string): SentenceSpan[] {
+  const spans: SentenceSpan[] = [];
+  let start = 0;
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if ((ch === '.' || ch === '!' || ch === '?') && (next === undefined || /\s/.test(next))) {
+      spans.push({ from: start, to: i + 1 });
+      let j = i + 1;
+      while (j < text.length && /\s/.test(text[j]!)) j++;
+      start = j;
+      i = j;
+      continue;
+    }
+    i++;
   }
-  return out.filter((s) => s.trim().length > 0);
+  if (start < text.length) spans.push({ from: start, to: text.length });
+  return spans;
+}
+
+/** Split prose into sentences, each keeping its terminator. */
+export function splitSentences(text: string): string[] {
+  return sentenceSpans(text).map((s) => text.slice(s.from, s.to));
 }

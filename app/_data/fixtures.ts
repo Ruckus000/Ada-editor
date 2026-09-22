@@ -1,4 +1,5 @@
-import type { Severity } from '../../design-system/primitives';
+import { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
+import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 
 /**
  * Fixture data for the app screens. There is no document store or checking
@@ -7,8 +8,8 @@ import type { Severity } from '../../design-system/primitives';
  * `checked` is not an open-finding severity, so documents only count the four
  * severities a person still has to act on.
  */
-export type OpenSeverity = Exclude<Severity, 'checked'>;
-export const OPEN_SEVERITIES: readonly OpenSeverity[] = ['blocker', 'violation', 'advisory', 'manual'];
+export { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
+export type { OpenSeverity };
 
 export interface DocSummary {
   id: string;

@@ -17,6 +17,18 @@ export type Anchor =
   | { kind: 'figure'; figureId: string }
   | { kind: 'section'; section: Section };
 
+/**
+ * What "Apply fix" does. Absent (or `text`) means the suggestion string
+ * replaces the from..to range; the attribute fixes exist because the two
+ * machine-decidable rule fixes are not text replacements — applying them as
+ * text would write a literal "h2" into a heading or replace a figure node
+ * with its alt string.
+ */
+export type FindingFix =
+  | { kind: 'text' }
+  | { kind: 'headingLevel'; level: number }
+  | { kind: 'figureAlt'; alt: string };
+
 export interface EditorFinding extends Issue {
   severity: OpenSeverity;
   excerpt: string;
@@ -24,6 +36,7 @@ export interface EditorFinding extends Issue {
   /** The flagged text as it was when checked, shown struck through beside the fix. */
   original?: string;
   anchor: Anchor;
+  fix?: FindingFix;
 }
 
 export const sortFindings = (list: EditorFinding[]) =>

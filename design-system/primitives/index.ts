@@ -10,4 +10,6 @@ export { VisuallyHidden } from './VisuallyHidden';
 export { issueUnderlinePlugin, issueUnderlineKey } from './issueUnderline';
 export { SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK } from './severity';
 export type { Severity, SeverityEncoding } from './severity';
+export { OPEN_SEVERITIES } from './openSeverity';
+export type { OpenSeverity } from './openSeverity';
 export type { Issue } from './types';

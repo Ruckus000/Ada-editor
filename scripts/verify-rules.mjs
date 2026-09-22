@@ -111,6 +111,15 @@ check('splitSentences keeps terminators without lookbehind (§9.10)', () => {
   deepEq(splitSentences('Version 3.5 is out. Upgrade now.'), ['Version 3.5 is out.', 'Upgrade now.'], 'decimal points do not split');
 });
 
+check('sentenceSpans gives offset-accurate boundaries', () => {
+  const { sentenceSpans } = mod.textHelpers;
+  deepEq(sentenceSpans('A. B!'), [{ from: 0, to: 2 }, { from: 3, to: 5 }], 'two spans');
+  deepEq(sentenceSpans('Unterminated'), [{ from: 0, to: 12 }], 'unterminated text is one span');
+  deepEq(sentenceSpans(''), [], 'empty string');
+  const t = 'Version 3.5 is out. Upgrade now.';
+  deepEq(sentenceSpans(t).map((s) => t.slice(s.from, s.to)), ['Version 3.5 is out.', 'Upgrade now.'], 'slices round-trip');
+});
+
 check('spike regexes ported unchanged', () => {
   assert(GENERIC_LINK_TEXT.has('click here'), 'click here is generic');
   assert(GENERIC_LINK_TEXT.has('download'), 'download is generic');
@@ -137,6 +146,217 @@ check('no lookbehind regexes in app/_engine (§9.10, Safari 12)', () => {
     const src = readFileSync(resolve(dir, name), 'utf8');
     assert(!src.includes('(?<'), `${name} contains a lookbehind — it breaks Safari 12 at module parse`);
   }
+});
+
+/* ---------- rules: PM-doc builders ---------- */
+
+const { schema } = mod;
+const { summarizeBlock, crossBlockFindings, RULES, PROSE_RULE_IDS } = mod.rules;
+
+const N = schema.nodes;
+const M = schema.marks;
+const text = (s, marks) => schema.text(s, marks);
+const link = (href, extra = []) => [M.link.create({ href }), ...extra];
+const para = (...children) => N.paragraph.create(null, children.map((c) => (typeof c === 'string' ? schema.text(c) : c)));
+const heading = (level, str) => N.heading.create({ level }, str === '' ? undefined : schema.text(str));
+const figure = (id, alt, label = 'image') => N.figure.create({ id, alt, label });
+const doc = (...blocks) => N.doc.create(null, blocks);
+
+/** Mirrors check.ts's walk: one entry per textblock/figure, in doc order. */
+function entriesOf(document) {
+  const entries = [];
+  document.descendants((node, pos) => {
+    if (node.isTextblock || node.type === N.figure) {
+      entries.push({ pos, contentSize: node.content.size, summary: summarizeBlock(node) });
+    }
+    return true;
+  });
+  return entries;
+}
+
+/** Per-block findings whose ruleId matches, from a doc. */
+const blockFindings = (document, ruleId) =>
+  entriesOf(document).flatMap((e) => e.summary.findings.filter((f) => f.ruleId === ruleId));
+
+/** Cross-block findings whose ruleId matches, from a doc. */
+const crossFindings = (document, ruleId) =>
+  crossBlockFindings(entriesOf(document)).filter((f) => f.ruleId === ruleId);
+
+const ids = (list) => list.map((f) => f.ruleId);
+
+/* ---------- rules registry ---------- */
+
+check('RULES ports the 11 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 11, 'rule count');
+  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
+  for (const r of RULES) {
+    assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
+    assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
+  }
+  deepEq(RULES.map((r) => r.id).sort(), [
+    'colour-only-reference', 'document-no-h1', 'heading-empty', 'heading-skip',
+    'img-alt-missing', 'img-alt-suspicious', 'link-text-ambiguous', 'link-text-generic',
+    'link-text-raw-url', 'long-sentence', 'reading-level',
+  ], 'rule ids');
+});
+
+/* ---------- link rules ---------- */
+
+check('link runs merge across inner formatting (§9.9)', () => {
+  // "click **here**" — two text nodes, different full mark sets, same link href.
+  const d = doc(para(text('click ', link('https://x.org/a')), text('here', link('https://x.org/a', [M.strong.create()]))));
+  const found = blockFindings(d, 'link-text-generic');
+  eq(found.length, 1, 'fires once on the split link');
+  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].snippet, 'click here', 'merged run text');
+  deepEq(found[0].anchor, { kind: 'blockRange', from: 0, to: 10 }, 'range spans the whole run');
+  // Different hrefs must NOT merge into one run.
+  const two = doc(para(text('here', link('https://x.org/a')), text('here', link('https://x.org/b'))));
+  eq(blockFindings(two, 'link-text-generic').length, 2, 'two hrefs stay two runs');
+});
+
+check('link-text-generic fires only on generic labels', () => {
+  const generic = doc(para(text('For locations, '), text('click here', link('https://x.org/loc')), text('.')));
+  const found = blockFindings(generic, 'link-text-generic');
+  eq(found.length, 1, 'one finding');
+  eq(found[0].criterion, '2.4.4 Link Purpose (In Context)', 'criterion');
+  eq(found[0].fix, undefined, 'no machine fix — naming the destination needs a human');
+  deepEq(found[0].anchor, { kind: 'blockRange', from: 15, to: 25 }, 'range covers only the link');
+  const meaningful = doc(para(text('the winter shelter list', link('https://x.org/s'))));
+  eq(blockFindings(meaningful, 'link-text-generic').length, 0, 'meaningful label is quiet');
+});
+
+check('link-text-raw-url fires only on long raw URLs', () => {
+  const url = 'https://city.example.gov/notices/2026/hearing';
+  const raw = doc(para(text(url, link(url))));
+  const found = blockFindings(raw, 'link-text-raw-url');
+  eq(found.length, 1, 'fires');
+  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].snippet, url, 'full url kept in snippet');
+  const short = doc(para(text('https://x.org', link('https://x.org'))));
+  eq(blockFindings(short, 'link-text-raw-url').length, 0, 'short URL is quiet');
+});
+
+check('link-text-ambiguous: same label, different destinations (cross-block)', () => {
+  const d = doc(
+    para(text('the notice', link('https://x.org/a'))),
+    para(text('The Notice', link('https://x.org/b'))), // case-insensitive label match
+  );
+  const found = crossFindings(d, 'link-text-ambiguous');
+  eq(found.length, 1, 'one finding for the label');
+  eq(found[0].severity, 'manual', 'severity');
+  deepEq(found[0].anchor, { kind: 'docRange', from: 1, to: 11 }, 'anchored at the first occurrence');
+  const same = doc(
+    para(text('the notice', link('https://x.org/a'))),
+    para(text('the notice', link('https://x.org/a'))),
+  );
+  eq(crossFindings(same, 'link-text-ambiguous').length, 0, 'one destination is not ambiguous');
+});
+
+/* ---------- heading rules ---------- */
+
+check('heading-empty fires on a heading with no text', () => {
+  const d = doc(heading(1, 'Title'), heading(2, ''));
+  const found = blockFindings(d, 'heading-empty');
+  eq(found.length, 1, 'one finding');
+  eq(found[0].severity, 'blocker', 'severity');
+  const clean = doc(heading(1, 'Title'), heading(2, 'Section'));
+  eq(blockFindings(clean, 'heading-empty').length, 0, 'non-empty headings are quiet');
+});
+
+check('heading-skip fires on level jumps with a level fix (cross-block)', () => {
+  const d = doc(heading(1, 'Title'), heading(3, 'Jumped'));
+  const found = crossFindings(d, 'heading-skip');
+  eq(found.length, 1, 'one finding');
+  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].title, 'Heading level jumps from h1 to h3', 'title');
+  deepEq(found[0].fix, { kind: 'headingLevel', level: 2 }, 'mechanical fix: one below its parent');
+  deepEq(found[0].anchor, { kind: 'docRange', from: 8, to: 14 }, 'range covers the heading text');
+  const clean = doc(heading(1, 'Title'), heading(2, 'Section'), heading(2, 'Other'));
+  eq(crossFindings(clean, 'heading-skip').length, 0, 'sequential headings are quiet');
+  // A leading h3 (no previous heading) is not a skip — matches the spike (previous starts at 0).
+  eq(crossFindings(doc(heading(3, 'Orphan')), 'heading-skip').length, 0, 'first heading never skips');
+});
+
+check('document-no-h1 fires only when headings exist but none is h1', () => {
+  const found = crossFindings(doc(para('intro'), heading(2, 'Section')), 'document-no-h1');
+  eq(found.length, 1, 'one finding');
+  eq(found[0].severity, 'violation', 'severity');
+  deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored (§6)');
+  eq(crossFindings(doc(heading(1, 'T'), heading(2, 'S')), 'document-no-h1').length, 0, 'h1 present is quiet');
+  eq(crossFindings(doc(para('no headings at all')), 'document-no-h1').length, 0, 'no headings is quiet');
+});
+
+/* ---------- image rules ---------- */
+
+check('img-alt-missing fires on a figure with no alt text', () => {
+  const d = doc(figure('img-1', ''), figure('img-2', 'A plan of the shelter entrance'));
+  const found = blockFindings(d, 'img-alt-missing');
+  eq(found.length, 1, 'one finding');
+  eq(found[0].severity, 'blocker', 'severity');
+  deepEq(found[0].anchor, { kind: 'figure', figureId: 'img-1' }, 'figure-anchored by stable id');
+  eq(found[0].snippet, 'image', 'snippet is the figure label');
+});
+
+check('img-alt-suspicious: redundant prefix gets a figureAlt fix, terse/filename is manual', () => {
+  const prefix = blockFindings(doc(figure('img-1', 'Image of a site plan')), 'img-alt-suspicious');
+  eq(prefix.length, 1, 'prefix fires');
+  eq(prefix[0].severity, 'advisory', 'prefix severity');
+  deepEq(prefix[0].fix, { kind: 'figureAlt', alt: 'a site plan' }, 'mechanical fix strips the prefix');
+  const terse = blockFindings(doc(figure('img-2', 'map')), 'img-alt-suspicious');
+  eq(terse.length, 1, 'terse fires');
+  eq(terse[0].severity, 'manual', 'terse severity');
+  eq(terse[0].fix, undefined, 'no machine fix for judgement calls');
+  const filename = blockFindings(doc(figure('img-3', 'siteplan_map.png')), 'img-alt-suspicious');
+  eq(filename.length, 1, 'filename fires');
+  eq(filename[0].severity, 'manual', 'filename severity');
+  const good = blockFindings(doc(figure('img-4', 'A plan of the proposed shelter entrance')), 'img-alt-suspicious');
+  eq(good.length, 0, 'descriptive alt is quiet');
+  const empty = blockFindings(doc(figure('img-5', '')), 'img-alt-suspicious');
+  eq(empty.length, 0, 'empty alt belongs to img-alt-missing only');
+});
+
+/* ---------- prose rules (gated kind, per-block) ---------- */
+
+check('reading-level flags dense paragraphs above grade 12', () => {
+  const dense = para('Applicants must furnish documentation substantiating residency prior to the aforementioned deadline, '
+    + 'notwithstanding any prior determination issued by the commission to the contrary in this particular matter.');
+  const found = summarizeBlock(dense).findings.filter((f) => f.ruleId === 'reading-level');
+  eq(found.length, 1, 'fires');
+  eq(found[0].severity, 'advisory', 'severity');
+  assert(/^Passage reads at about grade \d+$/.test(found[0].title), `title carries the grade, got ${JSON.stringify(found[0].title)}`);
+  const plain = para('You must bring proof of where you live before the deadline. If you do not, we cannot process the form that you sent to us last week.');
+  eq(summarizeBlock(plain).findings.filter((f) => f.ruleId === 'reading-level').length, 0, 'plain prose is quiet');
+  // Headings are not graded (the spike graded <p> only).
+  eq(summarizeBlock(heading(1, 'Applicants must furnish documentation substantiating residency')).findings.filter((f) => f.ruleId === 'reading-level').length, 0, 'headings are quiet');
+});
+
+const LONG = 'the quick brown fox jumps over the lazy dog '.repeat(4).trim() + '.'; // 36 words
+
+check('long-sentence flags >35-word sentences with sentence-level ranges', () => {
+  const found = summarizeBlock(para(LONG)).findings.filter((f) => f.ruleId === 'long-sentence');
+  eq(found.length, 1, 'fires');
+  eq(found[0].severity, 'advisory', 'severity');
+  eq(found[0].title, 'Sentence runs to 36 words', 'title counts words');
+  deepEq(found[0].anchor, { kind: 'blockRange', from: 0, to: LONG.length }, 'range covers the sentence');
+  // Two sentences: only the long one is flagged, and its range starts after the first.
+  const mixed = summarizeBlock(para(`Short intro. ${LONG}`)).findings.filter((f) => f.ruleId === 'long-sentence');
+  eq(mixed.length, 1, 'only the long sentence fires');
+  deepEq(mixed[0].anchor, { kind: 'blockRange', from: 13, to: 13 + LONG.length }, 'range starts at the second sentence');
+  const short = summarizeBlock(para('This sentence is comfortably under the limit of words.'))
+    .findings.filter((f) => f.ruleId === 'long-sentence');
+  eq(short.length, 0, 'short sentences are quiet');
+});
+
+check('colour-only-reference fires when a colour does the pointing', () => {
+  const d = para('Deadlines are shown in red beside each program.');
+  const found = summarizeBlock(d).findings.filter((f) => f.ruleId === 'colour-only-reference');
+  eq(found.length, 1, 'fires');
+  eq(found[0].severity, 'manual', 'severity');
+  deepEq(found[0].anchor, { kind: 'blockRange', from: 0, to: d.content.size }, 'range covers the paragraph');
+  const quiet = summarizeBlock(para('Red cars are nice.'))
+    .findings.filter((f) => f.ruleId === 'colour-only-reference');
+  eq(quiet.length, 0, 'incidental colour is quiet');
 });
 
 /* ---------- report ---------- */
