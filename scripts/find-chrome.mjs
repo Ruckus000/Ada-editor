@@ -17,15 +17,21 @@ export function findChrome() {
     process.env.PLAYWRIGHT_BROWSERS_PATH,
     '/opt/pw-browsers',
     process.env.HOME ? `${process.env.HOME}/.cache/ms-playwright` : null,
+    process.env.HOME ? `${process.env.HOME}/Library/Caches/ms-playwright` : null, // macOS
   ].filter((r) => typeof r === 'string' && r.length > 0);
 
   for (const root of roots) {
     try {
-      for (const dir of readdirSync(root).filter((d) => d.startsWith('chromium'))) {
+      // Newest revision first: stale caches accumulate, and old builds may not launch.
+      const revision = (d) => Number(d.match(/(\d+)$/)?.[1] ?? 0);
+      const dirs = readdirSync(root).filter((d) => d.startsWith('chromium')).sort((a, b) => revision(b) - revision(a));
+      for (const dir of dirs) {
         for (const rel of [
           'chrome-linux/chrome',
           'chrome-linux/headless_shell',
           'chrome-mac/Chromium.app/Contents/MacOS/Chromium',
+          'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+          'chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
         ]) {
           const candidate = resolve(root, dir, rel);
           if (existsSync(candidate)) return candidate;
