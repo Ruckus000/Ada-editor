@@ -309,10 +309,15 @@ async function editor() {
 
     // Paste goes through the same parser as the clipboard: an unsafe link must
     // lose its href (text kept), and a pasted image without alt must be flagged
-    // like an inserted one. The id deliberately collides with the counter's first id.
+    // like an inserted one. The same clipboard payload — with the same
+    // data-figure-id — is pasted twice: transformPasted always assigns a fresh
+    // id regardless of what was pasted, so a single paste can't prove ids don't
+    // collide (there's nothing yet to collide with). Two identical pastes are the
+    // real test — if the renumbering ever regressed to keep the pasted id, both
+    // copies would share "img-1" and this would catch it.
     const findingCount = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
-    const findingsBefore = await findingCount();
-    await evaluate(send, `(() => {
+    const figureIds = () => evaluate(send, `[...document.querySelectorAll('#document-text [data-figure-id]')].map((el) => el.dataset.figureId)`);
+    const pasteOnce = () => evaluate(send, `(() => {
       const el = document.getElementById('document-text');
       el.focus();
       const dt = new DataTransfer();
@@ -320,16 +325,25 @@ async function editor() {
       dt.setData('text/plain', 'pasted link');
       el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
     })()`);
+    const findingsBefore = await findingCount();
+    const idsBefore = await figureIds();
+    await pasteOnce();
+    await sleep(300);
+    await pasteOnce();
     await sleep(300);
     const pasted = await evaluate(send, `(() => {
       const doc = document.getElementById('document-text');
       return { unsafe: doc.querySelectorAll('a[href^="javascript" i]').length, text: doc.textContent.includes('pasted link') };
     })()`);
     const findingsAfter = await findingCount();
+    const idsAfter = await figureIds();
     if (pasted.unsafe || !pasted.text) fail(`PASTE  unsafe link kept its href (${pasted.unsafe}) or its text was lost (${pasted.text})`);
     else note('pasted javascript: link keeps its text and loses its href');
-    if (findingsAfter !== findingsBefore + 1) fail(`PASTE  pasted image without alt text changed findings ${findingsBefore} -> ${findingsAfter}, expected +1`);
-    else note('pasted image without alt text is flagged as a finding');
+    if (findingsAfter !== findingsBefore + 2) fail(`PASTE  two pasted images without alt text changed findings ${findingsBefore} -> ${findingsAfter}, expected +2`);
+    else note('pasted images without alt text are flagged as findings');
+    if (idsAfter.length !== idsBefore.length + 2) fail(`PASTE  expected exactly two new figures, got ${idsBefore.length} -> ${idsAfter.length}`);
+    else if (new Set(idsAfter).size !== idsAfter.length) fail(`PASTE  two pastes of the same clipboard payload produced colliding figure ids: ${JSON.stringify(idsAfter)}`);
+    else note('repeated paste of the same payload gets fresh, non-colliding ids each time');
 
     await send('Page.reload');
     await sleep(1200);

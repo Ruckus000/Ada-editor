@@ -133,6 +133,9 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
       const render = () => {
         const alt = node.attrs.alt as string;
         const label = node.attrs.label as string;
+        // Mirrors the id toDOM would emit: nothing else on the live DOM identifies
+        // which figure is which (devtools, tests, or future scripting).
+        dom.dataset.figureId = node.attrs.id as string;
         art.setAttribute('aria-label', alt || `${label}, no alternative text`);
         const status = document.createElement('span');
         status.className = alt ? styles.altText! : styles.missingBadge!;
