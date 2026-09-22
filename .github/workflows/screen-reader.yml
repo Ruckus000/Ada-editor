@@ -96,6 +96,11 @@ jobs:
       - name: Stop Finder from opening a window when a disk image mounts
         run: |
           defaults write com.apple.finder OpenWindowForNewRemovableDisk -bool false
+          # cfprefsd caches preference values in memory; killing Finder alone can
+          # relaunch it into a cache that still holds the old value. This run's
+          # transcript still showed the Finder volume window after the first
+          # attempt at this fix, which is consistent with a stale cache.
+          killall cfprefsd || true
           killall Finder || true
 
       # Enables VoiceOver and grants the automation permissions it needs.

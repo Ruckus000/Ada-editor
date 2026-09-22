@@ -42,6 +42,8 @@ const withTranscript = async (sr: ScreenReader, message: string) => {
   return `${message}\n\n--- what the screen reader said (last ${Math.min(log.length, 40)} of ${log.length}) ---\n${tail}`;
 };
 
+const PAGE_PATTERN = /design system preview|accessibility findings|quarterly report/;
+
 const open = async (page: Page, sr: ScreenReader) => {
   await page.goto(PREVIEW_PATH, { waitUntil: 'networkidle' });
   // Hydration must finish first, or the screen reader reads server-rendered
@@ -53,15 +55,29 @@ const open = async (page: Page, sr: ScreenReader) => {
   // it: the first run of these tests spent every Tab press announcing
   // "Finder desktop guidepup-voiceover-preferences Volume" — it was reading the
   // desktop, not the page, and every assertion below was measuring nothing.
-  await page.bringToFront();
-  await page.locator('h1').first().click();
-  await page.evaluate(() => document.querySelector('main')?.focus());
-  await sr.press('Control+Home');
+  //
+  // A single attempt is not enough: on a CI runner the screen reader itself has
+  // things to say first — VoiceOver's own settings/onboarding screen, Guidepup's
+  // "Welcome to Guidepup." startup narration, a Finder window for a disk that
+  // just mounted — and any of them can still be mid-utterance the instant this
+  // checks. Keep re-asserting focus and re-checking rather than judging on one
+  // snapshot; this is the same lesson the Orca gate already learned the hard way
+  // (see waitForSpeech in verify-orca.mjs) and it was never carried over here.
+  let heard = '';
+  const deadline = Date.now() + 30_000;
+  do {
+    await page.bringToFront();
+    await page.locator('h1').first().click();
+    await page.evaluate(() => document.querySelector('main')?.focus());
+    await sr.press('Control+Home');
+    heard = (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
+    if (PAGE_PATTERN.test(heard)) return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  } while (Date.now() < deadline);
 
   // Fail here, loudly, rather than let a downstream assertion report something
   // misleading. If the screen reader is not reading this page, nothing after
   // this point means anything.
-  const heard = (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
   expect(
     heard,
     await withTranscript(
@@ -69,7 +85,7 @@ const open = async (page: Page, sr: ScreenReader) => {
       'The screen reader never reached the page. It is reading another application, ' +
         'so no assertion below would be measuring the components.'
     )
-  ).toMatch(/design system preview|accessibility findings|quarterly report/);
+  ).toMatch(PAGE_PATTERN);
 };
 
 /**
