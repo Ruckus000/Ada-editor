@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { expect, type Page } from '@playwright/test';
 
 /**
@@ -44,6 +45,27 @@ const withTranscript = async (sr: ScreenReader, message: string) => {
 
 const PAGE_PATTERN = /design system preview|accessibility findings|quarterly report/;
 
+/**
+ * page.bringToFront() only reorders tabs within the browser's own internal
+ * state (it's the CDP/WebDriver-BiDi "Page.bringToFront", not an OS call) — it
+ * never actually raises the app to the real OS foreground. On macOS, VoiceOver
+ * reads whatever genuinely has OS focus, so without this its cursor stays
+ * wherever it was — a transcript from this exact harness read "You are
+ * currently on a Volume" over and over, unmoved by repeated bringToFront()
+ * calls, which is what proved it wasn't a timing problem. Playwright's bundled
+ * WebKit runs as an app literally named "Playwright" (confirmed empirically:
+ * .../webkit-<rev>/Playwright.app), so a real Apple Event activation targets
+ * that by name. Best-effort: the CI runner's Guidepup setup step configures the
+ * Automation permission this needs, but if it's ever missing this must not
+ * crash the test — the retry loop's own bringToFront() is still the fallback.
+ */
+const activateOnMacOS = () => {
+  if (process.platform !== 'darwin') return;
+  try {
+    execFileSync('osascript', ['-e', 'tell application "Playwright" to activate']);
+  } catch { /* best-effort; the retry loop still tries bringToFront() */ }
+};
+
 const open = async (page: Page, sr: ScreenReader) => {
   await page.goto(PREVIEW_PATH, { waitUntil: 'networkidle' });
   // Hydration must finish first, or the screen reader reads server-rendered
@@ -66,6 +88,7 @@ const open = async (page: Page, sr: ScreenReader) => {
   let heard = '';
   const deadline = Date.now() + 30_000;
   do {
+    activateOnMacOS();
     await page.bringToFront();
     await page.locator('h1').first().click();
     await page.evaluate(() => document.querySelector('main')?.focus());
