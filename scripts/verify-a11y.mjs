@@ -19,104 +19,25 @@
  *   node scripts/verify-a11y.mjs [--verbose]
  */
 
-import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { serve } from './serve-preview.mjs';
-import { findChrome } from './find-chrome.mjs';
+import { CHROME, connect, evaluate, key, launch, shutdown, sleep, watchdog } from './cdp.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CHROME = findChrome();
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
 const AXE = resolve(HERE, '../node_modules/axe-core/axe.min.js');
 const VERBOSE = process.argv.includes('--verbose');
+
+// A hung browser must fail the gate, not stall it forever. The preview server
+// is in-process, so exiting stops it; the watchdog kills Chrome.
+watchdog(8 * 60_000);
 
 const failures = [];
 const notes = [];
 const fail = (m) => failures.push(m);
 const note = (m) => notes.push('  ok  ' + m);
-
-/* ---------- CDP plumbing ---------- */
-
-// Node 20 has no global WebSocket, and CDP needs one. Fail with a sentence
-// rather than a bare ReferenceError three frames deep.
-if (typeof WebSocket === 'undefined') {
-  console.error(`This gate needs Node 22 or newer for the global WebSocket (running ${process.version}).`);
-  process.exit(1);
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-const launch = async (pageUrl) => {
-  const port = 9222 + Math.floor(Math.random() * 1000);
-  const proc = spawn(CHROME, [
-    '--headless', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
-    '--force-color-profile=srgb', '--disable-extensions',
-    `--remote-debugging-port=${port}`, pageUrl,
-  ], { stdio: 'ignore' });
-
-  for (let attempt = 0; attempt < 50; attempt++) {
-    await sleep(200);
-    try {
-      const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-      const target = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl);
-      if (target) return { proc, target };
-    } catch { /* not up yet */ }
-  }
-  proc.kill();
-  throw new Error('Chromium did not expose a debugging target');
-};
-
-const connect = async (target) => {
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  const pending = new Map();
-  let id = 0;
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.id && pending.has(msg.id)) {
-      const { resolve: res, reject } = pending.get(msg.id);
-      pending.delete(msg.id);
-      msg.error ? reject(new Error(msg.error.message)) : res(msg.result);
-    }
-  };
-  await new Promise((r) => { ws.onopen = r; });
-  const send = (method, params = {}) =>
-    new Promise((res, reject) => {
-      const i = ++id;
-      pending.set(i, { resolve: res, reject });
-      ws.send(JSON.stringify({ id: i, method, params }));
-    });
-  return { ws, send };
-};
-
-const evaluate = async (send, expression) => {
-  const { result, exceptionDetails } = await send('Runtime.evaluate', {
-    expression, returnByValue: true, awaitPromise: true,
-  });
-  if (exceptionDetails) throw new Error(exceptionDetails.text + ' ' + (exceptionDetails.exception?.description ?? ''));
-  return result.value;
-};
-
-const key = async (send, k, modifiers = 0) => {
-  const codes = {
-    Tab: { windowsVirtualKeyCode: 9, code: 'Tab', key: 'Tab' },
-    Enter: { windowsVirtualKeyCode: 13, code: 'Enter', key: 'Enter' },
-    Escape: { windowsVirtualKeyCode: 27, code: 'Escape', key: 'Escape' },
-    ArrowDown: { windowsVirtualKeyCode: 40, code: 'ArrowDown', key: 'ArrowDown' },
-    ArrowUp: { windowsVirtualKeyCode: 38, code: 'ArrowUp', key: 'ArrowUp' },
-    Home: { windowsVirtualKeyCode: 36, code: 'Home', key: 'Home' },
-    End: { windowsVirtualKeyCode: 35, code: 'End', key: 'End' },
-    F6: { windowsVirtualKeyCode: 117, code: 'F6', key: 'F6' },
-  };
-  const base = codes[k];
-  // Enter must carry text, or the browser never performs the default action on a
-  // focused button — handlers fire, but the button is not activated.
-  const text = k === 'Enter' ? '\r' : undefined;
-  await send('Input.dispatchKeyEvent', { type: text ? 'keyDown' : 'rawKeyDown', modifiers, ...base, ...(text ? { text } : {}) });
-  await send('Input.dispatchKeyEvent', { type: 'keyUp', modifiers, ...base });
-  await sleep(60);
-};
 
 /* ---------- checks ---------- */
 
@@ -354,12 +275,18 @@ try {
   }
 
   // axe again, under forced colours: contrast rules behave differently here.
-  const axeForced = JSON.parse(await evaluate(send, `
-    axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa'] } })
-      .then(r => JSON.stringify({ violations: r.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })) }))
-  `));
-  for (const v of axeForced.violations) fail(`AXE(forced-colors)  ${v.id} (${v.impact}) x${v.nodes}`);
-  if (axeForced.violations.length === 0) note('forced-colors: axe-core reports 0 violations');
+  // Both schemes, explicitly: the dark theme block once outranked the
+  // forced-colors block, and a light-scheme CI runner could never see it.
+  for (const scheme of ['light', 'dark']) {
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'forced-colors', value: 'active' }, { name: 'prefers-color-scheme', value: scheme }] });
+    await sleep(200);
+    const axeForced = JSON.parse(await evaluate(send, `
+      axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21aa','wcag22aa'] } })
+        .then(r => JSON.stringify({ violations: r.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })) }))
+    `));
+    for (const v of axeForced.violations) fail(`AXE(forced-colors, ${scheme})  ${v.id} (${v.impact}) x${v.nodes}`);
+    if (axeForced.violations.length === 0) note(`forced-colors (${scheme} scheme): axe-core reports 0 violations`);
+  }
 
   await send('Emulation.setEmulatedMedia', { features: [] });
   await sleep(150);
@@ -371,8 +298,7 @@ try {
   if (afterF6 !== 'moved') fail('KEYBOARD  F6 did not cycle out of the document region');
   else note('F6 cycles between document and findings regions');
 } finally {
-  ws.close();
-  proc.kill();
+  await shutdown(send, ws, proc);
   server.close();
 }
 

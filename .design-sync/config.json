@@ -1,0 +1,23 @@
+{
+  "projectId": "8af0a4a3-d622-4d64-bdf3-065519d6a9ca",
+  "shape": "package",
+  "pkg": "ada-editor",
+  "globalName": "AdaEditor",
+  "buildCmd": "node .design-sync/build-pkg.mjs",
+  "srcDir": "../../../design-system/primitives",
+  "cssEntry": "dist/primitives.css",
+  "tokensPkg": "../.design-sync/.cache/pkg",
+  "tokensGlob": "tokens/*.css",
+  "docsDir": "../../../docs/design-system",
+  "runtimeFontPrefixes": [
+    "Iowan Old Style"
+  ],
+  "overrides": {
+    "IssueList": {
+      "cardMode": "single",
+      "primaryStory": "Findings",
+      "viewport": "520x1240"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

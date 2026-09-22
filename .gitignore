@@ -5,3 +5,15 @@ scripts/spike/results.json
 .DS_Store
 *.log
 test-results/
+
+# design-sync
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+
+# next
+.next/
+next-env.d.ts
+*.tsbuildinfo
