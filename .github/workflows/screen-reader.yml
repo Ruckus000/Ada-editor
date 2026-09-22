@@ -3,14 +3,28 @@ name: screen readers
 # Real screen readers, on the platforms they exist on. The Linux/Orca gate runs
 # in design-system.yml; this covers the implementations Orca cannot speak for.
 #
-# NON-BLOCKING, deliberately. Both screen readers attach and drive the page, but
-# are stuck on application activation — VoiceOver reads the Finder rather than
-# the browser, because bringToFront() raises a window without making the browser
-# frontmost on macOS. The assertions are therefore untested rather than wrong.
+# NON-BLOCKING, deliberately — same as the Orca gate in design-system.yml, which
+# is also continue-on-error there for the same class of reason: none of the three
+# screen reader gates (NVDA, VoiceOver, Orca) currently blocks the branch, because
+# none of them reliably reaches the page in CI yet. The assertions are therefore
+# untested rather than wrong.
+#
+# VoiceOver: diagnosed. It reads Finder instead of the browser because starting
+# VoiceOver mounts Guidepup's own preferences disk image, and macOS's default
+# "open a Finder window when a disk mounts" behavior pops a window that wins the
+# focus race — confirmed from a CI transcript reading literally "Finder
+# guidepup-voiceover-preferences-macos-26 Volume". Fix attempt: disable that
+# Finder default before the VoiceOver job runs (see the "Stop Finder..." step).
+#
+# NVDA: not diagnosed. It announces exactly "blank" and nothing else. No Windows
+# environment has been available to inspect this directly — the leading
+# hypothesis, by analogy with VoiceOver, is that page.bringToFront() does not
+# give the browser real OS-level foreground focus on this platform either, but
+# that is unconfirmed. Don't trust a future comment here that claims otherwise
+# without a transcript or a local Windows repro backing it up.
 #
 # These jobs still RUN and still report failure in the UI; continue-on-error
-# only stops them gating the branch. Real screen reader coverage comes from the
-# Orca gate in design-system.yml, which does block.
+# only stops them gating the branch.
 #
 # Remove continue-on-error once a transcript shows a screen reader reading this
 # page's content. See docs/design-system/screen-reader-test-plan.md.
@@ -72,6 +86,17 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+
+      # Starting VoiceOver mounts a disk image (Guidepup's own preferences volume)
+      # every time — VoiceOver.start() does this itself, not just the setup step
+      # below. macOS's default "open a Finder window for a newly mounted disk"
+      # then pops a window for it, which wins the focus race against the browser:
+      # the transcript this was chasing was literally "Finder
+      # guidepup-voiceover-preferences-macos-26 Volume", not the page.
+      - name: Stop Finder from opening a window when a disk image mounts
+        run: |
+          defaults write com.apple.finder OpenWindowForNewRemovableDisk -bool false
+          killall Finder || true
 
       # Enables VoiceOver and grants the automation permissions it needs.
       - # Pinned to a commit: the action publishes no version tags.
