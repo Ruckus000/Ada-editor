@@ -28,6 +28,11 @@ Pre-application. This repository contains the **design system** and the
   adapted and refused
 - **[Design system](docs/design-system/README.md)** — principles, tokens,
   patterns, conformance bar
+- **[Rule-set spike](docs/audit/rule-set-spike.md)** — validated the checking
+  engine's rule set against 28 real documents before building it
+- **[Checking engine implementation plan](docs/audit/checking-engine-plan.md)**
+  — architecture, rule porting, persistence and performance for the real
+  checker that replaces the editor's current fixture findings
 
 ## Quick start
 
