@@ -2,9 +2,9 @@ name: design system
 
 on:
   push:
-    paths: ['design-system/**', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'app/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
   pull_request:
-    paths: ['design-system/**', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'app/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
 
 jobs:
   verify:
@@ -60,6 +60,9 @@ jobs:
 
       - name: Accessibility gate (axe-core + accessibility tree + keyboard)
         run: node scripts/verify-a11y.mjs --verbose
+
+      - name: App accessibility gate (Dashboard + Editor, builds the Next app)
+        run: node scripts/verify-a11y-app.mjs --verbose
 
   # Split out and NON-BLOCKING. The Orca gate passes reliably on a developer
   # machine (7 checks) but on a runner Orca attaches and then reads nothing —

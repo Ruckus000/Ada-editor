@@ -1,0 +1,111 @@
+import { Schema } from 'prosemirror-model';
+import type { DOMOutputSpec, MarkSpec, NodeSpec } from 'prosemirror-model';
+import { addListNodes } from 'prosemirror-schema-list';
+
+/**
+ * Document schema for the editor screen.
+ *
+ * Formatting lives in marks and node attributes, never in the DOM, so the
+ * findings layer (issueUnderlinePlugin) can decorate ranges without the two
+ * ever fighting over the same markup — the reason the repo chose ProseMirror
+ * over contentEditable + execCommand.
+ */
+
+const MAX_INDENT = 6;
+
+const indentAttr = { indent: { default: 0 } };
+const indentStyle = (indent: number) => (indent ? `margin-inline-start: ${indent * 2}em` : '');
+const parseIndent = (el: HTMLElement) => {
+  const em = parseFloat(el.style.marginInlineStart || el.style.marginLeft || '0');
+  return Math.min(MAX_INDENT, Math.max(0, Math.round(em / 2)));
+};
+
+const nodes: Record<string, NodeSpec> = {
+  doc: { content: 'block+' },
+  paragraph: {
+    content: 'inline*',
+    group: 'block',
+    attrs: indentAttr,
+    parseDOM: [{ tag: 'p', getAttrs: (el) => ({ indent: parseIndent(el as HTMLElement) }) }],
+    toDOM: (node): DOMOutputSpec => ['p', node.attrs.indent ? { style: indentStyle(node.attrs.indent) } : {}, 0],
+  },
+  heading: {
+    attrs: { level: { default: 1 }, ...indentAttr },
+    content: 'inline*',
+    group: 'block',
+    defining: true,
+    parseDOM: [1, 2].map((level) => ({ tag: `h${level}`, attrs: { level } })),
+    toDOM: (node): DOMOutputSpec => [`h${node.attrs.level}`, node.attrs.indent ? { style: indentStyle(node.attrs.indent) } : {}, 0],
+  },
+  /**
+   * A placeholder image. Rendered by a NodeView in EditorScreen so its alt-text
+   * control can live inside the document without being editable text.
+   */
+  figure: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    draggable: false,
+    attrs: { id: {}, alt: { default: '' }, label: { default: 'image' } },
+    parseDOM: [{ tag: 'figure[data-figure-id]', getAttrs: (el) => ({ id: (el as HTMLElement).dataset.figureId, alt: (el as HTMLElement).dataset.alt ?? '' }) }],
+    toDOM: (node): DOMOutputSpec => ['figure', { 'data-figure-id': node.attrs.id, 'data-alt': node.attrs.alt }],
+  },
+  text: { group: 'inline' },
+  hard_break: {
+    inline: true,
+    group: 'inline',
+    selectable: false,
+    parseDOM: [{ tag: 'br' }],
+    toDOM: (): DOMOutputSpec => ['br'],
+  },
+};
+
+const marks: Record<string, MarkSpec> = {
+  link: {
+    attrs: { href: {} },
+    inclusive: false,
+    parseDOM: [{ tag: 'a[href]', getAttrs: (el) => ({ href: (el as HTMLElement).getAttribute('href') }) }],
+    toDOM: (mark): DOMOutputSpec => ['a', { href: mark.attrs.href, rel: 'noopener noreferrer' }, 0],
+  },
+  strong: {
+    parseDOM: [{ tag: 'strong' }, { tag: 'b' }, { style: 'font-weight=bold' }],
+    toDOM: (): DOMOutputSpec => ['strong', 0],
+  },
+  em: {
+    parseDOM: [{ tag: 'em' }, { tag: 'i' }, { style: 'font-style=italic' }],
+    toDOM: (): DOMOutputSpec => ['em', 0],
+  },
+  underline: {
+    parseDOM: [{ tag: 'u' }, { style: 'text-decoration=underline' }],
+    toDOM: (): DOMOutputSpec => ['u', 0],
+  },
+  textColor: {
+    attrs: { color: {} },
+    parseDOM: [{ style: 'color', getAttrs: (value) => ({ color: value }) }],
+    toDOM: (mark): DOMOutputSpec => ['span', { style: `color: ${mark.attrs.color}` }, 0],
+  },
+  highlight: {
+    attrs: { color: {} },
+    parseDOM: [{ tag: 'mark', getAttrs: (el) => ({ color: (el as HTMLElement).style.backgroundColor || 'yellow' }) }],
+    toDOM: (mark): DOMOutputSpec => ['mark', { style: `background-color: ${mark.attrs.color}; color: inherit` }, 0],
+  },
+  fontFamily: {
+    attrs: { family: {} },
+    parseDOM: [{ style: 'font-family', getAttrs: (value) => ({ family: value }) }],
+    toDOM: (mark): DOMOutputSpec => ['span', { style: `font-family: ${mark.attrs.family}` }, 0],
+  },
+  fontSize: {
+    attrs: { size: {} },
+    parseDOM: [{ style: 'font-size', getAttrs: (value) => ({ size: parseInt(value, 10) || 16 }) }],
+    toDOM: (mark): DOMOutputSpec => ['span', { style: `font-size: ${mark.attrs.size}px` }, 0],
+  },
+};
+
+const base = new Schema({ nodes, marks });
+
+export const schema = new Schema({
+  nodes: addListNodes(base.spec.nodes, 'paragraph block*', 'block'),
+  marks: base.spec.marks,
+});
+
+export { MAX_INDENT };
