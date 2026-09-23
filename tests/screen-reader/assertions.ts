@@ -91,17 +91,21 @@ const open = async (page: Page, sr: ScreenReader) => {
  */
 const seek = async (
   sr: ScreenReader,
-  key: string,
+  step: Step,
   matches: (phrase: string) => boolean,
   limit: number
 ): Promise<string | null> => {
   for (let i = 0; i < limit; i++) {
-    await sr.press(key);
+    await step(sr);
     const phrase = (await sr.lastSpokenPhrase()) ?? '';
     if (matches(phrase.toLowerCase())) return phrase;
   }
   return null;
 };
+
+/** How a test moves between controls. NVDA tabs; VoiceOver steps its own cursor. */
+export type Step = (sr: ScreenReader) => Promise<void>;
+const tab: Step = (sr) => sr.press('Tab');
 
 const transcriptText = async (sr: ScreenReader) =>
   (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
@@ -141,10 +145,15 @@ export async function assertFindingsReachableByHeading(page: Page, sr: ScreenRea
  * Guards the defect that motivated the whole harness: four buttons named only
  * "Dismiss" are each individually valid and collectively useless.
  */
-export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader, tabKey = 'Tab') {
+export async function assertButtonsAreDistinct(
+  page: Page,
+  sr: ScreenReader,
+  step: Step = tab,
+  limit = 14
+) {
   await open(page, sr);
   // Tab moves focus between controls; each stop announces the control's name.
-  for (let i = 0; i < 14; i++) await sr.press(tabKey);
+  for (let i = 0; i < limit; i++) await step(sr);
 
   const said = await transcriptText(sr);
   expect(
@@ -162,7 +171,12 @@ export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader, tab
  * it — Orca announced the document instead, and the user lost their place in the
  * list while the live region said the right thing to nobody.
  */
-export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenReader, tabKey = 'Tab') {
+export async function assertFocusSurvivesApplyingAFix(
+  page: Page,
+  sr: ScreenReader,
+  step: Step = tab,
+  limit = 16
+) {
   await open(page, sr);
 
   // Seek a button that actually REMOVES a finding. Since the rule-set spike the
@@ -170,9 +184,9 @@ export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenRead
   // in place, so stopping at the first button would test nothing.
   const button = await seek(
     sr,
-    tabKey,
+    step,
     (phrase) => phrase.includes('apply fix') || phrase.includes('dismiss'),
-    16
+    limit
   );
   expect(
     button,

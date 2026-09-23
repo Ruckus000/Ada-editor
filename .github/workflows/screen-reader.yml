@@ -21,8 +21,9 @@ name: screen readers
 # main." and never read content; NVDA said only "blank". Switching to Guidepup's
 # own navigateToWebContent() fixed VoiceOver: CI run 35868250903 passed the
 # severity and heading tests, the first screen reader assertions ever to pass
-# here. Its Tab tests then failed because WebKit's plain Tab skips buttons, so
-# the VoiceOver spec uses Option+Tab. NVDA still says only "blank" with the
+# here. Its Tab tests then failed: neither Tab nor Option+Tab moved focus, each
+# press re-announcing the h1, so the VoiceOver spec steps with its own cursor
+# instead. NVDA still says only "blank" with the
 # helper, so its cause is something else and remains undiagnosed.
 #
 # These jobs still RUN and still report failure in the UI; continue-on-error
