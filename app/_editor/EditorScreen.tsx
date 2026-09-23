@@ -43,6 +43,7 @@ import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
+import { exportHtml } from './exportHtml';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -367,6 +368,20 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // The mount check counts as a full check: the doc is current as of now.
   useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
 
+  const onExport = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    const s = sectionsRef.current;
+    const html = exportHtml(view.state.doc, { title: doc.title, header: s.header.text, footer: s.footer.text }, document.implementation.createHTMLDocument(''));
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    const file = `${doc.id}.html`;
+    const a = Object.assign(document.createElement('a'), { href: url, download: file });
+    a.click();
+    // Revoking synchronously can cancel the download in some browsers.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.`);
+  };
+
   const onRecheck = () => {
     announce('Checking the document…');
     runFullCheck();
@@ -587,7 +602,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             </ul>
           </div>
         </div>
-        <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
+        <div className={styles.docActions}>
+          <button type="button" className={styles.btnSubtle} onClick={onExport}>Export HTML</button>
+          <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
+        </div>
       </div>
 
       <div className={styles.body}>
