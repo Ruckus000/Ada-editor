@@ -81,7 +81,8 @@ export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
       const d = v as Record<string, unknown>;
       return typeof d.id === 'string' && d.id.length > 0 &&
         typeof d.title === 'string' && typeof d.owner === 'string' &&
-        Array.isArray(d.targets) && typeof d.header === 'string' &&
+        Array.isArray(d.targets) && d.targets.every((t) => typeof t === 'string') &&
+        typeof d.header === 'string' &&
         typeof d.footer === 'string' &&
         typeof d.content === 'object' && d.content !== null &&
         typeof d.lastChecked === 'number';

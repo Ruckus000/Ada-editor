@@ -740,6 +740,7 @@ check('sanitizeStoredDocs normalizes the optional dismissed field', () => {
   };
   deepEq(sanitizeStoredDocs([base])[0].dismissed, [], 'a payload without the field (pre-dating it) normalizes to []');
   deepEq(sanitizeStoredDocs([{ ...base, dismissed: ['a', 3, null, 'b'] }])[0].dismissed, ['a', 'b'], 'non-string members are filtered (trust boundary)');
+  eq(sanitizeStoredDocs([{ ...base, targets: ['WCAG 2.1 AA', { html: 'x' }] }]).length, 0, 'non-string targets drop the doc (they render as React children)');
 });
 
 check('dismissed ids round-trip through the store', () => {
