@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { CHROME, connect, evaluate, key, launch, shutdown, sleep, watchdog } from './cdp.mjs';
+import { CHROME, connect, evaluate, key, launch, shutdown, sleep, track, watchdog } from './cdp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
@@ -48,12 +48,13 @@ const freePort = () => new Promise((res) => {
 
 const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
-const server = spawn(NEXT, ['start', '-p', String(port), '-H', '127.0.0.1'], { cwd: ROOT, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } });
+const server = track(spawn(NEXT, ['start', '-p', String(port), '-H', '127.0.0.1'], { cwd: ROOT, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } }));
 
 // A hung browser must fail the gate, not stall it forever, and must not leave
-// `next start` or Chrome running behind it. (`next build` above blocks timers,
-// so the clock starts here.)
-watchdog(8 * 60_000, () => server.kill('SIGKILL'));
+// `next start` or Chrome running behind it — both are tracked, so the watchdog
+// and a signal kill take them down. (`next build` above blocks timers, so the
+// clock starts here.)
+watchdog(8 * 60_000);
 
 let up = false;
 for (let i = 0; i < 100 && !up; i++) {
@@ -80,7 +81,7 @@ async function runAxe(send, label) {
   if (result.violations.length === 0) note(`axe-core${label}: 0 violations, ${result.passes} rules passed`);
 }
 
-async function checkTree(send) {
+async function checkTree(send, opts = {}) {
   const { nodes } = await send('Accessibility.getFullAXTree');
   const live = (n) => n.ignored !== true;
   const interactive = nodes.filter((n) => INTERACTIVE.has(n.role?.value) && live(n));
@@ -94,7 +95,27 @@ async function checkTree(send) {
   for (const [name, c] of dupes) fail(`AX-AMBIGUOUS  ${c} controls share the accessible name ${JSON.stringify(name)}`);
   if (!dupes.length) note(`${interactive.length} interactive nodes, all named, none ambiguous`);
 
-  const headings = nodes.filter((n) => n.role?.value === 'heading' && live(n)).map((n) => ({
+  // Headings inside the edited document are the ARTIFACT, not app chrome: a
+  // real editor must tolerate documents with broken heading structure — the
+  // engine's heading-skip rule exists to flag exactly that. When opts names
+  // the document textbox, its subtree is excluded from the heading checks.
+  const byId = new Map(nodes.map((n) => [n.nodeId, n]));
+  let headingNodes = nodes.filter((n) => n.role?.value === 'heading' && live(n));
+  if (opts.contentTextbox) {
+    const box = nodes.find((n) => n.role?.value === 'textbox' && (n.name?.value ?? '').trim() === opts.contentTextbox && live(n));
+    if (box) {
+      const inside = new Set([box.nodeId]);
+      const stack = [...(box.childIds ?? [])];
+      while (stack.length) {
+        const id = stack.pop();
+        if (inside.has(id)) continue;
+        inside.add(id);
+        stack.push(...(byId.get(id)?.childIds ?? []));
+      }
+      headingNodes = headingNodes.filter((n) => !inside.has(n.nodeId));
+    }
+  }
+  const headings = headingNodes.map((n) => ({
     name: (n.name?.value ?? '').trim(),
     level: Number(n.properties?.find((p) => p.name === 'level')?.value?.value ?? 0),
   }));
@@ -135,7 +156,10 @@ async function checkTabOrder(send, max = 80) {
       const blurred = look();
       a.focus();
       const visible = focused.some((f, i) => (f.outline && !blurred[i].outline) || f.shadow !== blurred[i].shadow);
-      return { id: a.tagName + ':' + (a.getAttribute('aria-label') || a.textContent || '').trim().slice(0, 40), visible };
+      // 120 chars, not 40: two engine findings on the same passage (e.g. a
+      // long sentence that also reads dense) legitimately share their excerpt
+      // prefix and differ only in the hint suffix.
+      return { id: a.tagName + ':' + (a.getAttribute('aria-label') || a.textContent || '').trim().slice(0, 120), visible };
     })()`);
     if (!stop) break;
     if (seen.at(-1) === stop.id) { fail(`KEYBOARD  Tab did not move focus from ${stop.id} — possible trap`); break; }
@@ -195,6 +219,13 @@ async function dashboard() {
   page = '/';
   const { proc, ws, send } = await openPage('/');
   try {
+    // Every run starts from the seed. Chrome runs on its default profile, which
+    // keeps localStorage per origin, so a reused port would otherwise inherit a
+    // past run's edits and fail below with confusing counts.
+    await evaluate(send, `localStorage.clear()`);
+    await send('Page.reload');
+    await sleep(1200);
+
     await runAxe(send, '');
     await checkTree(send);
     await checkTabOrder(send);
@@ -212,6 +243,7 @@ async function dashboard() {
     await key(send, 'Enter');
     await sleep(300);
     const restored = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
+    // 8 = every seed document (app/_data/seed.ts).
     if (restored !== 8) fail(`EMPTY  clearing did not restore the queue (${restored} rows)`);
     else note('empty state recovers with one action');
 
@@ -219,15 +251,43 @@ async function dashboard() {
     await focusByName(send, '.dash-sevrow', 'Needs your call');
     await key(send, 'Enter');
     await sleep(300);
+    // 3 = the seed documents with at least one manual finding.
     const filtered = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
     const pressed = await evaluate(send, `document.activeElement.getAttribute('aria-pressed')`);
     if (filtered !== 3 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
     else note('severity filter toggles, sets aria-pressed and narrows the queue');
 
+    // Side cards are engine-derived now: the manual card must show a real
+    // finding title from the seeds (not a scripted question), and the criteria
+    // card must hold 1–5 derived rows.
+    const manualCard = await evaluate(send, `document.querySelector('.dash-manual')?.textContent ?? ''`);
+    const criteriaRows = await evaluate(send, `document.querySelectorAll('.dash-criteria li').length`);
+    if (!manualCard.includes('Alternative text may not describe the image')) fail('SIDECARDS  the manual card does not show an engine-derived finding title');
+    else if (criteriaRows < 1 || criteriaRows > 5) fail(`SIDECARDS  criteria card has ${criteriaRows} rows, expected 1-5 derived rows`);
+    else note('side cards show engine-derived findings and criteria');
+
     await send('Page.reload');
     await sleep(1200);
     await checkReflow(send);
     await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
+/* ---------- editor: initial triage ---------- */
+
+// The initially-active finding card must be the MOST SEVERE finding, not the
+// first in document order. benefits-guide is the doc where the two orders
+// differ (an advisory figure precedes a violation link), so it pins the
+// behavior; hearing-notice cannot (its blocker is first either way).
+async function triage() {
+  page = '/editor/benefits-guide';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    const severity = await evaluate(send, `document.querySelector('aside [role="group"][aria-labelledby^="finding-"] [data-severity]')?.getAttribute('data-severity') ?? 'none'`);
+    if (severity !== 'violation') fail(`TRIAGE  initially-active card is "${severity}", expected the most severe finding (violation)`);
+    else note('the initially-active card is the most severe finding, not the first in document order');
   } finally {
     await shutdown(send, ws, proc);
   }
@@ -240,7 +300,7 @@ async function editor() {
   const { proc, ws, send } = await openPage(page);
   try {
     await runAxe(send, '');
-    await checkTree(send);
+    await checkTree(send, { contentTextbox: 'Document text' });
     const stops = await checkTabOrder(send);
     const toolbarStops = stops.filter((s) => /^(BUTTON|SELECT):(Font family|Bold|Italic|Heading 1)/.test(s)).length;
     if (toolbarStops > 1) fail(`TOOLBAR  ${toolbarStops} toolbar controls in the tab order; a toolbar is one tab stop`);
@@ -253,25 +313,74 @@ async function editor() {
     if (second !== 'Font size') fail(`TOOLBAR  ArrowRight moved to ${JSON.stringify(second)}, expected "Font size"`);
     else note('ArrowRight moves within the toolbar');
 
-    // Four findings, one per severity, each with a distinct underline shape.
+    // Findings come from the real engine over the seed content, not fixtures.
+    // Every severity with underlinable TEXT findings shows its distinct shape:
+    // violation wavy, advisory dotted, manual dashed. The seed's blocker (an
+    // image without alt text) anchors to a figure node — figures get a NodeView
+    // badge, not a text underline — so it is asserted via its card.
     const shapes = await evaluate(send, `[...document.querySelectorAll('.ada-underline')].map(e => getComputedStyle(e).textDecorationStyle)`);
-    if (new Set(shapes).size !== 4) fail(`UNDERLINES  expected 4 distinct shapes, got ${JSON.stringify(shapes)}`);
-    else note(`underline shapes: ${shapes.join(', ')}`);
+    const distinct = [...new Set(shapes)].sort();
+    if (JSON.stringify(distinct) !== JSON.stringify(['dashed', 'dotted', 'wavy'])) fail(`UNDERLINES  expected wavy/dotted/dashed, got ${JSON.stringify(shapes)}`);
+    else note(`underline shapes: ${distinct.join(', ')}`);
+    const blockerCard = await evaluate(send, `!!document.querySelector('aside [data-severity="blocker"]')`);
+    if (!blockerCard) fail('UNDERLINES  the seed blocker (image without alt text) has no card in the findings region');
+    else note('blocker finding present as a card (figure-anchored, no text underline)');
+
+    const findingCount = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
+
+    // Structural rules run live on every keystroke (§8.1): editing the flagged
+    // link label removes its finding without waiting for blur or Recheck. The
+    // caret is placed inside the "click here" link and typed into, which makes
+    // the label non-generic.
+    const placed = await evaluate(send, `(() => {
+      const a = [...document.querySelectorAll('#document-text a[href]')].find(x => x.textContent.includes('click here'));
+      if (!a) return false;
+      // The link text may sit inside the underline decoration span, so walk
+      // down to the first real text node rather than trusting firstChild.
+      const textNode = document.createTreeWalker(a, NodeFilter.SHOW_TEXT).nextNode();
+      const range = document.createRange();
+      range.setStart(textNode, 2);
+      range.collapse(true);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.getElementById('document-text').focus();
+      return true;
+    })()`);
+    if (!placed) fail('LIVE  the seed\'s "click here" link is missing');
+    const beforeTyping = await findingCount();
+    await send('Input.insertText', { text: ' now' });
+    await sleep(400);
+    const afterTyping = await findingCount();
+    if (afterTyping !== beforeTyping - 1) fail(`LIVE  editing the generic link label changed findings ${beforeTyping} -> ${afterTyping}, expected -1 without blur or Recheck`);
+    else note('structural findings update live while typing');
 
     // No compliance score anywhere (patterns-suggestion.md, Layer 3).
     const scored = await evaluate(send, `/\\/\\s*100|compliance score|% compliant/i.test(document.body.innerText)`);
     if (scored) fail('SUMMARY  page renders a compliance score');
     else note('no compliance score; summary is counts only');
 
-    // Apply a fix: the text changes, the finding goes, focus lands on a card.
+    // Apply a fix: the engine's mechanical fixes are attribute changes, so
+    // this exercises the anchor-aware Apply path — the seed's h1→h3 skip
+    // becomes an h2, the finding goes, focus lands on a card.
     const before = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
-    await evaluate(send, `[...document.querySelectorAll('aside button')].find(b => b.textContent.includes('clicking here')).click()`);
+    const opened = await evaluate(send, `(() => {
+      const card = [...document.querySelectorAll('aside button')].find(b => b.textContent.includes('Fix the heading level'));
+      card?.click();
+      return Boolean(card);
+    })()`);
+    if (!opened) fail('FINDINGS  no heading-skip card to open');
     await sleep(200);
-    if (!(await focusByName(send, 'aside button', 'Apply fix'))) fail('FINDINGS  no Apply fix on the link finding');
+    if (!(await focusByName(send, 'aside button', 'Apply fix'))) fail('FINDINGS  no Apply fix on the heading-skip finding');
     await key(send, 'Enter');
     await sleep(400);
-    const text = await evaluate(send, `document.getElementById('document-text').textContent`);
-    if (!text.includes('is available as a linked PDF')) fail('FINDINGS  Apply fix did not change the document');
+    const headingFixed = await evaluate(send, `(() => {
+      const d = document.getElementById('document-text');
+      if (!d) return null;
+      return { h3: d.querySelectorAll('h3').length, h2: [...d.querySelectorAll('h2')].filter(h => h.textContent === 'Public Comment').length };
+    })()`);
+    if (headingFixed === null) fail('FINDINGS  the editor did not render when checking the applied fix (no #document-text)');
+    else if (headingFixed.h3 !== 0 || headingFixed.h2 !== 1) fail(`FINDINGS  Apply fix did not change the heading level (h3=${headingFixed.h3}, h2=${headingFixed.h2})`);
     const after = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
     if (after !== before - 1) fail(`FINDINGS  underline count ${before} -> ${after} after applying a fix`);
     const focusAfter = await evaluate(send, `document.activeElement === document.body ? 'BODY' : document.activeElement.tagName`);
@@ -287,6 +396,9 @@ async function editor() {
     const inAside = await evaluate(send, `!!document.activeElement.closest('aside')`);
     if (!inAside) fail('KEYBOARD  focus left the findings region after Dismiss');
     else note('focus stays in the findings region after Dismiss');
+    // Baseline for the reload check below: only the two pasted images may
+    // change this count — in particular, the dismissal must survive.
+    const countAfterDismiss = await findingCount();
 
     // Header & footer dialog: opens, traps, closes on Escape, returns focus.
     await focusByName(send, '[role=toolbar] button', 'Edit header and footer');
@@ -311,11 +423,9 @@ async function editor() {
     // lose its href (text kept), and a pasted image without alt must be flagged
     // like an inserted one. The same clipboard payload — with the same
     // data-figure-id — is pasted twice: transformPasted always assigns a fresh
-    // id regardless of what was pasted, so a single paste can't prove ids don't
-    // collide (there's nothing yet to collide with). Two identical pastes are the
-    // real test — if the renumbering ever regressed to keep the pasted id, both
-    // copies would share "img-1" and this would catch it.
-    const findingCount = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
+    // id regardless of what was pasted. If that renumbering ever regressed to
+    // keep the pasted id, the copies would collide with each other and with the
+    // seed's own "img-1", and the uniqueness check below would catch it.
     const figureIds = () => evaluate(send, `[...document.querySelectorAll('#document-text [data-figure-id]')].map((el) => el.dataset.figureId)`);
     const pasteOnce = () => evaluate(send, `(() => {
       const el = document.getElementById('document-text');
@@ -333,11 +443,13 @@ async function editor() {
     await sleep(300);
     const pasted = await evaluate(send, `(() => {
       const doc = document.getElementById('document-text');
+      if (!doc) return null;
       return { unsafe: doc.querySelectorAll('a[href^="javascript" i]').length, text: doc.textContent.includes('pasted link') };
     })()`);
+    if (pasted === null) fail('PASTE  the editor did not render when checking the paste (no #document-text)');
     const findingsAfter = await findingCount();
     const idsAfter = await figureIds();
-    if (pasted.unsafe || !pasted.text) fail(`PASTE  unsafe link kept its href (${pasted.unsafe}) or its text was lost (${pasted.text})`);
+    if (pasted && (pasted.unsafe || !pasted.text)) fail(`PASTE  unsafe link kept its href (${pasted.unsafe}) or its text was lost (${pasted.text})`);
     else note('pasted javascript: link keeps its text and loses its href');
     if (findingsAfter !== findingsBefore + 2) fail(`PASTE  two pasted images without alt text changed findings ${findingsBefore} -> ${findingsAfter}, expected +2`);
     else note('pasted images without alt text are flagged as findings');
@@ -345,8 +457,55 @@ async function editor() {
     else if (new Set(idsAfter).size !== idsAfter.length) fail(`PASTE  two pastes of the same clipboard payload produced colliding figure ids: ${JSON.stringify(idsAfter)}`);
     else note('repeated paste of the same payload gets fresh, non-colliding ids each time');
 
+    // A pending debounced save must survive SPA navigation: Next Link navs
+    // fire no pagehide, so leaving within the 500ms debounce window used to
+    // strand the last edit. Type, navigate away immediately, come back.
+    await evaluate(send, `(() => {
+      const p = document.querySelector('#document-text p');
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(false);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.getElementById('document-text').focus();
+    })()`);
+    await send('Input.insertText', { text: ' persisted-marker' });
+    await evaluate(send, `document.querySelector('a[aria-label="Back to all documents"]').click()`);
+    await sleep(800);
+    const onDashboard = await evaluate(send, `location.pathname`);
+    if (onDashboard !== '/') fail(`PERSIST  back navigation did not reach the dashboard (at ${JSON.stringify(onDashboard)})`);
+    await evaluate(send, `history.back()`);
+    await sleep(1500);
+    const markerPersisted = await evaluate(send, `document.getElementById('document-text')?.textContent.includes('persisted-marker') ?? false`);
+    if (!markerPersisted) fail('PERSIST  SPA navigation within the debounce window lost the pending save');
+    else note('leaving via SPA navigation flushes the pending save');
+
     await send('Page.reload');
     await sleep(1200);
+
+    // The store persists to localStorage on a 500ms debounce: after reload the
+    // edits must still be there, loaded from the store rather than the seed —
+    // the applied heading fix, the pasted content, and all four figures.
+    const persisted = await evaluate(send, `(() => {
+      const d = document.getElementById('document-text');
+      if (!d) return null;
+      return {
+        fixed: [...d.querySelectorAll('h2')].filter(h => h.textContent === 'Public Comment').length,
+        h3: d.querySelectorAll('h3').length,
+        pasted: d.textContent.includes('pasted link'),
+        figures: d.querySelectorAll('[data-figure-id]').length,
+      };
+    })()`);
+    if (persisted === null) fail('PERSIST  the editor did not render after reload (no #document-text) — a crashed gate hides every other finding');
+    else if (persisted.fixed !== 1 || persisted.h3 !== 0) fail(`PERSIST  reload lost the applied heading fix (${JSON.stringify(persisted)})`);
+    else if (!persisted.pasted) fail('PERSIST  reload lost the pasted content (debounced localStorage save)');
+    else if (persisted.figures !== 4) fail(`PERSIST  expected 2 seed + 2 pasted figures after reload, got ${persisted.figures}`);
+    else note('reload restores the edited document from localStorage');
+    const findingsAfterReload = await findingCount();
+    if (findingsAfterReload !== countAfterDismiss + 2) fail(`PERSIST  findings went ${countAfterDismiss} -> ${findingsAfterReload} across reload; expected exactly +2 (the pasted images), i.e. the dismissal persisted`);
+    else note('dismissals persist across reloads (count = post-dismiss + 2 pasted images)');
+
     await checkReflow(send);
     await checkForcedColors(send);
   } finally {
@@ -356,6 +515,7 @@ async function editor() {
 
 try {
   await dashboard();
+  await triage();
   await editor();
 } finally {
   server.kill();

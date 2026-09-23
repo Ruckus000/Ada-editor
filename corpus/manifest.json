@@ -1,0 +1,202 @@
+[
+  {
+    "name": "usds-playbook.md",
+    "url": "https://raw.githubusercontent.com/usds/playbook/master/README.md",
+    "kind": "gov playbook",
+    "bytes": 5470,
+    "license": "CC0-1.0",
+    "licenseNote": "US Government work, public domain; CC0 worldwide"
+  },
+  {
+    "name": "cfpb-design-system.md",
+    "url": "https://raw.githubusercontent.com/cfpb/design-system/main/README.md",
+    "kind": "gov doc",
+    "bytes": 2972,
+    "license": "CC0-1.0"
+  },
+  {
+    "name": "uswds.md",
+    "url": "https://raw.githubusercontent.com/uswds/uswds/develop/README.md",
+    "kind": "gov doc",
+    "bytes": 31753,
+    "license": "CC0-1.0",
+    "licenseNote": "US Government work, public domain (bundled fonts/icons excepted; not included)"
+  },
+  {
+    "name": "govuk-design-system.md",
+    "url": "https://raw.githubusercontent.com/alphagov/govuk-design-system/main/README.md",
+    "kind": "gov doc",
+    "bytes": 3949,
+    "license": "MIT"
+  },
+  {
+    "name": "w3c-wcag.md",
+    "url": "https://raw.githubusercontent.com/w3c/wcag/main/README.md",
+    "kind": "standards doc",
+    "bytes": 21432,
+    "license": "W3C-Document-License"
+  },
+  {
+    "name": "carbon-accessibility-guide.md",
+    "url": "https://raw.githubusercontent.com/carbon-design-system/carbon/main/docs/guides/accessibility.md",
+    "kind": "guidance",
+    "bytes": 10725,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "publiclab-contributing.md",
+    "url": "https://raw.githubusercontent.com/publiclab/plots2/main/CONTRIBUTING.md",
+    "kind": "procedural",
+    "bytes": 1462,
+    "license": "GPL-3.0"
+  },
+  {
+    "name": "netflix-hollow-contributing.md",
+    "url": "https://raw.githubusercontent.com/Netflix/hollow/master/CONTRIBUTING.md",
+    "kind": "procedural",
+    "bytes": 1248,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "mdn-content.md",
+    "url": "https://raw.githubusercontent.com/mdn/content/main/README.md",
+    "kind": "guidance",
+    "bytes": 2919,
+    "license": "CC-BY-SA-2.5",
+    "licenseNote": "MDN prose license"
+  },
+  {
+    "name": "wicg-proposals.md",
+    "url": "https://raw.githubusercontent.com/WICG/proposals/main/README.md",
+    "kind": "procedural",
+    "bytes": 8227,
+    "license": "W3C-Software-and-Document-License"
+  },
+  {
+    "name": "opensource-guide-contribute.md",
+    "url": "https://raw.githubusercontent.com/github/opensource.guide/main/_articles/how-to-contribute.md",
+    "kind": "long-form guide",
+    "bytes": 36483,
+    "license": "CC-BY-4.0"
+  },
+  {
+    "name": "opensource-guide-starting.md",
+    "url": "https://raw.githubusercontent.com/github/opensource.guide/main/_articles/starting-a-project.md",
+    "kind": "long-form guide",
+    "bytes": 24973,
+    "license": "CC-BY-4.0"
+  },
+  {
+    "name": "opensource-guide-coc.md",
+    "url": "https://raw.githubusercontent.com/github/opensource.guide/main/_articles/code-of-conduct.md",
+    "kind": "long-form guide",
+    "bytes": 10023,
+    "license": "CC-BY-4.0"
+  },
+  {
+    "name": "opensource-guide-leadership.md",
+    "url": "https://raw.githubusercontent.com/github/opensource.guide/main/_articles/leadership-and-governance.md",
+    "kind": "long-form guide",
+    "bytes": 15245,
+    "license": "CC-BY-4.0"
+  },
+  {
+    "name": "opensource-guide-metrics.md",
+    "url": "https://raw.githubusercontent.com/github/opensource.guide/main/_articles/metrics.md",
+    "kind": "long-form guide",
+    "bytes": 9173,
+    "license": "CC-BY-4.0"
+  },
+  {
+    "name": "contributor-covenant.md",
+    "url": "https://raw.githubusercontent.com/EthicalSource/contributor_covenant/release/content/version/2/1/code_of_conduct.md",
+    "kind": "policy",
+    "bytes": 5579,
+    "license": "CC-BY-4.0",
+    "licenseNote": "Contributor Covenant text; the repository's code is under the Hippocratic License 3.0"
+  },
+  {
+    "name": "superset-code-of-conduct.md",
+    "url": "https://raw.githubusercontent.com/apache/superset/master/CODE_OF_CONDUCT.md",
+    "kind": "policy",
+    "bytes": 12992,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "node-readme.md",
+    "url": "https://raw.githubusercontent.com/nodejs/node/main/README.md",
+    "kind": "technical readme",
+    "bytes": 41791,
+    "license": "MIT"
+  },
+  {
+    "name": "react-readme.md",
+    "url": "https://raw.githubusercontent.com/facebook/react/main/README.md",
+    "kind": "technical readme",
+    "bytes": 5317,
+    "license": "MIT"
+  },
+  {
+    "name": "rust-contributing.md",
+    "url": "https://raw.githubusercontent.com/rust-lang/rust/master/CONTRIBUTING.md",
+    "kind": "technical doc",
+    "bytes": 3110,
+    "license": "MIT OR Apache-2.0"
+  },
+  {
+    "name": "kubernetes-readme.md",
+    "url": "https://raw.githubusercontent.com/kubernetes/kubernetes/master/README.md",
+    "kind": "technical readme",
+    "bytes": 4236,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "vscode-readme.md",
+    "url": "https://raw.githubusercontent.com/microsoft/vscode/main/README.md",
+    "kind": "technical readme",
+    "bytes": 6726,
+    "license": "MIT"
+  },
+  {
+    "name": "django-readme.rst",
+    "url": "https://raw.githubusercontent.com/django/django/main/README.rst",
+    "kind": "technical readme",
+    "bytes": 2179,
+    "license": "BSD-3-Clause"
+  },
+  {
+    "name": "tensorflow-readme.md",
+    "url": "https://raw.githubusercontent.com/tensorflow/tensorflow/master/README.md",
+    "kind": "technical readme",
+    "bytes": 9788,
+    "license": "Apache-2.0"
+  },
+  {
+    "name": "bootstrap-readme.md",
+    "url": "https://raw.githubusercontent.com/twbs/bootstrap/main/README.md",
+    "kind": "technical readme",
+    "bytes": 13302,
+    "license": "MIT"
+  },
+  {
+    "name": "eslint-readme.md",
+    "url": "https://raw.githubusercontent.com/eslint/eslint/main/README.md",
+    "kind": "technical readme",
+    "bytes": 20613,
+    "license": "MIT"
+  },
+  {
+    "name": "webpack-readme.md",
+    "url": "https://raw.githubusercontent.com/webpack/webpack/main/README.md",
+    "kind": "technical readme",
+    "bytes": 79628,
+    "license": "MIT"
+  },
+  {
+    "name": "axe-core-readme.md",
+    "url": "https://raw.githubusercontent.com/dequelabs/axe-core/develop/README.md",
+    "kind": "technical readme",
+    "bytes": 10500,
+    "license": "MPL-2.0"
+  }
+]

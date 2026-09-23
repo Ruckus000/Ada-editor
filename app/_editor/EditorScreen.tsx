@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { Fragment, Slice } from 'prosemirror-model';
 import type { Node as PMNode } from 'prosemirror-model';
 import { EditorState, NodeSelection, Plugin, TextSelection } from 'prosemirror-state';
-import type { Command } from 'prosemirror-state';
+import type { Command, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import type { NodeViewConstructor } from 'prosemirror-view';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Glyph,
+  OPEN_SEVERITIES,
   SEVERITY_ENCODING,
   VisuallyHidden,
   issueUnderlineKey,
@@ -17,8 +18,8 @@ import {
   useAnnounce,
   useRegionCycling,
 } from '../../design-system/primitives';
-import { OPEN_SEVERITIES } from '../_data/fixtures';
-import type { DocContent, DocSummary, OpenSeverity } from '../_data/fixtures';
+import type { OpenSeverity } from '../../design-system/primitives';
+import type { DocSummary } from '../_data/seed';
 import { AltTextDialog, HeaderFooterDialog, ImageIcon, LinkDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
@@ -38,7 +39,10 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState } from './editorCommands';
-import { buildDocument, imageFinding, sortFindings, summaryLine } from './findings';
+import { docFromJSON, saveDoc } from '../_data/store';
+import type { DocJSON, StoredDoc } from '../_data/store';
+import { checkDocument, reconcile } from '../_engine/check';
+import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -60,20 +64,29 @@ const figurePos = (state: EditorState, id: string) => {
 const wordsIn = (state: EditorState) =>
   state.doc.textBetween(0, state.doc.content.size, ' ', ' ').trim().split(/\s+/).filter(Boolean).length;
 
-export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocContent }) {
+export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredDoc }) {
   const announce = useAnnounce();
-  const initial = useMemo(() => buildDocument(content), [content]);
+  const initial = useMemo(() => docFromJSON(stored.content), [stored]);
+  // Findings are computed, never seeded: a full check (prose rules included)
+  // runs once at mount, exactly like the blur/Recheck runs do later — minus
+  // the findings this user already dismissed, which persist with the document.
+  const initialFindings = useMemo(() => {
+    const dismissed = new Set(stored.dismissed);
+    return checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f)));
+  }, [initial, stored]);
 
   /* ---------- state ---------- */
-  const [findings, setFindingsState] = useState<EditorFinding[]>(initial.findings);
-  const [activeId, setActiveId] = useState<string | null>(initial.findings[0]?.id ?? null);
+  const [findings, setFindingsState] = useState<EditorFinding[]>(initialFindings);
+  // Triage order: the initially-active card is the MOST SEVERE finding, not
+  // the first in document order — the engine returns doc order, so sort first.
+  const [activeId, setActiveId] = useState<string | null>(sortFindings(initialFindings)[0]?.id ?? null);
   const [filter, setFilter] = useState<OpenSeverity | null>(null);
   const [format, setFormat] = useState<FormatState | null>(null);
-  const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial.doc })));
+  const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
   const [checking, setChecking] = useState(false);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
-    header: { text: content.header, align: 'left', spacing: 12, image: null },
-    footer: { text: content.footer, align: 'left', spacing: 12, image: null },
+    header: { text: stored.header, align: 'left', spacing: 12, image: null },
+    footer: { text: stored.footer, align: 'left', spacing: 12, image: null },
   });
   const [hfOpen, setHfOpen] = useState(false);
   const [hfTab, setHfTab] = useState<Section>('header');
@@ -85,8 +98,12 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const mountRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const findingsRef = useRef(findings);
+  // The array the findings list currently renders. reconcile preserves array
+  // identity when nothing changed (§9.4), so comparing against this skips the
+  // re-render, the list re-sort and the decoration rebuild on no-op edits.
+  const lastRenderedRef = useRef(findings);
   const activeRef = useRef<string | null>(activeId);
-  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, activate: (_id: string) => {}, docChanged: () => {} });
+  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
   const docRegion = useRef<HTMLElement>(null);
   const findingsRegion = useRef<HTMLElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -95,13 +112,22 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const checkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // One counter for every image id (inserted, pasted, header/footer), so ids never collide.
   const imageSeq = useRef(0);
-  // Findings the user dismissed; the image reconcile below must not bring them back.
-  const dismissedRef = useRef(new Set<string>());
+  // Findings the user dismissed; the engine reconcile must not bring them
+  // back. Seeded from the store so dismissals survive reloads, and persisted
+  // on every change (below) — ids are content-derived, so a dismissal only
+  // ever covers the exact text it was made against.
+  const dismissedRef = useRef(new Set<string>(stored.dismissed));
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Latest header/footer state for the debounced save (the timer must not
+  // capture a stale render).
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
 
   useRegionCycling(useMemo(() => [docRegion, findingsRegion], []));
 
   const setFindings = useCallback((next: EditorFinding[]) => {
     findingsRef.current = next;
+    lastRenderedRef.current = next;
     setFindingsState(next);
   }, []);
 
@@ -118,6 +144,13 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
 
   /* ---------- ProseMirror ---------- */
   useEffect(() => {
+    // Start the image-id counter above every id in the document AND every id
+    // a persisted dismissal references: a dismissed-then-deleted figure's id
+    // must never be reissued to a new image, or the stale dismissal would
+    // silently swallow the new image's missing-alt blocker (and a plain
+    // collision would make alt-text edits hit the wrong figure).
+    imageSeq.current = imageIdFloor(initial, stored.dismissed);
+
     const figureView: NodeViewConstructor = (initialNode) => {
       let node = initialNode;
       const dom = document.createElement('figure');
@@ -175,7 +208,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
 
     const view = new EditorView(mountRef.current, {
       state: EditorState.create({
-        doc: initial.doc,
+        doc: initial,
         plugins: [
           ...editingPlugins(),
           issueUnderlinePlugin(() => findingsRef.current.filter((f) => f.anchor.kind === 'text' && f.to > f.from)),
@@ -213,45 +246,46 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
         if (id) handlersRef.current.activate(id);
         return false;
       },
+      handleDOMEvents: {
+        // Prose-heuristic rules are gated on blur (§8.1) so they never flag a
+        // sentence still being typed. Returning false lets PM's own handling run.
+        blur: () => { handlersRef.current.runFullCheck(); return false; },
+      },
       dispatchTransaction(tr) {
-        if (tr.docChanged) {
-          // Keep findings pinned to their text as the document changes. A finding
-          // whose text is deleted outright goes with it.
-          findingsRef.current = findingsRef.current.flatMap((f) => {
-            if (f.anchor.kind !== 'text') return [f];
-            const from = tr.mapping.map(f.from, 1);
-            const to = tr.mapping.map(f.to, -1);
-            return to > from ? [{ ...f, from, to }] : [];
-          });
-        }
         const next = view.state.apply(tr);
+        if (tr.docChanged) {
+          // Keep findings pinned to their text as the document changes; one
+          // deleted outright goes with it. Engine findings get fresh positions
+          // from the run below anyway — this mapping is what carries the gated
+          // PROSE findings across keystrokes until the next blur/Recheck (§8.1).
+          // carryPositions is identity-preserving: a no-op edit allocates
+          // nothing, so reconcile's array-identity fast path (§9.4) engages.
+          findingsRef.current = carryPositions(findingsRef.current, (pos, bias) => tr.mapping.map(pos, bias));
+          // Structural rules run live on every edit — they cannot false-positive
+          // on partial input. Computed BEFORE updateState so the underline
+          // decoration layer builds once, against the fresh findings (§9.5).
+          const fresh = checkDocument(next.doc, { prose: false });
+          findingsRef.current = reconcile(findingsRef.current, fresh, dismissedRef.current, { keepProse: true });
+          setWordCount(wordsIn(next));
+        }
         view.updateState(next);
         setFormat(formatState(next));
         if (tr.docChanged) {
-          findingsRef.current = findingsRef.current.flatMap((f) => {
-            if (f.anchor.kind !== 'figure') return [f];
-            const pos = figurePos(next, f.anchor.figureId);
-            return pos < 0 ? [] : [{ ...f, from: pos, to: pos + 1 }];
-          });
-          // Every image without alt text is a blocker, however it arrived (toolbar,
-          // paste, drop), unless the user already dismissed that finding.
-          next.doc.descendants((node, pos) => {
-            if (node.type !== nodeTypes.figure) return true;
-            const id = node.attrs.id as string;
-            if (!node.attrs.alt && !dismissedRef.current.has(`img-alt-${id}`) && !findingsRef.current.some((f) => f.id === `img-alt-${id}`)) {
-              findingsRef.current = [...findingsRef.current, imageFinding(id, node.attrs.label as string, { kind: 'figure', figureId: id }, pos)];
-            }
-            return false;
-          });
-          setFindingsState(findingsRef.current);
-          setWordCount(wordsIn(next));
+          // reconcile returns the SAME array when nothing changed (§9.4): skip
+          // the render, the findings-list re-sort and the decoration rebuild.
+          if (findingsRef.current !== lastRenderedRef.current) setFindings(findingsRef.current);
           handlersRef.current.docChanged();
+          scheduleSave();
         }
       },
     });
     viewRef.current = view;
     setFormat(formatState(view.state));
     return () => {
+      // Flush a pending save BEFORE destroy: saveNow reads viewRef, and React
+      // runs this cleanup before the persistence effect's, so this is the last
+      // moment the document can be saved on SPA navigation.
+      flushSave();
       view.destroy();
       viewRef.current = null;
     };
@@ -274,6 +308,17 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   }, [findings]);
 
   /* ---------- checking status ---------- */
+  // The gated full run (§8.1): every rule, prose heuristics included. Fires on
+  // editor blur and on the explicit Recheck action — never mid-keystroke. The
+  // engine is memoized, so an unchanged document costs one cache-hit walk.
+  const runFullCheck = useCallback(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const next = reconcile(findingsRef.current, checkDocument(view.state.doc, { prose: true }), dismissedRef.current);
+    if (next !== findingsRef.current) setFindings(next);
+    saveDoc(doc.id, { lastChecked: Date.now() });
+  }, [setFindings, doc.id]);
+
   const markChecking = useCallback((done?: () => void) => {
     clearTimeout(checkTimer.current);
     setChecking(true);
@@ -281,8 +326,51 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   }, []);
   useEffect(() => () => clearTimeout(checkTimer.current), []);
 
+  /* ---------- persistence (§3) ---------- */
+  const saveNow = useCallback(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    saveDoc(doc.id, {
+      content: view.state.doc.toJSON() as DocJSON,
+      header: sectionsRef.current.header.text,
+      footer: sectionsRef.current.footer.text,
+    });
+  }, [doc.id]);
+  // Debounced save, hand-rolled setTimeout — no debounce library (§9.7).
+  const scheduleSave = useCallback(() => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { saveTimer.current = undefined; saveNow(); }, 500);
+  }, [saveNow]);
+  // Dismissals write immediately, never debounced: they are discrete user
+  // decisions, and losing one to a fast reload would resurrect a finding the
+  // user already answered.
+  const persistDismissed = useCallback(() => {
+    saveDoc(doc.id, { dismissed: [...dismissedRef.current] });
+  }, [doc.id]);
+  // Flush a pending debounced save immediately. Two callers: pagehide (reload
+  // or tab close) and the editor view's cleanup — SPA navigation (Next Link)
+  // fires no pagehide, and unmounting is the last moment the live view exists
+  // to be saved.
+  const flushSave = useCallback(() => {
+    if (saveTimer.current === undefined) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    saveNow();
+  }, [saveNow]);
+  useEffect(() => {
+    window.addEventListener('pagehide', flushSave);
+    return () => {
+      window.removeEventListener('pagehide', flushSave);
+      clearTimeout(saveTimer.current);
+    };
+  }, [flushSave]);
+  // The mount check counts as a full check: the doc is current as of now.
+  useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
+
   const onRecheck = () => {
     announce('Checking the document…');
+    runFullCheck();
+    // Purely cosmetic: the work above already finished, synchronously.
     markChecking(() => announce(`Checks up to date. ${summaryLine(findingsRef.current)}.`));
   };
 
@@ -332,13 +420,33 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const onApply = (f: EditorFinding) => {
     const view = viewRef.current;
     if (!view || f.suggestion === undefined) return;
+    // The two machine-decidable rule fixes are attribute changes, not text
+    // replacements: applying them as text would write a literal "h2" into a
+    // heading or replace a figure node with its alt string. Resolve the target
+    // node FIRST and bail if it vanished between the check and the click — a
+    // stale Apply must be a no-op, never a setNodeMarkup with empty attrs.
+    let tr: Transaction;
+    if (f.fix?.kind === 'headingLevel') {
+      const $pos = view.state.doc.resolve(f.from);
+      const pos = $pos.before($pos.depth);
+      const node = view.state.doc.nodeAt(pos);
+      if (!node) return;
+      tr = view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, level: f.fix.level });
+    } else if (f.fix?.kind === 'figureAlt') {
+      const node = view.state.doc.nodeAt(f.from);
+      if (!node) return;
+      tr = view.state.tr.setNodeMarkup(f.from, undefined, { ...node.attrs, alt: f.fix.alt });
+    } else {
+      tr = view.state.tr.insertText(f.suggestion, f.from, f.to);
+    }
     const rest = removeFinding(f);
-    view.dispatch(view.state.tr.insertText(f.suggestion, f.from, f.to));
+    view.dispatch(tr);
     announce(`Fix applied: ${f.title}. ${remaining(rest)}`);
   };
 
   const onDismiss = (f: EditorFinding) => {
-    dismissedRef.current.add(f.id);
+    dismissedRef.current.add(dismissKeyOf(f));
+    persistDismissed();
     const rest = removeFinding(f);
     announce(`Dismissed: ${f.title}. ${remaining(rest)}`);
   };
@@ -369,16 +477,16 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
     if (!altTarget) return;
     const findingId = altTarget.kind === 'figure' ? `img-alt-${altTarget.id}` : `img-alt-${sections[altTarget.section].image?.id}`;
     // Clearing alt text is an explicit "this image is undescribed": flag it again even if dismissed.
-    if (!alt) dismissedRef.current.delete(findingId);
+    if (!alt && dismissedRef.current.delete(findingId)) persistDismissed();
     const exists = findingsRef.current.some((f) => f.id === findingId);
     if (altTarget.kind === 'figure') {
       const view = viewRef.current;
       if (!view) return;
       const pos = figurePos(view.state, altTarget.id);
       if (pos < 0) return;
-      // Empty alt: the dispatch's image reconcile re-adds the finding.
+      // The dispatch's engine reconcile updates the findings on its own: a
+      // non-empty alt drops img-alt-missing, an empty alt re-adds it.
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...view.state.doc.nodeAt(pos)!.attrs, alt }));
-      if (alt) setFindings(findingsRef.current.filter((f) => f.id !== findingId));
     } else {
       const { section } = altTarget;
       const image = sections[section].image;
@@ -400,11 +508,14 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
     },
     activate: (id) => { setActiveId(id); setFilter(null); },
     docChanged: () => markChecking(),
+    runFullCheck,
   };
 
   /* ---------- header & footer ---------- */
-  const updateSection = (key: Section, patch: Partial<SectionState>) =>
+  const updateSection = (key: Section, patch: Partial<SectionState>) => {
     setSections((s) => ({ ...s, [key]: { ...s[key], ...patch } }));
+    scheduleSave();
+  };
 
   const sectionSpacing = (key: Section, delta: number) => {
     const spacing = Math.max(4, Math.min(40, sections[key].spacing + delta));
@@ -570,9 +681,12 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
                 {active.suggestion !== undefined ? (
                   <button type="button" className={styles.btnPrimary} onClick={() => onApply(active)}>Apply fix</button>
                 ) : null}
-                <button type="button" className={active.suggestion !== undefined ? styles.btnSubtle : styles.btnPrimary} onClick={() => onGoTo(active)}>
-                  {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : 'Go to text'}
-                </button>
+                {/* Document-level findings have no range to navigate to (§6): Dismiss only. */}
+                {active.anchor.kind === 'document' ? null : (
+                  <button type="button" className={active.suggestion !== undefined ? styles.btnSubtle : styles.btnPrimary} onClick={() => onGoTo(active)}>
+                    {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : 'Go to text'}
+                  </button>
+                )}
                 <button type="button" className={styles.btnGhost} onClick={() => onDismiss(active)}>Dismiss</button>
               </div>
             </div>

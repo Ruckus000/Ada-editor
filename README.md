@@ -21,8 +21,11 @@ product reports "ADA compliance" as a status.
 
 ## Current state
 
-Pre-application. This repository contains the **design system** and the
-**Grammarly UX audit** it was derived from. There is no app yet.
+Working prototype. The dashboard and editor screens are built from the design
+system, documents persist to localStorage, and every finding is computed by
+the **real checking engine**: eleven WCAG rules running against the live
+ProseMirror document — structural rules as you type, prose heuristics on
+blur/Recheck. There is no backend, no auth and no file upload yet.
 
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused
@@ -31,14 +34,14 @@ Pre-application. This repository contains the **design system** and the
 - **[Rule-set spike](docs/audit/rule-set-spike.md)** — validated the checking
   engine's rule set against 28 real documents before building it
 - **[Checking engine implementation plan](docs/audit/checking-engine-plan.md)**
-  — architecture, rule porting, persistence and performance for the real
-  checker that replaces the editor's current fixture findings
+  — architecture, rule porting, persistence and performance behind the engine
+  that replaced the editor's fixture findings
 
 ## Quick start
 
 ```bash
 npm install
-npm run verify     # typecheck, token gate, accessibility gate
+npm run verify     # typecheck, verifier tests, engine gate, token gate, accessibility gates (Node 22)
 npm run preview    # serve the live preview at http://127.0.0.1:8080
 ```
 

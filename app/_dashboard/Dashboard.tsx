@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Button, Glyph, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, useAnnounce } from '../../design-system/primitives';
-import { CRITERIA, DOCS, MANUAL_ITEMS, OPEN_SEVERITIES } from '../_data/fixtures';
-import type { DocSummary, OpenSeverity } from '../_data/fixtures';
+import { Button, Glyph, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, useAnnounce } from '../../design-system/primitives';
+import type { OpenSeverity } from '../../design-system/primitives';
+import type { DocSummary } from '../_data/seed';
+import { loadDashboardData, seedIfEmpty } from '../_data/store';
+import type { DashboardData } from '../_data/store';
 import './dashboard.css';
 
 type SortKey = 'urgency' | 'recent' | 'name';
@@ -32,9 +34,9 @@ const worst = (d: DocSummary): OpenSeverity | null => OPEN_SEVERITIES.find((s) =
 const present = (counts: DocSummary['counts']) => OPEN_SEVERITIES.filter((s) => (counts[s] ?? 0) > 0);
 const breakdown = (d: DocSummary) => present(d.counts).map((s) => `${d.counts[s]} ${SUMMARY_WORDS[s]}`).join(', ');
 
-function matching(query: string, severity: SeverityFilter, showPassing: boolean) {
+function matching(all: DocSummary[], query: string, severity: SeverityFilter, showPassing: boolean) {
   const q = query.trim().toLowerCase();
-  return DOCS.filter((d) => {
+  return all.filter((d) => {
     if (!showPassing && total(d) === 0) return false;
     if (severity !== 'all' && !((d.counts[severity] ?? 0) > 0)) return false;
     if (q && ![d.title, d.owner, d.targets.join(' ')].some((field) => field.toLowerCase().includes(q))) return false;
@@ -65,8 +67,19 @@ export function Dashboard({
   const [sort, setSort] = useState<SortKey>('urgency');
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Documents live in localStorage with counts — and the side cards' criteria
+  // and manual items — computed by the real engine (§3): the queue is loaded
+  // after hydration, so the server render shows the empty-queue state and
+  // there is no hand-authored data to drift.
+  const [dash, setDash] = useState<DashboardData>({ docs: [], criteria: [], manualItems: [] });
+  useEffect(() => {
+    seedIfEmpty();
+    setDash(loadDashboardData());
+  }, []);
+  const allDocs = dash.docs;
+
   const docs = useMemo(() => {
-    const list = matching(query, severity, showPassing);
+    const list = matching(allDocs, query, severity, showPassing);
     const rank = (d: DocSummary) => {
       const w = worst(d);
       return w ? SEVERITY_RANK[w] : SEVERITY_RANK.checked;
@@ -74,7 +87,7 @@ export function Dashboard({
     if (sort === 'urgency') return [...list].sort((a, b) => rank(a) - rank(b) || total(b) - total(a));
     if (sort === 'recent') return [...list].sort((a, b) => a.order - b.order);
     return [...list].sort((a, b) => a.title.localeCompare(b.title));
-  }, [query, severity, sort, showPassing]);
+  }, [allDocs, query, severity, sort, showPassing]);
 
   // Announce search results once typing pauses, not on every keystroke: a
   // screen reader user hears one result count instead of a stream of them.
@@ -96,14 +109,14 @@ export function Dashboard({
 
   const counts = useMemo(() => {
     const out = {} as Record<OpenSeverity, number>;
-    for (const s of OPEN_SEVERITIES) out[s] = DOCS.reduce((sum, d) => sum + (d.counts[s] ?? 0), 0);
+    for (const s of OPEN_SEVERITIES) out[s] = allDocs.reduce((sum, d) => sum + (d.counts[s] ?? 0), 0);
     return out;
-  }, []);
+  }, [allDocs]);
   const totalOpen = OPEN_SEVERITIES.reduce((sum, s) => sum + counts[s], 0);
   const maxCount = Math.max(...OPEN_SEVERITIES.map((s) => counts[s]), 1);
-  const docsWithFindings = DOCS.filter((d) => total(d) > 0).length;
-  const blockerDocs = DOCS.filter((d) => (d.counts.blocker ?? 0) > 0).length;
-  const noFindingDocs = DOCS.length - docsWithFindings;
+  const docsWithFindings = allDocs.filter((d) => total(d) > 0).length;
+  const blockerDocs = allDocs.filter((d) => (d.counts.blocker ?? 0) > 0).length;
+  const noFindingDocs = allDocs.length - docsWithFindings;
 
   const q = query.trim();
   const sevWords = severity === 'all' ? '' : ` with ${SEVERITY_ENCODING[severity].label.toLowerCase()} findings`;
@@ -140,7 +153,7 @@ export function Dashboard({
         <div className="dash-header__rule" aria-hidden="true" />
         <div className="dash-header__title">
           <h1>Remediation overview</h1>
-          <p>{`${totalOpen} open findings across ${docsWithFindings} documents · last full scan 12 minutes ago`}</p>
+          <p>{`${totalOpen} open findings across ${docsWithFindings} documents · last full scan ${allDocs[0]?.lastChecked ?? '—'}`}</p>
         </div>
         <div className="dash-header__actions">
           <label className="dash-search">
@@ -176,7 +189,7 @@ export function Dashboard({
             <span className="dash-stat__label">Open findings</span>
             <span className="dash-stat__value">{totalOpen}</span>
             <SeverityBar counts={counts} className="dash-bar dash-bar--stat" />
-            <span className="dash-stat__sub">{`across ${docsWithFindings} of ${DOCS.length} documents`}</span>
+            <span className="dash-stat__sub">{`across ${docsWithFindings} of ${allDocs.length} documents`}</span>
           </div>
           <div className="dash-stat">
             <span className="dash-stat__label">Blocking publication</span>
@@ -201,7 +214,7 @@ export function Dashboard({
           <section aria-labelledby="queue-heading" className="dash-panel dash-queue">
             <div className="dash-queue__bar">
               <h2 id="queue-heading">Remediation queue</h2>
-              <span className="dash-muted">{`${docs.length} of ${DOCS.length} documents`}</span>
+              <span className="dash-muted">{`${docs.length} of ${allDocs.length} documents`}</span>
               {/* Native buttons with aria-pressed: <Button> has no pressed or
                   segmented styling, and these are toggles, not actions. */}
               <div role="group" aria-label="Sort queue" className="dash-segmented">
@@ -315,16 +328,16 @@ export function Dashboard({
               <h2 id="manual-heading">Waiting on a human</h2>
               <p className="dash-card__intro">Checks the engine cannot decide for you.</p>
               <ul role="list" className="dash-manual">
-                {MANUAL_ITEMS.slice(0, MANUAL_PREVIEW).map((item) => (
-                  <li key={item.question}>
+                {dash.manualItems.slice(0, MANUAL_PREVIEW).map((item) => (
+                  <li key={`${item.docId}:${item.question}`}>
                     <span className="dash-manual__q">{item.question}</span>
-                    <span className="dash-manual__doc">{DOCS.find((d) => d.id === item.docId)?.title}</span>
+                    <span className="dash-manual__doc">{allDocs.find((d) => d.id === item.docId)?.title}</span>
                   </li>
                 ))}
               </ul>
-              {MANUAL_ITEMS.length > MANUAL_PREVIEW ? (
-                <Link className="dash-link" href={`/editor/${MANUAL_ITEMS[MANUAL_PREVIEW]!.docId}`}>
-                  {`${MANUAL_ITEMS.length - MANUAL_PREVIEW} more waiting on a decision`}
+              {dash.manualItems.length > MANUAL_PREVIEW ? (
+                <Link className="dash-link" href={`/editor/${dash.manualItems[MANUAL_PREVIEW]!.docId}`}>
+                  {`${dash.manualItems.length - MANUAL_PREVIEW} more waiting on a decision`}
                 </Link>
               ) : null}
             </section>
@@ -332,7 +345,7 @@ export function Dashboard({
             <section aria-labelledby="criteria-heading" className="dash-panel dash-card">
               <h2 id="criteria-heading">Most-failed criteria</h2>
               <ul role="list" className="dash-criteria">
-                {CRITERIA.map((c) => (
+                {dash.criteria.map((c) => (
                   <li key={c.id}>
                     <span className="dash-criteria__id">{c.id}</span>
                     <span className="dash-criteria__name">{c.name}</span>
