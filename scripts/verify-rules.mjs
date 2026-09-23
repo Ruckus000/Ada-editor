@@ -359,6 +359,124 @@ check('colour-only-reference fires when a colour does the pointing', () => {
   eq(quiet.length, 0, 'incidental colour is quiet');
 });
 
+/* ---------- checkDocument + reconcile ---------- */
+
+const { checkDocument, reconcile } = mod.check;
+
+const linkPara = () => para(text('Go '), text('click here', link('https://x.org/a')), text('.'));
+const DENSE = 'Applicants must furnish documentation substantiating residency prior to the aforementioned deadline, '
+  + 'notwithstanding any prior determination issued by the commission to the contrary in this particular matter.';
+
+check('checkDocument maps rules to anchored findings with stable ids', () => {
+  const d = doc(heading(1, 'Title'), linkPara(), figure('img-1', ''), heading(3, 'Jumped'));
+  const found = checkDocument(d, { prose: false });
+  deepEq(found.map((f) => f.id), ['link-text-generic:click here', 'img-alt-img-1', 'heading-skip:h3'], 'ids in doc order');
+  const linkF = found[0];
+  deepEq(linkF.anchor, { kind: 'text' }, 'text anchor');
+  eq(linkF.from, 11, 'link from');
+  eq(linkF.to, 21, 'link to');
+  eq(linkF.severity, 'violation', 'link severity');
+  eq(linkF.excerpt, 'click here', 'excerpt is the flagged text');
+  const figF = found[1];
+  deepEq(figF.anchor, { kind: 'figure', figureId: 'img-1' }, 'figure anchor');
+  eq(figF.from, 23, 'figure from');
+  eq(figF.to, 24, 'figure to');
+  eq(figF.severity, 'blocker', 'figure severity');
+  const headF = found[2];
+  eq(headF.from, 25, 'heading from');
+  eq(headF.to, 31, 'heading to');
+  deepEq(headF.fix, { kind: 'headingLevel', level: 2 }, 'fix descriptor');
+  eq(headF.original, 'h3', 'diff shows the current level');
+  eq(headF.suggestion, 'h2', 'diff shows the corrected level');
+});
+
+check('prose gating: prose rules only run when asked (§8.1)', () => {
+  const d = doc(heading(1, 'Title'), para(DENSE));
+  const structural = checkDocument(d, { prose: false });
+  eq(structural.length, 0, 'structural run is quiet on prose-only problems');
+  const full = checkDocument(d, { prose: true });
+  eq(full.length, 1, 'full run flags the dense passage');
+  assert(full[0].id.startsWith('reading-level:'), `reading-level fires, got ${full[0].id}`);
+});
+
+check('stable ids are content-derived, not position-derived (§4/§9.3)', () => {
+  const lp = linkPara();
+  const base = checkDocument(doc(heading(1, 'Title'), lp), { prose: false });
+  // Insert unrelated paragraphs above: positions move, ids do not. The lp node
+  // is shared, so this also proves the memo caches block-RELATIVE results and
+  // the live walk supplies absolute positions (§9.1).
+  const shifted = checkDocument(doc(para('A brand new paragraph.'), para('And another one here.'), heading(1, 'Title'), lp), { prose: false });
+  deepEq(shifted.map((f) => f.id), base.map((f) => f.id), 'ids survive edits elsewhere');
+  assert(shifted[0].from > base[0].from, 'positions moved with the insertion');
+  // Edit the flagged text itself (to another generic label): the id changes with it.
+  const edited = checkDocument(doc(heading(1, 'Title'), para(text('Go '), text('read more', link('https://x.org/a')), text('.'))), { prose: false });
+  deepEq(edited.map((f) => f.id), ['link-text-generic:read more'], 'id tracks the flagged text');
+  // ...and to a meaningful label: the finding goes away entirely.
+  const fixed = checkDocument(doc(heading(1, 'Title'), para(text('Go '), text('the hearing agenda', link('https://x.org/a')), text('.'))), { prose: false });
+  deepEq(fixed.map((f) => f.id), [], 'fixing the text removes the finding');
+  // Duplicate snippets get collision ordinals in document order.
+  const dupes = checkDocument(doc(para(text('here', link('https://a.example/x'))), para(text('here', link('https://b.example/y')))), { prose: false });
+  deepEq(dupes.map((f) => f.id), ['link-text-generic:here', 'link-text-ambiguous:here', 'link-text-generic:here#2'], 'ordinal disambiguates duplicates');
+});
+
+check('reconcile preserves object and array identity (§9.4)', () => {
+  const lp = linkPara();
+  const d = doc(heading(1, 'Title'), lp);
+  const first = checkDocument(d, { prose: false });
+  const second = checkDocument(d, { prose: false });
+  assert(first !== second, 'checkDocument returns a fresh array each run');
+  assert(first[0] !== second[0], 'and fresh finding objects');
+  const merged = reconcile(first, second, new Set());
+  assert(merged === first, 'unchanged findings reconcile to the SAME array');
+  // An edit after the flagged block leaves the finding object-identical.
+  const withTrailer = doc(heading(1, 'Title'), lp, para('A paragraph added after the flagged one.'));
+  const third = checkDocument(withTrailer, { prose: false });
+  const merged2 = reconcile(first, third, new Set());
+  const before = first.find((f) => f.id === 'link-text-generic:click here');
+  const after = merged2.find((f) => f.id === 'link-text-generic:click here');
+  assert(before === after, 'untouched finding keeps its object across an edit elsewhere');
+});
+
+check('reconcile drops dismissed ids and keeps non-engine findings', () => {
+  const next = checkDocument(doc(heading(1, 'Title'), linkPara()), { prose: false });
+  const dismissed = new Set(['link-text-generic:click here']);
+  eq(reconcile([], next, dismissed).length, 0, 'dismissed finding is filtered out');
+  const sectionFinding = {
+    id: 'img-alt-header-img-1', severity: 'blocker', title: 'Image has no alternative text',
+    explanation: 'x', criterion: '1.1.1 Non-text Content', excerpt: 'header image',
+    hint: 'Add a description', from: 0, to: 0, anchor: { kind: 'section', section: 'header' },
+  };
+  const prev = [...next, sectionFinding];
+  const merged = reconcile(prev, next, new Set());
+  eq(merged.length, 2, 'engine finding + section finding');
+  assert(merged.includes(sectionFinding), 'section finding survives untouched');
+  const merged2 = reconcile(prev, next, dismissed);
+  eq(merged2.length, 1, 'a dismissed finding stays gone across recomputes');
+  assert(merged2[0] === sectionFinding, 'only the section finding remains');
+});
+
+check('reconcile carries prose findings between gated runs', () => {
+  const d = doc(heading(1, 'Title'), para(DENSE));
+  const full = checkDocument(d, { prose: true });
+  eq(full.length, 1, 'one prose finding');
+  const structural = checkDocument(d, { prose: false });
+  const carried = reconcile(full, structural, new Set(), { keepProse: true });
+  assert(carried === full, 'structural run leaves the prose finding (same array)');
+  const refreshed = reconcile(carried, checkDocument(d, { prose: true }), new Set());
+  deepEq(refreshed.map((f) => f.id), full.map((f) => f.id), 'full run re-anchors prose findings');
+  assert(refreshed === carried, 'identity preserved across the full run');
+});
+
+check('document-anchored findings (§6)', () => {
+  const found = checkDocument(doc(para('intro text only'), heading(2, 'Section')), { prose: false });
+  const noH1 = found.find((f) => f.id === 'document-no-h1');
+  assert(noH1, 'document-no-h1 fired');
+  deepEq(noH1.anchor, { kind: 'document' }, 'document anchor');
+  eq(noH1.from, 0, 'from');
+  eq(noH1.to, 0, 'to');
+  eq(noH1.severity, 'violation', 'severity');
+});
+
 /* ---------- report ---------- */
 
 console.log('');

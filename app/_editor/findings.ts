@@ -10,12 +10,15 @@ export type Section = 'header' | 'footer';
 /**
  * Where a finding lives. Only `text` findings have a meaningful document range
  * and get an inline underline; figures are addressed by id because their
- * position shifts, and header/footer findings live outside the document.
+ * position shifts, header/footer findings live outside the document, and
+ * `document` findings (e.g. no top-level heading) belong to the document as a
+ * whole — no range, no underline, nowhere to navigate to.
  */
 export type Anchor =
   | { kind: 'text' }
   | { kind: 'figure'; figureId: string }
-  | { kind: 'section'; section: Section };
+  | { kind: 'section'; section: Section }
+  | { kind: 'document' };
 
 /**
  * What "Apply fix" does. Absent (or `text`) means the suggestion string

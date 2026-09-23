@@ -119,6 +119,10 @@ export interface BlockEntry {
   summary: BlockSummary;
 }
 
+/** Blocks the engine summarizes: textblocks and figures (the only atom block). */
+export const isCheckableBlock = (node: PMNode): boolean =>
+  node.isTextblock || node.type === FIGURE;
+
 /* ---------- block text with offset mapping ---------- */
 
 /**

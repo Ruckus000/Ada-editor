@@ -4,4 +4,5 @@
  */
 export * as textHelpers from '../../app/_engine/textHelpers';
 export * as rules from '../../app/_engine/rules';
+export * as check from '../../app/_engine/check';
 export { schema } from '../../app/_editor/editorSchema';
