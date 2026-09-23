@@ -107,3 +107,15 @@ jobs:
           grep -q READY /tmp/a11y-status.txt || { echo "::error::AT-SPI stack never came up"; cat /tmp/a11y-status.txt 2>/dev/null; exit 1; }
           set -a && . /tmp/a11y-env.sh && set +a
           node scripts/verify-orca.mjs --verbose
+
+      # Orca's --debug log records every AT-SPI event, focus change and object
+      # role, not just speech; it is the evidence for why a run read nothing.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: orca-debug
+          path: |
+            /tmp/orca-gate-speech.log
+            /tmp/atspi-bus.log
+            /tmp/atspi-reg.log
+            /tmp/xvfb.log
