@@ -1,40 +1,39 @@
 # Screen reader test plan
 
-**Status: automated for Orca; written but unrun for NVDA and VoiceOver.**
+**Status: automated for Orca and VoiceOver; NVDA written but not yet reaching the page.**
 
 All six steps below now run as a gate — `node scripts/verify-orca.mjs` — rather
 than as a manual checklist. It drives Orca and asserts on what it actually says,
 and it found a real defect the tree-level gate had missed.
 
 NVDA and VoiceOver equivalents live in `tests/screen-reader/` and run in CI on
-Windows and macOS runners. Both start, attach and drive; **all four assertions
-still fail on both**. **JAWS is not covered** — commercial, licensed, and not
+Windows and macOS runners. **VoiceOver passes all four assertions and blocks the
+branch; NVDA still fails all four and is non-blocking.** **JAWS is not covered** — commercial, licensed, and not
 driven by Guidepup.
 
-### Where the CI screen readers are stuck
+### Where the CI screen readers stand
 
-Four rounds removed four real blockers — a nonexistent action tag, a stale test
-pattern, a missing per-project asset install, and tests that stepped the reading
-cursor while expecting focus to move. Each was genuine, and the transcripts
-attached to failures are what made each one findable.
+Four early rounds removed four real blockers: a nonexistent action tag, a stale
+test pattern, a missing per-project asset install, and tests that stepped the
+reading cursor while expecting focus to move.
 
-**The open blocker is application activation, not the assertions.**
+- **VoiceOver: working.** The harness used to focus the page by hand
+  (`page.bringToFront()`, then `osascript` activation, then `Control+Home`). That
+  got VoiceOver as far as "You are currently in a main." and no further.
+  `@guidepup/playwright` ships `navigateToWebContent()` for exactly this: it
+  goes through the Item Chooser into the web content and interacts with it.
+  Separately, keystrokes (`Tab`, `Option+Tab`) never moved focus under
+  VoiceOver, so the two control tests step the VO cursor instead, which is how
+  VoiceOver users move through a page anyway. All four assertions then passed
+  on two consecutive runs (CI run 35872345691, attempts 1 and 2).
+- **NVDA: still says only `blank`**, with `--force-renderer-accessibility` set
+  and with `navigateToWebContent()`. Its cause is undiagnosed, and no Windows
+  machine has been available to look directly.
 
-- **VoiceOver** is still reading the Finder: its whole transcript is
-  `Finder guidepup-voiceover-preferences-macos-26 Volume`. `page.bringToFront()`
-  raises a window inside the browser but does not make the browser the frontmost
-  *application* on macOS, which is what decides where the VoiceOver cursor goes.
-  The next thing to try is activating the app at the OS level — `osascript -e
-  'tell application "..." to activate'` against whatever process Playwright's
-  WebKit runs as — rather than another change to the assertions.
-- **NVDA** was announcing a single phrase, `blank`, because Playwright launches
-  Chromium without `--force-renderer-accessibility`. That flag is now set; its
-  effect has not yet been read from a transcript.
-
-Until a transcript shows a screen reader reading this page's content, the four
-assertions are untested rather than wrong. Do not tune them: the guard in
-`open()` fails first precisely so that nothing downstream reports a confident
-result about an application it was never reading.
+For NVDA, until a transcript shows it reading this page, the four assertions
+are untested rather than wrong. Do not tune them: the guard in `open()` fails
+first precisely so that nothing downstream reports a confident result about an
+application it was never reading.
 
 The manual steps below remain the specification; the gate automates them.
 
@@ -173,6 +172,7 @@ Three things are easy to get wrong:
 | 2026-09-17 | Orca 46.1 / Chromium 131 | `verify-orca.mjs` | PASS | PASS | PASS | **FAIL → fixed** | PASS | PASS | Automated; 7 checks, reproducible |
 | 2026-09-17 | NVDA / Chromium | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
 | 2026-09-17 | VoiceOver / WebKit | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
+| 2026-09-23 | VoiceOver / WebKit | CI run 35872345691 (×2) | PASS | PASS | PASS | PASS | n/a | n/a | Automated; passed on two consecutive runs; now blocking |
 | | JAWS / Chrome | | | | | | | | not covered |
 
 ### What Orca actually said
@@ -242,6 +242,6 @@ fail when the fix is reverted. Note it must activate a **button inside** the
 card: an earlier version pressed `Escape` on the card itself and passed even
 with the fix removed, because React can reuse the `<li>` node.
 
-**Still unverified:** NVDA, JAWS and VoiceOver. Orca is a real screen reader
+**Still unverified:** NVDA and JAWS. Orca and VoiceOver are real screen readers
 consuming the real platform accessibility API, but browse-mode behaviour differs
 between implementations, and step 6 (keyboard trap) was not exercised.
