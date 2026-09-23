@@ -358,9 +358,11 @@ async function editor() {
     await sleep(400);
     const headingFixed = await evaluate(send, `(() => {
       const d = document.getElementById('document-text');
+      if (!d) return null;
       return { h3: d.querySelectorAll('h3').length, h2: [...d.querySelectorAll('h2')].filter(h => h.textContent === 'Public Comment').length };
     })()`);
-    if (headingFixed.h3 !== 0 || headingFixed.h2 !== 1) fail(`FINDINGS  Apply fix did not change the heading level (h3=${headingFixed.h3}, h2=${headingFixed.h2})`);
+    if (headingFixed === null) fail('FINDINGS  the editor did not render when checking the applied fix (no #document-text)');
+    else if (headingFixed.h3 !== 0 || headingFixed.h2 !== 1) fail(`FINDINGS  Apply fix did not change the heading level (h3=${headingFixed.h3}, h2=${headingFixed.h2})`);
     const after = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
     if (after !== before - 1) fail(`FINDINGS  underline count ${before} -> ${after} after applying a fix`);
     const focusAfter = await evaluate(send, `document.activeElement === document.body ? 'BODY' : document.activeElement.tagName`);
@@ -424,11 +426,13 @@ async function editor() {
     await sleep(300);
     const pasted = await evaluate(send, `(() => {
       const doc = document.getElementById('document-text');
+      if (!doc) return null;
       return { unsafe: doc.querySelectorAll('a[href^="javascript" i]').length, text: doc.textContent.includes('pasted link') };
     })()`);
+    if (pasted === null) fail('PASTE  the editor did not render when checking the paste (no #document-text)');
     const findingsAfter = await findingCount();
     const idsAfter = await figureIds();
-    if (pasted.unsafe || !pasted.text) fail(`PASTE  unsafe link kept its href (${pasted.unsafe}) or its text was lost (${pasted.text})`);
+    if (pasted && (pasted.unsafe || !pasted.text)) fail(`PASTE  unsafe link kept its href (${pasted.unsafe}) or its text was lost (${pasted.text})`);
     else note('pasted javascript: link keeps its text and loses its href');
     if (findingsAfter !== findingsBefore + 2) fail(`PASTE  two pasted images without alt text changed findings ${findingsBefore} -> ${findingsAfter}, expected +2`);
     else note('pasted images without alt text are flagged as findings');
@@ -468,6 +472,7 @@ async function editor() {
     // the applied heading fix, the pasted content, and all four figures.
     const persisted = await evaluate(send, `(() => {
       const d = document.getElementById('document-text');
+      if (!d) return null;
       return {
         fixed: [...d.querySelectorAll('h2')].filter(h => h.textContent === 'Public Comment').length,
         h3: d.querySelectorAll('h3').length,
@@ -475,7 +480,8 @@ async function editor() {
         figures: d.querySelectorAll('[data-figure-id]').length,
       };
     })()`);
-    if (persisted.fixed !== 1 || persisted.h3 !== 0) fail(`PERSIST  reload lost the applied heading fix (${JSON.stringify(persisted)})`);
+    if (persisted === null) fail('PERSIST  the editor did not render after reload (no #document-text) — a crashed gate hides every other finding');
+    else if (persisted.fixed !== 1 || persisted.h3 !== 0) fail(`PERSIST  reload lost the applied heading fix (${JSON.stringify(persisted)})`);
     else if (!persisted.pasted) fail('PERSIST  reload lost the pasted content (debounced localStorage save)');
     else if (persisted.figures !== 4) fail(`PERSIST  expected 2 seed + 2 pasted figures after reload, got ${persisted.figures}`);
     else note('reload restores the edited document from localStorage');
