@@ -139,13 +139,24 @@ check('collapseSpaces normalizes whitespace', () => {
 
 /* ---------- source-level guard: no lookbehind anywhere in the engine ---------- */
 
-check('no lookbehind regexes in app/_engine (§9.10, Safari 12)', () => {
-  const dir = resolve(ROOT, 'app/_engine');
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith('.ts')) continue;
-    const src = readFileSync(resolve(dir, name), 'utf8');
-    assert(!src.includes('(?<'), `${name} contains a lookbehind — it breaks Safari 12 at module parse`);
-  }
+check('no lookbehind regexes in shipped source (§9.10, Safari 12)', () => {
+  // Everything that reaches a browser: the app, the design system, and the
+  // harness entry bundled into the preview. A lookbehind in ANY of them throws
+  // at module parse on Safari 12, which the browserslist still includes.
+  const roots = ['app', 'design-system', 'scripts/harness'];
+  let scanned = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+      scanned++;
+      const src = readFileSync(full, 'utf8');
+      assert(!src.includes('(?<'), `${full} contains a lookbehind — it breaks Safari 12 at module parse`);
+    }
+  };
+  for (const r of roots) walk(resolve(ROOT, r));
+  assert(scanned > 25, `guard scanned only ${scanned} files — the walk is broken`);
 });
 
 /* ---------- rules: PM-doc builders ---------- */
@@ -540,6 +551,96 @@ check('the hearing-notice seed exercises the gate-critical paths', () => {
   eq(skip.suggestion, 'h2', 'suggestion renders in the diff UI');
   const severities = new Set(found.map((f) => f.severity));
   deepEq([...severities].sort(), ['advisory', 'blocker', 'manual', 'violation'], 'all four severities present');
+});
+
+/* ---------- carryPositions: identity-preserving position carry (§9.4) ---------- */
+
+const { carryPositions } = mod.editorFindings;
+
+const mkFinding = (id, kind, from, to) => ({
+  id, severity: 'blocker', title: 't', explanation: 'e', criterion: 'c',
+  excerpt: 'x', hint: 'h', from, to, anchor: { kind },
+});
+
+check('carryPositions returns the SAME array when nothing moved', () => {
+  const list = [mkFinding('a', 'text', 5, 10), mkFinding('b', 'figure', 20, 21), mkFinding('c', 'section', 0, 0)];
+  assert(carryPositions(list, (p) => p) === list, 'identity mapping must not allocate');
+  // A mapping that only touches positions after every finding is also a no-op.
+  assert(carryPositions(list, (p) => (p > 100 ? p + 1 : p)) === list, 'far-away edits must not allocate');
+});
+
+check('carryPositions moves text findings, passes others through by identity', () => {
+  const list = [mkFinding('a', 'text', 5, 10), mkFinding('b', 'figure', 20, 21), mkFinding('c', 'section', 0, 0)];
+  const moved = carryPositions(list, (p) => (p >= 5 ? p + 3 : p));
+  assert(moved !== list, 'a real move allocates');
+  eq(moved[0].from, 8, 'from moved');
+  eq(moved[0].to, 13, 'to moved');
+  assert(moved[1] === list[1] && moved[2] === list[2], 'figure/section findings keep their objects');
+  // A text finding whose range collapses (its text was deleted) is dropped.
+  const deleted = carryPositions(list, (p) => Math.min(p, 5));
+  eq(deleted.length, 2, 'collapsed finding dropped');
+  eq(deleted[0].id, 'b', 'survivors keep order');
+});
+
+/* ---------- store hardening: corrupt payloads and failed writes ---------- */
+
+const storedDocJSON = (id, overrides = {}) => ({
+  id, title: `Title ${id}`, owner: 'o', targets: [], header: 'h', footer: 'f',
+  content: doc(heading(1, 'T'), para(`body of ${id}`)).toJSON(),
+  lastChecked: Date.now(),
+  ...overrides,
+});
+
+/** A variable-backed localStorage stand-in: writes persist unless failWrites. */
+const mockStorage = (initial, { failWrites = false } = {}) => {
+  let disk = initial;
+  globalThis.window = {
+    localStorage: {
+      getItem: () => disk,
+      setItem: (_key, value) => {
+        if (failWrites) throw new Error('QuotaExceededError');
+        disk = value;
+      },
+      removeItem: () => { disk = null; },
+    },
+  };
+};
+
+check('store skips structurally invalid and unparseable docs instead of crashing', () => {
+  mockStorage(JSON.stringify([
+    storedDocJSON('valid-doc'),
+    { id: 'bogus' },                                            // shape-invalid
+    storedDocJSON('bad-content', { content: { type: 'nonexistent_node', content: [] } }), // parses as JSON, not as a PM doc
+  ]));
+  try {
+    const summaries = mod.store.loadDocSummaries();
+    eq(summaries.length, 1, 'only the fully valid doc is summarized');
+    eq(summaries[0].id, 'valid-doc', 'the valid doc survives');
+    eq(mod.store.loadDoc('bad-content'), null, 'loadDoc probes content and reports missing rather than throwing');
+    eq(mod.store.loadDoc('bogus'), null, 'shape-invalid entry is gone');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+check('store reseeds when every stored entry is invalid', () => {
+  mockStorage('[{"id":"bogus"}]');
+  try {
+    const summaries = mod.store.loadDocSummaries();
+    eq(summaries.length, 8, 'an all-invalid payload reseeds the eight demo docs');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+check('a failed localStorage write flips reads to memory — no stale-disk loop', () => {
+  mockStorage(JSON.stringify([storedDocJSON('stale-doc', { header: 'old' })]), { failWrites: true });
+  try {
+    mod.store.saveDoc('stale-doc', { header: 'new' });
+    eq(mod.store.loadDoc('stale-doc').header, 'new', 'after a failed write, reads come from memory, not stale disk');
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 /* ---------- report ---------- */

@@ -41,8 +41,11 @@ export interface StoredDoc {
 
 const STORAGE_KEY = 'ada.docs.v1';
 
-/** In-memory fallback when localStorage is unavailable or corrupt. */
+/** In-memory fallback when localStorage is unavailable, corrupt, or full. */
 let memoryDocs: Map<string, StoredDoc> | null = null;
+/** Set once a write fails (quota, private mode): reads must stop trusting the
+ *  stale on-disk copy, or every save silently evaporates. */
+let diskFailed = false;
 
 const hasLocalStorage = (): boolean => {
   try {
@@ -51,6 +54,28 @@ const hasLocalStorage = (): boolean => {
     return false; // some browsers throw on mere access in private mode
   }
 };
+
+/**
+ * Structural validation for stored entries. The payload is same-origin, but
+ * "parseable JSON" is not "valid StoredDoc": a truncated write, manual
+ * tampering, or a future schema change against a v1 payload must not crash the
+ * dashboard or brick the editor. Entries that fail the shape check are
+ * dropped; content that passes it but fails nodeFromJSON is handled by the
+ * guarded readers below.
+ */
+export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((v): v is StoredDoc => {
+    if (typeof v !== 'object' || v === null) return false;
+    const d = v as Record<string, unknown>;
+    return typeof d.id === 'string' && d.id.length > 0 &&
+      typeof d.title === 'string' && typeof d.owner === 'string' &&
+      Array.isArray(d.targets) && typeof d.header === 'string' &&
+      typeof d.footer === 'string' &&
+      typeof d.content === 'object' && d.content !== null &&
+      typeof d.lastChecked === 'number';
+  });
+}
 
 /** The one-time seed, built from the demo content (§7 step 7). */
 function seedDocs(): Map<string, StoredDoc> {
@@ -73,14 +98,12 @@ function seedDocs(): Map<string, StoredDoc> {
 }
 
 function readAll(): Map<string, StoredDoc> {
-  if (hasLocalStorage()) {
+  if (!diskFailed && hasLocalStorage()) {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return new Map((parsed as StoredDoc[]).map((d) => [d.id, d]));
-        }
+      if (raw !== null) {
+        const docs = sanitizeStoredDocs(JSON.parse(raw));
+        return new Map(docs.map((d) => [d.id, d]));
       }
     } catch {
       // Corrupt or unreadable: fall through to a fresh in-memory seed.
@@ -91,12 +114,14 @@ function readAll(): Map<string, StoredDoc> {
 }
 
 function writeAll(docs: Map<string, StoredDoc>): void {
-  if (hasLocalStorage()) {
+  if (!diskFailed && hasLocalStorage()) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...docs.values()]));
       return;
     } catch {
-      // Quota or private mode: keep the session running in memory.
+      // Quota or private mode: keep the session running in memory — and stop
+      // reading the stale on-disk copy, so saves stay visible this session.
+      diskFailed = true;
     }
   }
   memoryDocs = docs;
@@ -104,11 +129,10 @@ function writeAll(docs: Map<string, StoredDoc>): void {
 
 /** Populate the store from the seed content on first visit (or after corruption). */
 export function seedIfEmpty(): void {
-  if (hasLocalStorage()) {
+  if (!diskFailed && hasLocalStorage()) {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      const parsed: unknown = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(parsed) && parsed.length > 0) return;
+      if (sanitizeStoredDocs(raw ? JSON.parse(raw) : null).length > 0) return;
     } catch {
       // corrupt: reseed below
     }
@@ -124,7 +148,17 @@ export function docFromJSON(json: DocJSON): PMNode {
 
 export function loadDoc(id: string): StoredDoc | null {
   seedIfEmpty();
-  return readAll().get(id) ?? null;
+  const stored = readAll().get(id) ?? null;
+  if (!stored) return null;
+  // Probe the PM payload: an entry that passes the shape check but no longer
+  // parses (schema drift, truncated write) is reported missing — the editor
+  // route shows its recoverable not-found panel instead of crashing.
+  try {
+    docFromJSON(stored.content);
+    return stored;
+  } catch {
+    return null;
+  }
 }
 
 export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked'>>): void {
@@ -140,15 +174,24 @@ export function loadDocSummaries(): DocSummary[] {
   seedIfEmpty();
   const sorted = [...readAll().values()].sort((a, b) => b.lastChecked - a.lastChecked);
   const now = Date.now();
-  return sorted.map((d, order) => ({
-    id: d.id,
-    title: d.title,
-    owner: d.owner,
-    targets: d.targets,
-    counts: countsOf(checkDocument(docFromJSON(d.content), { prose: true })),
-    lastChecked: relativeTime(d.lastChecked, now),
-    order,
-  }));
+  const out: DocSummary[] = [];
+  for (const d of sorted) {
+    try {
+      out.push({
+        id: d.id,
+        title: d.title,
+        owner: d.owner,
+        targets: d.targets,
+        counts: countsOf(checkDocument(docFromJSON(d.content), { prose: true })),
+        lastChecked: relativeTime(d.lastChecked, now),
+        order: out.length,
+      });
+    } catch {
+      // Unparseable content: skip the doc rather than crash the dashboard;
+      // loadDoc's probe reports it as missing if it is opened directly.
+    }
+  }
+  return out;
 }
 
 /* ---------- pure helpers (verified by scripts/verify-rules.mjs) ---------- */

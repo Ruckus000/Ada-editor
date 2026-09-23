@@ -42,7 +42,7 @@ import type { FormatState } from './editorCommands';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
-import { imageFinding, sortFindings, summaryLine } from './findings';
+import { carryPositions, imageFinding, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -254,13 +254,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           // deleted outright goes with it. Engine findings get fresh positions
           // from the run below anyway — this mapping is what carries the gated
           // PROSE findings across keystrokes until the next blur/Recheck (§8.1).
-          findingsRef.current = findingsRef.current.flatMap((f) => {
-            if (f.anchor.kind !== 'text') return [f];
-            const from = tr.mapping.map(f.from, 1);
-            const to = tr.mapping.map(f.to, -1);
-            if (from === f.from && to === f.to) return [f];
-            return to > from ? [{ ...f, from, to }] : [];
-          });
+          // carryPositions is identity-preserving: a no-op edit allocates
+          // nothing, so reconcile's array-identity fast path (§9.4) engages.
+          findingsRef.current = carryPositions(findingsRef.current, (pos, bias) => tr.mapping.map(pos, bias));
           // Structural rules run live on every edit — they cannot false-positive
           // on partial input. Computed BEFORE updateState so the underline
           // decoration layer builds once, against the fresh findings (§9.5).
@@ -282,6 +278,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     viewRef.current = view;
     setFormat(formatState(view.state));
     return () => {
+      // Flush a pending save BEFORE destroy: saveNow reads viewRef, and React
+      // runs this cleanup before the persistence effect's, so this is the last
+      // moment the document can be saved on SPA navigation.
+      flushSave();
       view.destroy();
       viewRef.current = null;
     };
@@ -337,21 +337,23 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { saveTimer.current = undefined; saveNow(); }, 500);
   }, [saveNow]);
-  useEffect(() => {
-    // Flush a pending debounced save before the page goes away: a reload
-    // shortly after an edit must not lose it.
-    const flush = () => {
-      if (saveTimer.current === undefined) return;
-      clearTimeout(saveTimer.current);
-      saveTimer.current = undefined;
-      saveNow();
-    };
-    window.addEventListener('pagehide', flush);
-    return () => {
-      window.removeEventListener('pagehide', flush);
-      clearTimeout(saveTimer.current);
-    };
+  // Flush a pending debounced save immediately. Two callers: pagehide (reload
+  // or tab close) and the editor view's cleanup — SPA navigation (Next Link)
+  // fires no pagehide, and unmounting is the last moment the live view exists
+  // to be saved.
+  const flushSave = useCallback(() => {
+    if (saveTimer.current === undefined) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    saveNow();
   }, [saveNow]);
+  useEffect(() => {
+    window.addEventListener('pagehide', flushSave);
+    return () => {
+      window.removeEventListener('pagehide', flushSave);
+      clearTimeout(saveTimer.current);
+    };
+  }, [flushSave]);
   // The mount check counts as a full check: the doc is current as of now.
   useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
 

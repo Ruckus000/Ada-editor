@@ -46,6 +46,40 @@ export interface EditorFinding extends Issue {
 export const sortFindings = (list: EditorFinding[]) =>
   [...list].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
+/**
+ * Carry findings through a transaction's position mapping. Text findings move
+ * with their text; one whose range collapses (the text was deleted) is dropped;
+ * figure/section/document findings don't track text positions and pass through.
+ *
+ * Identity-preserving (§9.4): elements that didn't move keep their objects,
+ * and when nothing at all moved the SAME array is returned, so the caller's
+ * reconcile can skip the render and the decoration rebuild on the common
+ * no-op edit. A `flatMap` here would allocate per keystroke and silently
+ * defeat both guarantees.
+ */
+export function carryPositions(
+  list: EditorFinding[],
+  map: (pos: number, bias: 1 | -1) => number,
+): EditorFinding[] {
+  let changed = false;
+  const out: EditorFinding[] = [];
+  for (const f of list) {
+    if (f.anchor.kind !== 'text') {
+      out.push(f);
+      continue;
+    }
+    const from = map(f.from, 1);
+    const to = map(f.to, -1);
+    if (from === f.from && to === f.to) {
+      out.push(f);
+      continue;
+    }
+    changed = true;
+    if (to > from) out.push({ ...f, from, to });
+  }
+  return changed || out.length !== list.length ? out : list;
+}
+
 /** Layer-3 summary from patterns-suggestion.md: counts only, manual last. */
 export function summaryLine(list: EditorFinding[]): string {
   if (list.length === 0) return 'No open findings';

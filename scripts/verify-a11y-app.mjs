@@ -406,6 +406,30 @@ async function editor() {
     else if (new Set(idsAfter).size !== idsAfter.length) fail(`PASTE  two pastes of the same clipboard payload produced colliding figure ids: ${JSON.stringify(idsAfter)}`);
     else note('repeated paste of the same payload gets fresh, non-colliding ids each time');
 
+    // A pending debounced save must survive SPA navigation: Next Link navs
+    // fire no pagehide, so leaving within the 500ms debounce window used to
+    // strand the last edit. Type, navigate away immediately, come back.
+    await evaluate(send, `(() => {
+      const p = document.querySelector('#document-text p');
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(false);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.getElementById('document-text').focus();
+    })()`);
+    await send('Input.insertText', { text: ' persisted-marker' });
+    await evaluate(send, `document.querySelector('a[aria-label="Back to all documents"]').click()`);
+    await sleep(800);
+    const onDashboard = await evaluate(send, `location.pathname`);
+    if (onDashboard !== '/') fail(`PERSIST  back navigation did not reach the dashboard (at ${JSON.stringify(onDashboard)})`);
+    await evaluate(send, `history.back()`);
+    await sleep(1500);
+    const markerPersisted = await evaluate(send, `document.getElementById('document-text')?.textContent.includes('persisted-marker') ?? false`);
+    if (!markerPersisted) fail('PERSIST  SPA navigation within the debounce window lost the pending save');
+    else note('leaving via SPA navigation flushes the pending save');
+
     await send('Page.reload');
     await sleep(1200);
 
