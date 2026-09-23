@@ -185,7 +185,9 @@ export async function assertFocusSurvivesApplyingAFix(
   const button = await seek(
     sr,
     step,
-    (phrase) => phrase.includes('apply fix') || phrase.includes('dismiss'),
+    // Anchored: the list's own instructions ("...Escape to dismiss a finding")
+    // matched an unanchored check in CI, and activating a list removes nothing.
+    (phrase) => /^(apply fix|dismiss)\b/.test(phrase),
     limit
   );
   expect(
