@@ -481,6 +481,19 @@ check('document-anchored findings (§6)', () => {
   eq(noH1.severity, 'violation', 'severity');
 });
 
+/* ---------- display order ---------- */
+
+check('sortFindings orders by severity, then document position', () => {
+  const { sortFindings } = mod.editorFindings;
+  const f = (id, severity, from) => ({
+    id, severity, title: 't', explanation: 'e', criterion: 'c',
+    excerpt: 'x', hint: 'h', from, to: from + 1, anchor: { kind: 'text' },
+  });
+  const sorted = sortFindings([f('far-advisory', 'advisory', 30), f('near-advisory', 'advisory', 5), f('far-blocker', 'blocker', 30)]);
+  deepEq(sorted.map((x) => x.id), ['far-blocker', 'near-advisory', 'far-advisory'],
+    'severity first; within a severity, document position — not insertion order');
+});
+
 /* ---------- false-positive floor ---------- */
 
 check('a genuinely clean document produces zero findings', () => {

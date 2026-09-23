@@ -93,7 +93,11 @@ export interface RawFinding {
 
 /** A contiguous run of text carrying the same link href (§9.9: merge on the
  *  link mark + href, never on full mark-set equality — "click **here**" is one
- *  link split across two text nodes with different complete mark sets). */
+ *  link split across two text nodes with different complete mark sets).
+ *  ponytail: two ADJACENT links sharing an href are therefore indistinguishable
+ *  from one link split by formatting — PM coalesces identical-mark text at the
+ *  Fragment level, so the two cases are the same node sequence. Ceiling of the
+ *  data model, not of this function; §9.9 requires the merge. */
 export interface LinkRun {
   text: string;
   href: string;

@@ -43,8 +43,11 @@ export interface EditorFinding extends Issue {
   fix?: FindingFix;
 }
 
+/** Triage order: severity first, then document position — never insertion
+ *  order, or carried prose findings would drift to the bottom of their group
+ *  between gated runs. Section findings carry from: 0 and lead their group. */
 export const sortFindings = (list: EditorFinding[]) =>
-  [...list].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  [...list].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.from - b.from);
 
 /**
  * Carry findings through a transaction's position mapping. Text findings move

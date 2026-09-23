@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Fragment, Slice } from 'prosemirror-model';
 import type { Node as PMNode } from 'prosemirror-model';
 import { EditorState, NodeSelection, Plugin, TextSelection } from 'prosemirror-state';
-import type { Command } from 'prosemirror-state';
+import type { Command, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import type { NodeViewConstructor } from 'prosemirror-view';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -412,21 +412,27 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const onApply = (f: EditorFinding) => {
     const view = viewRef.current;
     if (!view || f.suggestion === undefined) return;
-    const rest = removeFinding(f);
     // The two machine-decidable rule fixes are attribute changes, not text
     // replacements: applying them as text would write a literal "h2" into a
-    // heading or replace a figure node with its alt string.
+    // heading or replace a figure node with its alt string. Resolve the target
+    // node FIRST and bail if it vanished between the check and the click — a
+    // stale Apply must be a no-op, never a setNodeMarkup with empty attrs.
+    let tr: Transaction;
     if (f.fix?.kind === 'headingLevel') {
       const $pos = view.state.doc.resolve(f.from);
       const pos = $pos.before($pos.depth);
-      const attrs = view.state.doc.nodeAt(pos)?.attrs ?? {};
-      view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...attrs, level: f.fix.level }));
+      const node = view.state.doc.nodeAt(pos);
+      if (!node) return;
+      tr = view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, level: f.fix.level });
     } else if (f.fix?.kind === 'figureAlt') {
-      const attrs = view.state.doc.nodeAt(f.from)?.attrs ?? {};
-      view.dispatch(view.state.tr.setNodeMarkup(f.from, undefined, { ...attrs, alt: f.fix.alt }));
+      const node = view.state.doc.nodeAt(f.from);
+      if (!node) return;
+      tr = view.state.tr.setNodeMarkup(f.from, undefined, { ...node.attrs, alt: f.fix.alt });
     } else {
-      view.dispatch(view.state.tr.insertText(f.suggestion, f.from, f.to));
+      tr = view.state.tr.insertText(f.suggestion, f.from, f.to);
     }
+    const rest = removeFinding(f);
+    view.dispatch(tr);
     announce(`Fix applied: ${f.title}. ${remaining(rest)}`);
   };
 

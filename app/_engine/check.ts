@@ -41,6 +41,11 @@ const isProseId = (id: string): boolean => {
  * figure reconcile has always used, so dismissals and the alt dialog's
  * un-dismiss-on-clear stay continuous.
  */
+// ponytail: occurrence ordinals churn when an earlier duplicate is deleted —
+// the promoted twin loses a dismissal keyed to its old `#2` id. Content-derived
+// ids cannot distinguish identical findings by construction (§9.3), and
+// position-derived ids are exactly what §9.3 forbade; the upgrade path is a
+// per-finding persisted identity, not a smarter ordinal.
 function stableId(f: RawFinding, seen: Map<string, number>): string {
   if (f.ruleId === 'img-alt-missing' && f.anchor.kind === 'figure') {
     return `img-alt-${f.anchor.figureId}`;

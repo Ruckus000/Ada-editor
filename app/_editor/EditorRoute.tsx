@@ -27,8 +27,9 @@ export function EditorRoute() {
   }, [docId]);
 
   useEffect(() => {
-    if (stored) document.title = `${stored.title} · Ada Editor`;
-  }, [stored]);
+    if (!ready) return;
+    document.title = stored ? `${stored.title} · Ada Editor` : 'Document not found · Ada Editor';
+  }, [ready, stored]);
 
   if (!ready) return null;
   if (!stored) {
