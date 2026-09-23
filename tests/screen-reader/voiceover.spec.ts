@@ -1,9 +1,7 @@
 /**
  * VoiceOver coverage. macOS only.
  *
- * NOT RUN BY THE AUTHOR — written on Linux, where VoiceOver does not exist. The first
- * CI run is the real test of this file; expect timing and phrasing assumptions
- * to need correction then.
+ * Verified in CI only (macOS runner); never run on a local Mac.
  */
 import { voiceOverTest } from '@guidepup/playwright';
 import {
