@@ -3,31 +3,17 @@ name: screen readers
 # Real screen readers, on the platforms they exist on. The Linux/Orca gate runs
 # in design-system.yml; this covers the implementations Orca cannot speak for.
 #
-# NON-BLOCKING, deliberately — same as the Orca gate in design-system.yml, which
-# is also continue-on-error there for the same class of reason: none of the three
-# screen reader gates (NVDA, VoiceOver, Orca) currently blocks the branch, because
-# none of them reliably reaches the page in CI yet. The assertions are therefore
-# untested rather than wrong.
+# VoiceOver BLOCKS. It passed all four assertions on two consecutive runs
+# (35872345691, attempts 1 and 2) once the harness used Guidepup's own
+# navigateToWebContent() and stepped the VO cursor instead of sending Tab, which
+# never moved focus under VoiceOver.
 #
-# VoiceOver: diagnosed. It reads Finder instead of the browser because starting
-# VoiceOver mounts Guidepup's own preferences disk image, and macOS's default
-# "open a Finder window when a disk mounts" behavior pops a window that wins the
-# focus race — confirmed from a CI transcript reading literally "Finder
-# guidepup-voiceover-preferences-macos-26 Volume". Fix attempt: disable that
-# Finder default before the VoiceOver job runs (see the "Stop Finder..." step).
-#
-# NVDA: not diagnosed. It announces exactly "blank" and nothing else. No Windows
-# environment has been available to inspect this directly — the leading
-# hypothesis, by analogy with VoiceOver, is that page.bringToFront() does not
-# give the browser real OS-level foreground focus on this platform either, but
-# that is unconfirmed. Don't trust a future comment here that claims otherwise
-# without a transcript or a local Windows repro backing it up.
-#
-# These jobs still RUN and still report failure in the UI; continue-on-error
-# only stops them gating the branch.
-#
-# Remove continue-on-error once a transcript shows a screen reader reading this
-# page's content. See docs/design-system/screen-reader-test-plan.md.
+# NVDA is NON-BLOCKING (continue-on-error), as is the Orca gate in
+# design-system.yml: neither reaches the page in CI yet. NVDA says only "blank",
+# with or without navigateToWebContent(), so its cause is undiagnosed. Their
+# assertions are untested rather than wrong; the jobs still run and report
+# failure in the UI. Remove continue-on-error once a transcript shows the
+# reader reading this page. See docs/design-system/screen-reader-test-plan.md.
 
 on:
   push:
@@ -76,7 +62,6 @@ jobs:
   voiceover:
     name: VoiceOver (macOS)
     runs-on: macos-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

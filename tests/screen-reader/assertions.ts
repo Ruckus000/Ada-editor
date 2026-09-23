@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { expect, type Page } from '@playwright/test';
 
 /**
@@ -17,6 +16,8 @@ export interface ScreenReader {
   press(key: string): Promise<void>;
   lastSpokenPhrase(): Promise<string>;
   spokenPhraseLog(): Promise<string[]>;
+  /** Guidepup's own "put the reader inside the page" routine, per screen reader. */
+  navigateToWebContent(): Promise<void>;
 }
 
 export const PREVIEW_PATH = '/preview.html';
@@ -45,58 +46,25 @@ const withTranscript = async (sr: ScreenReader, message: string) => {
 
 const PAGE_PATTERN = /design system preview|accessibility findings|quarterly report/;
 
-/**
- * page.bringToFront() only reorders tabs within the browser's own internal
- * state (it's the CDP/WebDriver-BiDi "Page.bringToFront", not an OS call) — it
- * never actually raises the app to the real OS foreground. On macOS, VoiceOver
- * reads whatever genuinely has OS focus, so without this its cursor stays
- * wherever it was — a transcript from this exact harness read "You are
- * currently on a Volume" over and over, unmoved by repeated bringToFront()
- * calls, which is what proved it wasn't a timing problem. Playwright's bundled
- * WebKit runs as an app literally named "Playwright" (confirmed empirically:
- * .../webkit-<rev>/Playwright.app), so a real Apple Event activation targets
- * that by name. Best-effort: the CI runner's Guidepup setup step configures the
- * Automation permission this needs, but if it's ever missing this must not
- * crash the test — the retry loop's own bringToFront() is still the fallback.
- */
-const activateOnMacOS = () => {
-  if (process.platform !== 'darwin') return;
-  try {
-    execFileSync('osascript', ['-e', 'tell application "Playwright" to activate']);
-  } catch { /* best-effort; the retry loop still tries bringToFront() */ }
-};
-
 const open = async (page: Page, sr: ScreenReader) => {
   await page.goto(PREVIEW_PATH, { waitUntil: 'networkidle' });
   // Hydration must finish first, or the screen reader reads server-rendered
   // markup with no live region wired up.
   await page.waitForFunction(() => document.querySelectorAll('.ada-card').length === 4);
 
-  // Make the browser the frontmost application and put focus inside the
-  // document. Without this the screen reader cursor stays wherever the OS left
-  // it: the first run of these tests spent every Tab press announcing
-  // "Finder desktop guidepup-voiceover-preferences Volume" — it was reading the
-  // desktop, not the page, and every assertion below was measuring nothing.
-  //
-  // A single attempt is not enough: on a CI runner the screen reader itself has
-  // things to say first — VoiceOver's own settings/onboarding screen, Guidepup's
-  // "Welcome to Guidepup." startup narration, a Finder window for a disk that
-  // just mounted — and any of them can still be mid-utterance the instant this
-  // checks. Keep re-asserting focus and re-checking rather than judging on one
-  // snapshot; this is the same lesson the Orca gate already learned the hard way
-  // (see waitForSpeech in verify-orca.mjs) and it was never carried over here.
-  let heard = '';
-  const deadline = Date.now() + 30_000;
-  do {
-    activateOnMacOS();
-    await page.bringToFront();
-    await page.locator('h1').first().click();
-    await page.evaluate(() => document.querySelector('main')?.focus());
-    await sr.press('Control+Home');
+  // Hand-rolled focus (bringToFront, osascript activate, Control+Home) got
+  // VoiceOver as far as "You are currently in a main." and no further, and NVDA
+  // to "blank". Guidepup ships the per-reader routine for exactly this: VoiceOver
+  // goes through the Item Chooser into "web content" and interacts with it;
+  // NVDA focuses the window by page title and leaves focus mode.
+  await sr.navigateToWebContent();
+
+  // It lands on the first item; read forward until the page identifies itself.
+  let heard = (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
+  for (let i = 0; i < 10 && !PAGE_PATTERN.test(heard); i++) {
+    await sr.next();
     heard = (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
-    if (PAGE_PATTERN.test(heard)) return;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  } while (Date.now() < deadline);
+  }
 
   // Fail here, loudly, rather than let a downstream assertion report something
   // misleading. If the screen reader is not reading this page, nothing after
@@ -123,17 +91,21 @@ const open = async (page: Page, sr: ScreenReader) => {
  */
 const seek = async (
   sr: ScreenReader,
-  key: string,
+  step: Step,
   matches: (phrase: string) => boolean,
   limit: number
 ): Promise<string | null> => {
   for (let i = 0; i < limit; i++) {
-    await sr.press(key);
+    await step(sr);
     const phrase = (await sr.lastSpokenPhrase()) ?? '';
     if (matches(phrase.toLowerCase())) return phrase;
   }
   return null;
 };
+
+/** How a test moves between controls. NVDA tabs; VoiceOver steps its own cursor. */
+export type Step = (sr: ScreenReader) => Promise<void>;
+const tab: Step = (sr) => sr.press('Tab');
 
 const transcriptText = async (sr: ScreenReader) =>
   (await sr.spokenPhraseLog()).join(' | ').toLowerCase();
@@ -173,10 +145,15 @@ export async function assertFindingsReachableByHeading(page: Page, sr: ScreenRea
  * Guards the defect that motivated the whole harness: four buttons named only
  * "Dismiss" are each individually valid and collectively useless.
  */
-export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader) {
+export async function assertButtonsAreDistinct(
+  page: Page,
+  sr: ScreenReader,
+  step: Step = tab,
+  limit = 14
+) {
   await open(page, sr);
   // Tab moves focus between controls; each stop announces the control's name.
-  for (let i = 0; i < 14; i++) await sr.press('Tab');
+  for (let i = 0; i < limit; i++) await step(sr);
 
   const said = await transcriptText(sr);
   expect(
@@ -194,7 +171,12 @@ export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader) {
  * it — Orca announced the document instead, and the user lost their place in the
  * list while the live region said the right thing to nobody.
  */
-export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenReader) {
+export async function assertFocusSurvivesApplyingAFix(
+  page: Page,
+  sr: ScreenReader,
+  step: Step = tab,
+  limit = 16
+) {
   await open(page, sr);
 
   // Seek a button that actually REMOVES a finding. Since the rule-set spike the
@@ -202,9 +184,11 @@ export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenRead
   // in place, so stopping at the first button would test nothing.
   const button = await seek(
     sr,
-    'Tab',
-    (phrase) => phrase.includes('apply fix') || phrase.includes('dismiss'),
-    16
+    step,
+    // Anchored: the list's own instructions ("...Escape to dismiss a finding")
+    // matched an unanchored check in CI, and activating a list removes nothing.
+    (phrase) => /^(apply fix|dismiss)\b/.test(phrase),
+    limit
   );
   expect(
     button,
