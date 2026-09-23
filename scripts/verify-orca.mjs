@@ -18,7 +18,7 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { readFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, rmSync, existsSync, openSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { serve } from './serve-preview.mjs';
@@ -129,8 +129,11 @@ const chrome = spawn(CHROME, [
   `${origin}/preview.html`,
 ], { stdio: 'ignore' });
 
+// DIAGNOSTIC (temporary): faulthandler dumps every thread's stack on SIGABRT.
+
 const orca = spawn(ORCA_PY, ['/usr/bin/orca', '--replace', '--debug', `--debug-file=${SPEECH_LOG}`], {
-  stdio: 'ignore',
+  stdio: ['ignore', 'ignore', openSync('/tmp/orca-stderr.log', 'w')],
+  env: { ...process.env, PYTHONFAULTHANDLER: '1' },
 });
 
 try {
@@ -289,7 +292,8 @@ try {
     fail(`ORCA  gate error: ${error.message}`);
   }
 } finally {
-  orca.kill();
+  orca.kill('SIGABRT');
+  await sleep(1000);
   chrome.kill();
   server.close();
 }

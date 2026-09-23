@@ -119,3 +119,5 @@ jobs:
             /tmp/atspi-bus.log
             /tmp/atspi-reg.log
             /tmp/xvfb.log
+            /tmp/orca-stderr.log
+            ~/.cache/speech-dispatcher/log/
