@@ -80,7 +80,7 @@ async function runAxe(send, label) {
   if (result.violations.length === 0) note(`axe-core${label}: 0 violations, ${result.passes} rules passed`);
 }
 
-async function checkTree(send) {
+async function checkTree(send, opts = {}) {
   const { nodes } = await send('Accessibility.getFullAXTree');
   const live = (n) => n.ignored !== true;
   const interactive = nodes.filter((n) => INTERACTIVE.has(n.role?.value) && live(n));
@@ -94,7 +94,27 @@ async function checkTree(send) {
   for (const [name, c] of dupes) fail(`AX-AMBIGUOUS  ${c} controls share the accessible name ${JSON.stringify(name)}`);
   if (!dupes.length) note(`${interactive.length} interactive nodes, all named, none ambiguous`);
 
-  const headings = nodes.filter((n) => n.role?.value === 'heading' && live(n)).map((n) => ({
+  // Headings inside the edited document are the ARTIFACT, not app chrome: a
+  // real editor must tolerate documents with broken heading structure — the
+  // engine's heading-skip rule exists to flag exactly that. When opts names
+  // the document textbox, its subtree is excluded from the heading checks.
+  const byId = new Map(nodes.map((n) => [n.nodeId, n]));
+  let headingNodes = nodes.filter((n) => n.role?.value === 'heading' && live(n));
+  if (opts.contentTextbox) {
+    const box = nodes.find((n) => n.role?.value === 'textbox' && (n.name?.value ?? '').trim() === opts.contentTextbox && live(n));
+    if (box) {
+      const inside = new Set([box.nodeId]);
+      const stack = [...(box.childIds ?? [])];
+      while (stack.length) {
+        const id = stack.pop();
+        if (inside.has(id)) continue;
+        inside.add(id);
+        stack.push(...(byId.get(id)?.childIds ?? []));
+      }
+      headingNodes = headingNodes.filter((n) => !inside.has(n.nodeId));
+    }
+  }
+  const headings = headingNodes.map((n) => ({
     name: (n.name?.value ?? '').trim(),
     level: Number(n.properties?.find((p) => p.name === 'level')?.value?.value ?? 0),
   }));
@@ -135,7 +155,10 @@ async function checkTabOrder(send, max = 80) {
       const blurred = look();
       a.focus();
       const visible = focused.some((f, i) => (f.outline && !blurred[i].outline) || f.shadow !== blurred[i].shadow);
-      return { id: a.tagName + ':' + (a.getAttribute('aria-label') || a.textContent || '').trim().slice(0, 40), visible };
+      // 120 chars, not 40: two engine findings on the same passage (e.g. a
+      // long sentence that also reads dense) legitimately share their excerpt
+      // prefix and differ only in the hint suffix.
+      return { id: a.tagName + ':' + (a.getAttribute('aria-label') || a.textContent || '').trim().slice(0, 120), visible };
     })()`);
     if (!stop) break;
     if (seen.at(-1) === stop.id) { fail(`KEYBOARD  Tab did not move focus from ${stop.id} — possible trap`); break; }
@@ -240,7 +263,7 @@ async function editor() {
   const { proc, ws, send } = await openPage(page);
   try {
     await runAxe(send, '');
-    await checkTree(send);
+    await checkTree(send, { contentTextbox: 'Document text' });
     const stops = await checkTabOrder(send);
     const toolbarStops = stops.filter((s) => /^(BUTTON|SELECT):(Font family|Bold|Italic|Heading 1)/.test(s)).length;
     if (toolbarStops > 1) fail(`TOOLBAR  ${toolbarStops} toolbar controls in the tab order; a toolbar is one tab stop`);
@@ -253,25 +276,64 @@ async function editor() {
     if (second !== 'Font size') fail(`TOOLBAR  ArrowRight moved to ${JSON.stringify(second)}, expected "Font size"`);
     else note('ArrowRight moves within the toolbar');
 
-    // Four findings, one per severity, each with a distinct underline shape.
+    // Findings come from the real engine over the seed content, not fixtures.
+    // Every severity with underlinable TEXT findings shows its distinct shape:
+    // violation wavy, advisory dotted, manual dashed. The seed's blocker (an
+    // image without alt text) anchors to a figure node — figures get a NodeView
+    // badge, not a text underline — so it is asserted via its card.
     const shapes = await evaluate(send, `[...document.querySelectorAll('.ada-underline')].map(e => getComputedStyle(e).textDecorationStyle)`);
-    if (new Set(shapes).size !== 4) fail(`UNDERLINES  expected 4 distinct shapes, got ${JSON.stringify(shapes)}`);
-    else note(`underline shapes: ${shapes.join(', ')}`);
+    const distinct = [...new Set(shapes)].sort();
+    if (JSON.stringify(distinct) !== JSON.stringify(['dashed', 'dotted', 'wavy'])) fail(`UNDERLINES  expected wavy/dotted/dashed, got ${JSON.stringify(shapes)}`);
+    else note(`underline shapes: ${distinct.join(', ')}`);
+    const blockerCard = await evaluate(send, `!!document.querySelector('aside [data-severity="blocker"]')`);
+    if (!blockerCard) fail('UNDERLINES  the seed blocker (image without alt text) has no card in the findings region');
+    else note('blocker finding present as a card (figure-anchored, no text underline)');
+
+    const findingCount = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
+
+    // Structural rules run live on every keystroke (§8.1): editing the flagged
+    // link label removes its finding without waiting for blur or Recheck. The
+    // caret is placed inside the "click here" link and typed into, which makes
+    // the label non-generic.
+    await evaluate(send, `(() => {
+      const a = [...document.querySelectorAll('#document-text a[href]')].find(x => x.textContent.includes('click here'));
+      // The link text may sit inside the underline decoration span, so walk
+      // down to the first real text node rather than trusting firstChild.
+      const textNode = document.createTreeWalker(a, NodeFilter.SHOW_TEXT).nextNode();
+      const range = document.createRange();
+      range.setStart(textNode, 2);
+      range.collapse(true);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.getElementById('document-text').focus();
+    })()`);
+    const beforeTyping = await findingCount();
+    await send('Input.insertText', { text: ' now' });
+    await sleep(400);
+    const afterTyping = await findingCount();
+    if (afterTyping !== beforeTyping - 1) fail(`LIVE  editing the generic link label changed findings ${beforeTyping} -> ${afterTyping}, expected -1 without blur or Recheck`);
+    else note('structural findings update live while typing');
 
     // No compliance score anywhere (patterns-suggestion.md, Layer 3).
     const scored = await evaluate(send, `/\\/\\s*100|compliance score|% compliant/i.test(document.body.innerText)`);
     if (scored) fail('SUMMARY  page renders a compliance score');
     else note('no compliance score; summary is counts only');
 
-    // Apply a fix: the text changes, the finding goes, focus lands on a card.
+    // Apply a fix: the engine's mechanical fixes are attribute changes, so
+    // this exercises the anchor-aware Apply path — the seed's h1→h3 skip
+    // becomes an h2, the finding goes, focus lands on a card.
     const before = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
-    await evaluate(send, `[...document.querySelectorAll('aside button')].find(b => b.textContent.includes('clicking here')).click()`);
+    await evaluate(send, `[...document.querySelectorAll('aside button')].find(b => b.textContent.includes('Fix the heading level')).click()`);
     await sleep(200);
-    if (!(await focusByName(send, 'aside button', 'Apply fix'))) fail('FINDINGS  no Apply fix on the link finding');
+    if (!(await focusByName(send, 'aside button', 'Apply fix'))) fail('FINDINGS  no Apply fix on the heading-skip finding');
     await key(send, 'Enter');
     await sleep(400);
-    const text = await evaluate(send, `document.getElementById('document-text').textContent`);
-    if (!text.includes('is available as a linked PDF')) fail('FINDINGS  Apply fix did not change the document');
+    const headingFixed = await evaluate(send, `(() => {
+      const d = document.getElementById('document-text');
+      return { h3: d.querySelectorAll('h3').length, h2: [...d.querySelectorAll('h2')].filter(h => h.textContent === 'Public Comment').length };
+    })()`);
+    if (headingFixed.h3 !== 0 || headingFixed.h2 !== 1) fail(`FINDINGS  Apply fix did not change the heading level (h3=${headingFixed.h3}, h2=${headingFixed.h2})`);
     const after = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
     if (after !== before - 1) fail(`FINDINGS  underline count ${before} -> ${after} after applying a fix`);
     const focusAfter = await evaluate(send, `document.activeElement === document.body ? 'BODY' : document.activeElement.tagName`);
@@ -315,7 +377,6 @@ async function editor() {
     // collide (there's nothing yet to collide with). Two identical pastes are the
     // real test — if the renumbering ever regressed to keep the pasted id, both
     // copies would share "img-1" and this would catch it.
-    const findingCount = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
     const figureIds = () => evaluate(send, `[...document.querySelectorAll('#document-text [data-figure-id]')].map((el) => el.dataset.figureId)`);
     const pasteOnce = () => evaluate(send, `(() => {
       const el = document.getElementById('document-text');
@@ -347,6 +408,24 @@ async function editor() {
 
     await send('Page.reload');
     await sleep(1200);
+
+    // The store persists to localStorage on a 500ms debounce: after reload the
+    // edits must still be there, loaded from the store rather than the seed —
+    // the applied heading fix, the pasted content, and all four figures.
+    const persisted = await evaluate(send, `(() => {
+      const d = document.getElementById('document-text');
+      return {
+        fixed: [...d.querySelectorAll('h2')].filter(h => h.textContent === 'Public Comment').length,
+        h3: d.querySelectorAll('h3').length,
+        pasted: d.textContent.includes('pasted link'),
+        figures: d.querySelectorAll('[data-figure-id]').length,
+      };
+    })()`);
+    if (persisted.fixed !== 1 || persisted.h3 !== 0) fail(`PERSIST  reload lost the applied heading fix (${JSON.stringify(persisted)})`);
+    else if (!persisted.pasted) fail('PERSIST  reload lost the pasted content (debounced localStorage save)');
+    else if (persisted.figures !== 4) fail(`PERSIST  expected 2 seed + 2 pasted figures after reload, got ${persisted.figures}`);
+    else note('reload restores the edited document from localStorage');
+
     await checkReflow(send);
     await checkForcedColors(send);
   } finally {

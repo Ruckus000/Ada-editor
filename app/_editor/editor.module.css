@@ -654,7 +654,10 @@
 .otherBtn .glyph { align-self: center; }
 
 .excerpt {
-  flex-shrink: 0;
+  /* Engine excerpts run to 60 characters (fixture labels were short), so the
+     row must be able to shrink and the text to wrap at 320px (SC 1.4.10). */
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 13px;
   font-weight: 600;
   color: var(--as-text);

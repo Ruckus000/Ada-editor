@@ -135,6 +135,18 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   /* ---------- ProseMirror ---------- */
   useEffect(() => {
+    // Stored/seed figures already occupy img-N ids: start the counter above
+    // every existing suffix so inserted and pasted figures never collide with
+    // them (a collision would make alt-text edits and findings hit the wrong
+    // figure).
+    initial.descendants((node) => {
+      if (node.type === nodeTypes.figure) {
+        const n = Number(/^img-(\d+)$/.exec(String(node.attrs.id ?? ''))?.[1] ?? 0);
+        if (n > imageSeq.current) imageSeq.current = n;
+      }
+      return true;
+    });
+
     const figureView: NodeViewConstructor = (initialNode) => {
       let node = initialNode;
       const dom = document.createElement('figure');
@@ -311,20 +323,35 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   useEffect(() => () => clearTimeout(checkTimer.current), []);
 
   /* ---------- persistence (§3) ---------- */
+  const saveNow = useCallback(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    saveDoc(doc.id, {
+      content: view.state.doc.toJSON() as DocJSON,
+      header: sectionsRef.current.header.text,
+      footer: sectionsRef.current.footer.text,
+    });
+  }, [doc.id]);
   // Debounced save, hand-rolled setTimeout — no debounce library (§9.7).
   const scheduleSave = useCallback(() => {
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      const view = viewRef.current;
-      const patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer'>> = {
-        header: sectionsRef.current.header.text,
-        footer: sectionsRef.current.footer.text,
-      };
-      if (view) patch.content = view.state.doc.toJSON() as DocJSON;
-      saveDoc(doc.id, patch);
-    }, 500);
-  }, [doc.id]);
-  useEffect(() => () => clearTimeout(saveTimer.current), []);
+    saveTimer.current = setTimeout(() => { saveTimer.current = undefined; saveNow(); }, 500);
+  }, [saveNow]);
+  useEffect(() => {
+    // Flush a pending debounced save before the page goes away: a reload
+    // shortly after an edit must not lose it.
+    const flush = () => {
+      if (saveTimer.current === undefined) return;
+      clearTimeout(saveTimer.current);
+      saveTimer.current = undefined;
+      saveNow();
+    };
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      clearTimeout(saveTimer.current);
+    };
+  }, [saveNow]);
   // The mount check counts as a full check: the doc is current as of now.
   useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
 
