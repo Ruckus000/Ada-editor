@@ -178,6 +178,7 @@ Three things are easy to get wrong:
 | 2026-09-17 | NVDA / Chromium | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
 | 2026-09-17 | VoiceOver / WebKit | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
 | 2026-09-23 | VoiceOver / WebKit | CI run 35872345691 (×2) | PASS | PASS | PASS | PASS | n/a | n/a | Automated; passed on two consecutive runs; now blocking |
+| 2026-09-23 | Orca 46.1 / Chromium 131 | CI runs 35919865962, 35920193543 | PASS | PASS | PASS | PASS | PASS | PASS | First runner transcript to read the page; passed on two consecutive runs; now blocking |
 | | JAWS / Chrome | | | | | | | | not covered |
 
 ### What Orca actually said
