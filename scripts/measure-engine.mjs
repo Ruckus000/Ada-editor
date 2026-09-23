@@ -39,15 +39,17 @@ const DEFERRED = new Set(['table-no-header', 'document-language']);
 
 /**
  * Explained divergences. Each entry pins exact per-(doc, rule) counts for both
- * engines and states why the difference is correct rather than a bug. The
+ * engines and states why the difference is correct rather than a bug, and
+ * which way the flagged texts must nest (`holds`), which is checked: `superset`
+ * = every spike finding's text is among the engine's; `subset` = the reverse. The
  * corpus is frozen, so these numbers are deterministic; if a row stops
  * matching, this gate fails and the entry must be revisited — allowlist rows
  * are load-bearing assertions, not suppressions.
  */
-const RL_LIST_ITEMS = 'Engine grades tight-list-item text; the spike\'s reading-level selector was \'p\' only and never matched text directly inside <li>. Same validated formula over more of the document\'s real prose — a coverage improvement, not a drift. Verified per doc: every spike finding appears in the engine\'s set.';
-const LS_DUPLICATE = 'The spike\'s \'p,li\' long-sentence selector matched both the inner <p> of a loose list item and its <li> (identical textContent), double-counting the same sentence. The engine flags each paragraph once; the spike extras are duplicates, verified side by side.';
-const LS_CONCAT = 'The spike measured <li> textContent, which concatenates nested list items and fenced-code blocks inside the item into cross-block "sentences" that exist in no reader\'s experience. The engine evaluates each paragraph; the spike extras are concatenation artifacts, verified against the source.';
-const HE_LOGO = 'Logo-only heading (`# ![WICG Logo](...)`): DOM textContent cannot see alt attributes, so the spike called the h1 empty. A heading whose image carries alt text IS announced by screen readers — the spike finding was a false positive; the engine is right to stay silent.';
+const RL_LIST_ITEMS = { holds: 'superset', text: 'Engine grades tight-list-item text; the spike\'s reading-level selector was \'p\' only and never matched text directly inside <li>. Same validated formula over more of the document\'s real prose — a coverage improvement, not a drift. Verified per doc: every spike finding appears in the engine\'s set.' };
+const LS_DUPLICATE = { holds: 'subset', text: 'The spike\'s \'p,li\' long-sentence selector matched both the inner <p> of a loose list item and its <li> (identical textContent), double-counting the same sentence. The engine flags each paragraph once; the spike extras are duplicates, verified side by side.' };
+const LS_CONCAT = { holds: 'subset', text: 'The spike measured <li> textContent, which concatenates nested list items and fenced-code blocks inside the item into cross-block "sentences" that exist in no reader\'s experience. The engine evaluates each paragraph; the spike extras are concatenation artifacts, verified against the source.' };
+const HE_LOGO = { holds: 'subset', text: 'Logo-only heading (`# ![WICG Logo](...)`): DOM textContent cannot see alt attributes, so the spike called the h1 empty. A heading whose image carries alt text IS announced by screen readers — the spike finding was a false positive; the engine is right to stay silent.' };
 
 const ALLOWLIST = [
   { doc: 'usds-playbook.md', rule: 'reading-level', spike: 4, engine: 6, reason: RL_LIST_ITEMS },
@@ -143,6 +145,25 @@ const countBy = (findings) => {
   return m;
 };
 
+// Comparable text: the spike truncates snippets at 50/60/80 chars, the engine's
+// excerpt at 59 + '…'.
+// ponytail: 40-char prefix compare — blind to two findings sharing a long
+// prefix (GitHub raw-image srcs); expose raw snippets from checkDocument if a
+// divergence ever hides behind one.
+const textKey = (s) => (s ?? '').replace(/…$/, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+
+/** Per rule, the flagged texts only one side has (multiset difference). */
+function textDiff(spike, engine, rule) {
+  const onlyEngine = engine.filter((f) => f.rule === rule).map((f) => textKey(f.excerpt));
+  const onlySpike = [];
+  for (const f of spike.filter((x) => x.rule === rule)) {
+    const i = onlyEngine.indexOf(textKey(f.snippet));
+    if (i >= 0) onlyEngine.splice(i, 1);
+    else onlySpike.push(textKey(f.snippet));
+  }
+  return { onlySpike, onlyEngine };
+}
+
 const rows = [];
 const divergences = [];
 const totals = { spike: new Map(), engine: new Map() };
@@ -165,8 +186,9 @@ for (const entry of manifest) {
   for (const rule of rules) {
     const s = sCounts.get(rule) ?? 0;
     const e = eCounts.get(rule) ?? 0;
-    if (s === e) continue;
-    divergences.push({ doc: entry.name, rule, spike: s, engine: e });
+    const diff = textDiff(spike, engine, rule);
+    if (s === e && !diff.onlySpike.length && !diff.onlyEngine.length) continue;
+    divergences.push({ doc: entry.name, rule, spike: s, engine: e, ...diff });
   }
   if (VERBOSE) {
     for (const f of engine.filter((x) => x.rule === 'unknown')) {
@@ -180,7 +202,9 @@ for (const entry of manifest) {
 const unexplained = [];
 for (const d of divergences) {
   const entry = ALLOWLIST.find((a) => (a.doc === '*' || a.doc === d.doc) && a.rule === d.rule && a.spike === d.spike && a.engine === d.engine);
-  if (entry) d.reason = entry.reason;
+  // The counts match an entry; its reason must also hold for the texts.
+  const holds = entry && (entry.reason.holds === 'superset' ? !d.onlySpike.length : !d.onlyEngine.length);
+  if (holds) d.reason = entry.reason.text;
   else unexplained.push(d);
 }
 const stale = ALLOWLIST.filter((a) => !divergences.some((d) => (a.doc === '*' || a.doc === d.doc) && a.rule === d.rule && a.spike === d.spike && a.engine === d.engine));
@@ -226,8 +250,12 @@ if (stale.length) {
 
 if (unexplained.length || stale.length) {
   console.error(`FAILED — ${unexplained.length} unexplained divergence(s), ${stale.length} stale allowlist entr(ies).`);
-  for (const d of unexplained) console.error(`  ${d.doc} :: ${d.rule}  spike=${d.spike} engine=${d.engine}`);
+  for (const d of unexplained) {
+    console.error(`  ${d.doc} :: ${d.rule}  spike=${d.spike} engine=${d.engine}`);
+    if (d.onlySpike.length) console.error(`      only spike:  ${JSON.stringify(d.onlySpike)}`);
+    if (d.onlyEngine.length) console.error(`      only engine: ${JSON.stringify(d.onlyEngine)}`);
+  }
   console.error('\nFix the converter or the engine, or add an allowlist entry with a reason. Do not weaken the check.');
   process.exit(1);
 }
-console.log(`PASSED — engines agree on ${manifest.length} documents; ${divergences.length} divergence(s), all allowlisted with reasons.`);
+console.log(`PASSED — engines agree on ${manifest.length} documents (counts and flagged text); ${divergences.length} divergence(s), all allowlisted with reasons that hold.`);
