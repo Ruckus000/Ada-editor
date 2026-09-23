@@ -10,6 +10,7 @@ import type { NodeViewConstructor } from 'prosemirror-view';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Glyph,
+  OPEN_SEVERITIES,
   SEVERITY_ENCODING,
   VisuallyHidden,
   issueUnderlineKey,
@@ -17,8 +18,8 @@ import {
   useAnnounce,
   useRegionCycling,
 } from '../../design-system/primitives';
-import { OPEN_SEVERITIES } from '../_data/fixtures';
-import type { DocContent, DocSummary, OpenSeverity } from '../_data/fixtures';
+import type { OpenSeverity } from '../../design-system/primitives';
+import type { DocContent, DocSummary } from '../_data/fixtures';
 import { AltTextDialog, HeaderFooterDialog, ImageIcon, LinkDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {

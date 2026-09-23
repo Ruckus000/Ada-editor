@@ -1,8 +1,7 @@
 import type { Node as PMNode } from 'prosemirror-model';
-import { SEVERITY_RANK } from '../../design-system/primitives';
-import type { Issue } from '../../design-system/primitives';
-import { OPEN_SEVERITIES } from '../_data/fixtures';
-import type { DocContent, OpenSeverity } from '../_data/fixtures';
+import { OPEN_SEVERITIES, SEVERITY_RANK } from '../../design-system/primitives';
+import type { Issue, OpenSeverity } from '../../design-system/primitives';
+import type { DocContent } from '../_data/fixtures';
 import { schema } from './editorSchema';
 
 export type Section = 'header' | 'footer';
