@@ -219,6 +219,13 @@ async function dashboard() {
   page = '/';
   const { proc, ws, send } = await openPage('/');
   try {
+    // Every run starts from the seed. Chrome runs on its default profile, which
+    // keeps localStorage per origin, so a reused port would otherwise inherit a
+    // past run's edits and fail below with confusing counts.
+    await evaluate(send, `localStorage.clear()`);
+    await send('Page.reload');
+    await sleep(1200);
+
     await runAxe(send, '');
     await checkTree(send);
     await checkTabOrder(send);
@@ -236,6 +243,7 @@ async function dashboard() {
     await key(send, 'Enter');
     await sleep(300);
     const restored = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
+    // 8 = every seed document (app/_data/seed.ts).
     if (restored !== 8) fail(`EMPTY  clearing did not restore the queue (${restored} rows)`);
     else note('empty state recovers with one action');
 
@@ -243,6 +251,7 @@ async function dashboard() {
     await focusByName(send, '.dash-sevrow', 'Needs your call');
     await key(send, 'Enter');
     await sleep(300);
+    // 3 = the seed documents with at least one manual finding.
     const filtered = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
     const pressed = await evaluate(send, `document.activeElement.getAttribute('aria-pressed')`);
     if (filtered !== 3 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
@@ -323,8 +332,9 @@ async function editor() {
     // link label removes its finding without waiting for blur or Recheck. The
     // caret is placed inside the "click here" link and typed into, which makes
     // the label non-generic.
-    await evaluate(send, `(() => {
+    const placed = await evaluate(send, `(() => {
       const a = [...document.querySelectorAll('#document-text a[href]')].find(x => x.textContent.includes('click here'));
+      if (!a) return false;
       // The link text may sit inside the underline decoration span, so walk
       // down to the first real text node rather than trusting firstChild.
       const textNode = document.createTreeWalker(a, NodeFilter.SHOW_TEXT).nextNode();
@@ -335,7 +345,9 @@ async function editor() {
       sel.removeAllRanges();
       sel.addRange(range);
       document.getElementById('document-text').focus();
+      return true;
     })()`);
+    if (!placed) fail('LIVE  the seed\'s "click here" link is missing');
     const beforeTyping = await findingCount();
     await send('Input.insertText', { text: ' now' });
     await sleep(400);
@@ -352,7 +364,12 @@ async function editor() {
     // this exercises the anchor-aware Apply path — the seed's h1→h3 skip
     // becomes an h2, the finding goes, focus lands on a card.
     const before = await evaluate(send, `document.querySelectorAll('.ada-underline').length`);
-    await evaluate(send, `[...document.querySelectorAll('aside button')].find(b => b.textContent.includes('Fix the heading level')).click()`);
+    const opened = await evaluate(send, `(() => {
+      const card = [...document.querySelectorAll('aside button')].find(b => b.textContent.includes('Fix the heading level'));
+      card?.click();
+      return Boolean(card);
+    })()`);
+    if (!opened) fail('FINDINGS  no heading-skip card to open');
     await sleep(200);
     if (!(await focusByName(send, 'aside button', 'Apply fix'))) fail('FINDINGS  no Apply fix on the heading-skip finding');
     await key(send, 'Enter');
@@ -406,10 +423,9 @@ async function editor() {
     // lose its href (text kept), and a pasted image without alt must be flagged
     // like an inserted one. The same clipboard payload — with the same
     // data-figure-id — is pasted twice: transformPasted always assigns a fresh
-    // id regardless of what was pasted, so a single paste can't prove ids don't
-    // collide (there's nothing yet to collide with). Two identical pastes are the
-    // real test — if the renumbering ever regressed to keep the pasted id, both
-    // copies would share "img-1" and this would catch it.
+    // id regardless of what was pasted. If that renumbering ever regressed to
+    // keep the pasted id, the copies would collide with each other and with the
+    // seed's own "img-1", and the uniqueness check below would catch it.
     const figureIds = () => evaluate(send, `[...document.querySelectorAll('#document-text [data-figure-id]')].map((el) => el.dataset.figureId)`);
     const pasteOnce = () => evaluate(send, `(() => {
       const el = document.getElementById('document-text');
