@@ -74,13 +74,12 @@ Stated plainly rather than discovered later.
    **JAWS is not covered at all** — commercial, licensed, and not driven by
    Guidepup. Treat NVDA and VoiceOver as **attempted and failing**, which is a
    better position than untested but is not verification.
-2. **The Orca gate is reliable locally but not in CI.** It passes 7 checks
-   repeatably on a developer machine. On a GitHub runner Orca attaches and then
-   reads nothing — its entire transcript is `"Screen reader on."` and the
-   browser frame — so the job is non-blocking for now. It still runs, still
-   reports failure, and can no longer skip silently: a skip is a failure when
-   `CI` is set. Until a CI transcript shows Orca reading page content, screen
-   reader evidence for this project comes from local runs, not from CI.
+2. **The Orca gate runs and blocks in CI.** It passes 7 checks on a GitHub
+   runner and gates the branch, and a skip is a failure when `CI` is set. It was
+   non-blocking until 2026-09-23 because on a runner Orca read only
+   `"Screen reader on."` and the browser frame: its main thread hung waiting on
+   speech-dispatcher, so it processed no keys. Pinning speech-dispatcher to ALSA
+   and a single voice module fixed that (see the test plan).
 
    Orca is also one implementation; browse-mode semantics differ between screen
    readers, so Orca passing does not predict NVDA or VoiceOver.
