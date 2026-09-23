@@ -222,8 +222,6 @@ export const CRITERIA: { id: string; name: string; count: number }[] = [
   { id: '3.1.2', name: 'Language of Parts', count: 2 },
 ];
 
-export const findSeed = (id: string): SeedDoc | undefined => SEEDS.find((s) => s.id === id);
-
 /** Build the ProseMirror document from seed content. Findings are computed by
  *  checkDocument against this doc — never seeded alongside it. */
 export function buildSeedDocument(content: DocContent): PMNode {

@@ -256,6 +256,24 @@ async function dashboard() {
   }
 }
 
+/* ---------- editor: initial triage ---------- */
+
+// The initially-active finding card must be the MOST SEVERE finding, not the
+// first in document order. benefits-guide is the doc where the two orders
+// differ (an advisory figure precedes a violation link), so it pins the
+// behavior; hearing-notice cannot (its blocker is first either way).
+async function triage() {
+  page = '/editor/benefits-guide';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    const severity = await evaluate(send, `document.querySelector('aside [role="group"][aria-labelledby^="finding-"] [data-severity]')?.getAttribute('data-severity') ?? 'none'`);
+    if (severity !== 'violation') fail(`TRIAGE  initially-active card is "${severity}", expected the most severe finding (violation)`);
+    else note('the initially-active card is the most severe finding, not the first in document order');
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 /* ---------- editor ---------- */
 
 async function editor() {
@@ -459,6 +477,7 @@ async function editor() {
 
 try {
   await dashboard();
+  await triage();
   await editor();
 } finally {
   server.kill();

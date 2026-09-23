@@ -74,7 +74,7 @@ const {
   REDUNDANT_ALT_PREFIX,
   syllables,
   gradeLevel,
-  splitSentences,
+  sentenceSpans,
   collapseSpaces,
 } = mod.textHelpers;
 
@@ -100,24 +100,17 @@ check('gradeLevel refuses short text and grades dense prose', () => {
   assert(plainGrade !== null && plainGrade <= 12, `plain prose should grade at or below 12, got ${plainGrade}`);
 });
 
-check('splitSentences keeps terminators without lookbehind (§9.10)', () => {
-  deepEq(splitSentences('A. B! C? D'), ['A.', 'B!', 'C?', 'D'], 'four sentences');
-  deepEq(splitSentences('Only one sentence.'), ['Only one sentence.'], 'single sentence');
-  deepEq(splitSentences('No terminator here'), ['No terminator here'], 'unterminated text');
-  deepEq(splitSentences('A.  B'), ['A.', 'B'], 'multiple spaces after a terminator');
-  deepEq(splitSentences(''), [], 'empty string');
-  // The lookbehind split the spike used would treat "3.5" mid-text the same way
-  // this does: a terminator only splits when whitespace follows it.
-  deepEq(splitSentences('Version 3.5 is out. Upgrade now.'), ['Version 3.5 is out.', 'Upgrade now.'], 'decimal points do not split');
-});
-
-check('sentenceSpans gives offset-accurate boundaries', () => {
-  const { sentenceSpans } = mod.textHelpers;
-  deepEq(sentenceSpans('A. B!'), [{ from: 0, to: 2 }, { from: 3, to: 5 }], 'two spans');
-  deepEq(sentenceSpans('Unterminated'), [{ from: 0, to: 12 }], 'unterminated text is one span');
-  deepEq(sentenceSpans(''), [], 'empty string');
-  const t = 'Version 3.5 is out. Upgrade now.';
-  deepEq(sentenceSpans(t).map((s) => t.slice(s.from, s.to)), ['Version 3.5 is out.', 'Upgrade now.'], 'slices round-trip');
+check('sentenceSpans splits sentences without lookbehind, offset-accurately (§9.10)', () => {
+  const slice = (t) => sentenceSpans(t).map((s) => t.slice(s.from, s.to));
+  deepEq(slice('A. B! C? D'), ['A.', 'B!', 'C?', 'D'], 'four sentences keep their terminators');
+  deepEq(slice('Only one sentence.'), ['Only one sentence.'], 'single sentence');
+  deepEq(slice('No terminator here'), ['No terminator here'], 'unterminated text');
+  deepEq(slice('A.  B'), ['A.', 'B'], 'multiple spaces after a terminator');
+  deepEq(slice(''), [], 'empty string');
+  // The lookbehind split the spike used would treat "3.5" mid-text the same
+  // way this does: a terminator only splits when whitespace follows it.
+  deepEq(slice('Version 3.5 is out. Upgrade now.'), ['Version 3.5 is out.', 'Upgrade now.'], 'decimal points do not split');
+  deepEq(sentenceSpans('A. B!'), [{ from: 0, to: 2 }, { from: 3, to: 5 }], 'offsets are exact');
 });
 
 check('spike regexes ported unchanged', () => {
@@ -582,7 +575,9 @@ check('carryPositions moves text findings, passes others through by identity', (
   eq(deleted[0].id, 'b', 'survivors keep order');
 });
 
-/* ---------- store hardening: corrupt payloads and failed writes ---------- */
+/* ---------- store hardening: corrupt payloads and failed writes ----------
+ * NOTE: these tests mutate the store module's internal state (diskFailed,
+ * memoryDocs) with no way to reset it — keep them LAST among store tests. */
 
 const storedDocJSON = (id, overrides = {}) => ({
   id, title: `Title ${id}`, owner: 'o', targets: [], header: 'h', footer: 'f',
@@ -611,12 +606,14 @@ check('store skips structurally invalid and unparseable docs instead of crashing
     storedDocJSON('valid-doc'),
     { id: 'bogus' },                                            // shape-invalid
     storedDocJSON('bad-content', { content: { type: 'nonexistent_node', content: [] } }), // parses as JSON, not as a PM doc
+    storedDocJSON('para-top', { content: para('just a paragraph').toJSON() }), // parses fine, but is not a top-level doc node
   ]));
   try {
     const summaries = mod.store.loadDocSummaries();
     eq(summaries.length, 1, 'only the fully valid doc is summarized');
     eq(summaries[0].id, 'valid-doc', 'the valid doc survives');
     eq(mod.store.loadDoc('bad-content'), null, 'loadDoc probes content and reports missing rather than throwing');
+    eq(mod.store.loadDoc('para-top'), null, 'a non-doc top node is rejected — it would crash the editor mount');
     eq(mod.store.loadDoc('bogus'), null, 'shape-invalid entry is gone');
   } finally {
     delete globalThis.window;

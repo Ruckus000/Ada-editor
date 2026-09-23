@@ -9,7 +9,7 @@
  * No DOM, no ProseMirror — these are pure functions on strings, verified by
  * scripts/verify-rules.mjs.
  *
- * One deliberate deviation from the spike: `splitSentences` replaces its
+ * One deliberate deviation from the spike: `sentenceSpans` replaces its
  * lookbehind-based sentence split. Lookbehind is unsupported by Safari 12,
  * which the shipped browserslist still includes, and SWC will not transpile a
  * regex literal — the pattern would throw at module parse. Capture-and-rejoin
@@ -83,9 +83,4 @@ export function sentenceSpans(text: string): SentenceSpan[] {
   }
   if (start < text.length) spans.push({ from: start, to: text.length });
   return spans;
-}
-
-/** Split prose into sentences, each keeping its terminator. */
-export function splitSentences(text: string): string[] {
-  return sentenceSpans(text).map((s) => text.slice(s.from, s.to));
 }

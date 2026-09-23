@@ -146,6 +146,20 @@ export function docFromJSON(json: DocJSON): PMNode {
   return schema.nodeFromJSON(json);
 }
 
+/**
+ * Parse stored content, rejecting anything that is not a top-level doc node:
+ * a valid non-doc node (paragraph JSON from a truncated write or tampering)
+ * parses fine but would crash the editor mount, which requires schema.topNodeType.
+ */
+function parseStoredDoc(content: DocJSON): PMNode | null {
+  try {
+    const node = docFromJSON(content);
+    return node.type === schema.nodes.doc ? node : null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadDoc(id: string): StoredDoc | null {
   seedIfEmpty();
   const stored = readAll().get(id) ?? null;
@@ -153,12 +167,7 @@ export function loadDoc(id: string): StoredDoc | null {
   // Probe the PM payload: an entry that passes the shape check but no longer
   // parses (schema drift, truncated write) is reported missing — the editor
   // route shows its recoverable not-found panel instead of crashing.
-  try {
-    docFromJSON(stored.content);
-    return stored;
-  } catch {
-    return null;
-  }
+  return parseStoredDoc(stored.content) ? stored : null;
 }
 
 export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked'>>): void {
@@ -176,20 +185,19 @@ export function loadDocSummaries(): DocSummary[] {
   const now = Date.now();
   const out: DocSummary[] = [];
   for (const d of sorted) {
-    try {
-      out.push({
-        id: d.id,
-        title: d.title,
-        owner: d.owner,
-        targets: d.targets,
-        counts: countsOf(checkDocument(docFromJSON(d.content), { prose: true })),
-        lastChecked: relativeTime(d.lastChecked, now),
-        order: out.length,
-      });
-    } catch {
-      // Unparseable content: skip the doc rather than crash the dashboard;
-      // loadDoc's probe reports it as missing if it is opened directly.
-    }
+    // Unparseable or non-doc content: skip the doc rather than crash the
+    // dashboard; loadDoc's probe reports it as missing if it is opened directly.
+    const parsed = parseStoredDoc(d.content);
+    if (!parsed) continue;
+    out.push({
+      id: d.id,
+      title: d.title,
+      owner: d.owner,
+      targets: d.targets,
+      counts: countsOf(checkDocument(parsed, { prose: true })),
+      lastChecked: relativeTime(d.lastChecked, now),
+      order: out.length,
+    });
   }
   return out;
 }

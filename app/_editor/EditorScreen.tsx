@@ -73,7 +73,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   /* ---------- state ---------- */
   const [findings, setFindingsState] = useState<EditorFinding[]>(initialFindings);
-  const [activeId, setActiveId] = useState<string | null>(initialFindings[0]?.id ?? null);
+  // Triage order: the initially-active card is the MOST SEVERE finding, not
+  // the first in document order — the engine returns doc order, so sort first.
+  const [activeId, setActiveId] = useState<string | null>(sortFindings(initialFindings)[0]?.id ?? null);
   const [filter, setFilter] = useState<OpenSeverity | null>(null);
   const [format, setFormat] = useState<FormatState | null>(null);
   const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
