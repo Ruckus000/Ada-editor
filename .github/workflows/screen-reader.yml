@@ -16,12 +16,11 @@ name: screen readers
 # guidepup-voiceover-preferences-macos-26 Volume". Fix attempt: disable that
 # Finder default before the VoiceOver job runs (see the "Stop Finder..." step).
 #
-# NVDA: not diagnosed. It announces exactly "blank" and nothing else. No Windows
-# environment has been available to inspect this directly — the leading
-# hypothesis, by analogy with VoiceOver, is that page.bringToFront() does not
-# give the browser real OS-level foreground focus on this platform either, but
-# that is unconfirmed. Don't trust a future comment here that claims otherwise
-# without a transcript or a local Windows repro backing it up.
+# Both: the harness hand-rolled "focus the page" (bringToFront, osascript
+# activate, Control+Home). VoiceOver got as far as "You are currently in a
+# main." and never read content; NVDA said only "blank". It now calls
+# Guidepup's own navigateToWebContent() for each reader instead. Unconfirmed
+# until a transcript shows page content being read.
 #
 # These jobs still RUN and still report failure in the UI; continue-on-error
 # only stops them gating the branch.
