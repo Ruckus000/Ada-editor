@@ -13,10 +13,11 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
 import { CHROME, connect, evaluate, key, launch, shutdown, sleep, track, watchdog } from './cdp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -508,8 +509,61 @@ async function editor() {
 
     await checkReflow(send);
     await checkForcedColors(send);
+    await checkExport(send);
   } finally {
     await shutdown(send, ws, proc);
+  }
+}
+
+// Export: the downloaded page must be exactly as accessible as the findings
+// say, and a hostile title from localStorage (a trust boundary) must stay
+// text. Last step of editor(): it navigates away from the editor.
+async function checkExport(send) {
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+  const hostile = 'Notice </title><script>window.__pwned = 1</script>';
+  await evaluate(send, `(() => {
+    const docs = JSON.parse(localStorage.getItem('ada.docs.v1'));
+    docs.find((d) => d.id === 'hearing-notice').title = ${JSON.stringify(hostile)};
+    localStorage.setItem('ada.docs.v1', JSON.stringify(docs));
+  })()`);
+  await send('Page.reload');
+  await sleep(1200);
+
+  const dir = mkdtempSync(join(tmpdir(), 'ada-export-'));
+  try {
+    // Page-scoped: this socket is a page target, where the Browser-domain call is ignored.
+    await send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
+    const missingAlt = await evaluate(send, `[...document.querySelectorAll('#document-text figcaption')].filter((c) => c.textContent.includes('Missing alt text')).length`);
+    if (!(await focusByName(send, 'button', 'Export HTML'))) { fail('EXPORT  no Export HTML button'); return; }
+    await key(send, 'Enter');
+    let file;
+    for (let i = 0; i < 25 && !file; i++) {
+      await sleep(200);
+      file = readdirSync(dir).find((f) => f.endsWith('.html'));
+    }
+    if (!file) { fail(`EXPORT  no .html file was downloaded (dir: ${JSON.stringify(readdirSync(dir))}, said: ${JSON.stringify(await liveText(send))})`); return; }
+    const said = await liveText(send);
+    if (!/^Exported hearing-notice\.html\. .*review/.test(said)) fail(`EXPORT  announcement must name the file and what remains (got ${JSON.stringify(said)})`);
+    else note(`export announced: ${JSON.stringify(said)}`);
+
+    await send('Page.navigate', { url: pathToFileURL(join(dir, file)).href });
+    await sleep(800);
+    const page = await evaluate(send, `({ title: document.title, pwned: window.__pwned === 1, scripts: document.scripts.length, lang: document.documentElement.lang })`);
+    if (page.title !== hostile || page.pwned || page.scripts) fail(`EXPORT  a hostile stored title escaped into markup (${JSON.stringify(page)})`);
+    else note('a hostile stored title stays text in the exported page');
+    if (page.lang !== 'en') fail(`EXPORT  exported page has no language (lang=${JSON.stringify(page.lang)})`);
+
+    await evaluate(send, AXE);
+    const violations = JSON.parse(await evaluate(send, `
+      axe.run(document, { runOnly: { type: 'tag', values: ${JSON.stringify(AXE_TAGS)} } })
+        .then((r) => JSON.stringify(r.violations.map((v) => ({ id: v.id, nodes: v.nodes.length }))))
+    `));
+    for (const v of violations.filter((x) => x.id !== 'role-img-alt')) fail(`EXPORT  axe: ${v.id} x${v.nodes} in the exported page`);
+    const unnamed = violations.find((v) => v.id === 'role-img-alt')?.nodes ?? 0;
+    if (unnamed !== missingAlt) fail(`EXPORT  ${unnamed} unnamed images exported, but the editor showed ${missingAlt} missing alt text`);
+    else note(`exported page: axe clean apart from the ${missingAlt} image(s) the editor flags as missing alt`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 

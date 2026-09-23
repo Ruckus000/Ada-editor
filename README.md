@@ -25,7 +25,10 @@ Working prototype. The dashboard and editor screens are built from the design
 system, documents persist to localStorage, and every finding is computed by
 the **real checking engine**: eleven WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
-blur/Recheck. There is no backend, no auth and no file upload yet.
+blur/Recheck. **Export HTML** downloads the document as a standalone page
+(`lang`, landmarks, headings and links intact; figures are still placeholders,
+and whatever the checker flags is still wrong in the export). There is no
+backend, no auth, no PDF output and no file upload yet.
 
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused
