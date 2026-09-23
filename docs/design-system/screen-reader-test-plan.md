@@ -1,6 +1,6 @@
 # Screen reader test plan
 
-**Status: automated for Orca and VoiceOver; NVDA written but not yet reaching the page.**
+**Status: automated and blocking in CI for Orca and VoiceOver; NVDA written but not yet reaching the page.**
 
 All six steps below now run as a gate — `node scripts/verify-orca.mjs` — rather
 than as a manual checklist. It drives Orca and asserts on what it actually says,
@@ -161,7 +161,12 @@ Three things are easy to get wrong:
 - **speech-dispatcher blocks without an audio sink.** With no device, `spd-say`
   hangs forever and Orca never starts speaking. An ALSA null device
   (`pcm.!default { type null }`) fixes it; the speech is discarded and captured
-  from Orca's log instead.
+  from Orca's log instead. On a GitHub runner that alone was not enough:
+  speech-dispatcher stopped answering, and Orca's main thread waited forever on
+  its reply to a cancel, so the transcript stopped after the browser frame.
+  Pinning `AudioOutputMethod "alsa"` and a single `espeak-ng` module in
+  `speechd.conf` fixed it (see `.github/workflows/design-system.yml`). If Orca
+  goes quiet again, the uploaded `orca-debug` artifact has its full debug log.
 - **Orca's speech is captured from `--debug --debug-file`**, which records every
   `SPEECH OUTPUT` line regardless of whether audio plays.
 
@@ -173,6 +178,7 @@ Three things are easy to get wrong:
 | 2026-09-17 | NVDA / Chromium | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
 | 2026-09-17 | VoiceOver / WebKit | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
 | 2026-09-23 | VoiceOver / WebKit | CI run 35872345691 (×2) | PASS | PASS | PASS | PASS | n/a | n/a | Automated; passed on two consecutive runs; now blocking |
+| 2026-09-23 | Orca 46.1 / Chromium 131 | CI runs 35919865962, 35920193543 | PASS | PASS | PASS | PASS | PASS | PASS | First runner transcript to read the page; passed on two consecutive runs; now blocking |
 | | JAWS / Chrome | | | | | | | | not covered |
 
 ### What Orca actually said
