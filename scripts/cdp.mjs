@@ -21,7 +21,8 @@ if (typeof WebSocket === 'undefined') {
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Every Chrome still running, so a watchdog exit can take them down too.
+// Every child still running (Chrome, and servers passed to `track`), so any
+// exit path — watchdog, signal, normal end — can take them down too.
 const running = new Set();
 
 // Safety net for every process-exit path — normal end, uncaught exception,
@@ -29,11 +30,26 @@ const running = new Set();
 // swiftshader helpers), and has starved a later gate's hydration budget into
 // a false failure. The watchdog only fires while this process lives; this
 // runs synchronously as it dies, so no browser can outlive its gate.
-process.on('exit', () => {
+const killAll = () => {
   for (const proc of running) {
     try { proc.kill('SIGKILL'); } catch { /* already gone */ }
   }
-});
+};
+process.on('exit', killAll);
+
+// Node skips 'exit' handlers when a signal kills it, so Ctrl-C, an editor's
+// "terminate task" or npm forwarding SIGTERM would orphan every browser (and
+// the app gate's `next start`). Kill them, then die with the conventional code.
+for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
+  process.once(signal, () => { killAll(); process.exit(code); });
+}
+
+/** Tie another child process (e.g. a server) to the gate's lifetime. */
+export const track = (proc) => {
+  running.add(proc);
+  proc.once('exit', () => running.delete(proc));
+  return proc;
+};
 
 /**
  * Fail a hung gate instead of stalling it forever. process.exit does not stop
@@ -42,7 +58,7 @@ process.on('exit', () => {
 export const watchdog = (ms, cleanup = () => {}) =>
   setTimeout(() => {
     console.error(`Gate timed out after ${ms / 60_000} minutes.`);
-    for (const proc of running) proc.kill('SIGKILL');
+    killAll();
     cleanup();
     process.exit(1);
   }, ms).unref();
@@ -71,8 +87,7 @@ export const launch = async (pageUrl) => {
     '--force-color-profile=srgb', '--disable-extensions',
     `--remote-debugging-port=${port}`, pageUrl,
   ], { stdio: 'ignore' });
-  running.add(proc);
-  proc.once('exit', () => running.delete(proc));
+  track(proc);
 
   for (let attempt = 0; attempt < 50; attempt++) {
     await sleep(200);

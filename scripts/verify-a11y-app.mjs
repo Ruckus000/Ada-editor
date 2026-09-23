@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { CHROME, connect, evaluate, key, launch, shutdown, sleep, watchdog } from './cdp.mjs';
+import { CHROME, connect, evaluate, key, launch, shutdown, sleep, track, watchdog } from './cdp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
@@ -48,12 +48,13 @@ const freePort = () => new Promise((res) => {
 
 const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
-const server = spawn(NEXT, ['start', '-p', String(port), '-H', '127.0.0.1'], { cwd: ROOT, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } });
+const server = track(spawn(NEXT, ['start', '-p', String(port), '-H', '127.0.0.1'], { cwd: ROOT, stdio: 'ignore', env: { ...process.env, NEXT_TELEMETRY_DISABLED: '1' } }));
 
 // A hung browser must fail the gate, not stall it forever, and must not leave
-// `next start` or Chrome running behind it. (`next build` above blocks timers,
-// so the clock starts here.)
-watchdog(8 * 60_000, () => server.kill('SIGKILL'));
+// `next start` or Chrome running behind it — both are tracked, so the watchdog
+// and a signal kill take them down. (`next build` above blocks timers, so the
+// clock starts here.)
+watchdog(8 * 60_000);
 
 let up = false;
 for (let i = 0; i < 100 && !up; i++) {
