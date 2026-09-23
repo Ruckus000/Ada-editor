@@ -550,7 +550,7 @@ check('seed docs produce real engine findings across all four severities', () =>
   // In Node there is no localStorage, so the store runs on its in-memory seed
   // fallback — exactly the content the browser seeds from.
   const canon = (counts) => JSON.stringify(Object.keys(counts).sort().map((k) => [k, counts[k]]));
-  const summaries = mod.store.loadDocSummaries();
+  const summaries = mod.store.loadDashboardData().docs;
   eq(summaries.length, 8, 'eight seed documents');
   const byId = Object.fromEntries(summaries.map((s) => [s.id, s.counts]));
   const expect = (id, counts) => eq(canon(byId[id]), canon(counts), id);
@@ -608,14 +608,13 @@ check('carryPositions moves text findings, passes others through by identity', (
   eq(deleted[0].id, 'b', 'survivors keep order');
 });
 
-/* ---------- store hardening: corrupt payloads and failed writes ----------
- * NOTE: these tests mutate the store module's internal state (diskFailed,
- * memoryDocs) with no way to reset it — keep them LAST among store tests. */
+/* ---------- store mocks (shared by the sections below) ---------- */
 
 const storedDocJSON = (id, overrides = {}) => ({
   id, title: `Title ${id}`, owner: 'o', targets: [], header: 'h', footer: 'f',
   content: doc(heading(1, 'T'), para(`body of ${id}`)).toJSON(),
   lastChecked: Date.now(),
+  dismissed: [],
   ...overrides,
 });
 
@@ -633,6 +632,56 @@ const mockStorage = (initial, { failWrites = false } = {}) => {
     },
   };
 };
+
+/* ---------- dashboard aggregates: derived, never authored ---------- */
+
+check('loadDashboardData derives the side cards from real findings', () => {
+  const { docs, criteria, manualItems } = mod.store.loadDashboardData();
+  eq(docs.length, 8, 'all eight seed docs');
+  assert(criteria.length > 0 && criteria.length <= 5, `criteria rows: ${criteria.length}`);
+  for (let i = 1; i < criteria.length; i++) {
+    assert(criteria[i - 1].count >= criteria[i].count, 'criteria sorted by count desc');
+  }
+  for (const c of criteria) {
+    assert(/^\d+\.\d+\.\d+$/.test(c.id), `criterion id shape: ${c.id}`);
+    assert(c.name.length > 0 && c.count > 0, `criterion row: ${JSON.stringify(c)}`);
+  }
+  deepEq(criteria[0], { id: '1.1.1', name: 'Non-text Content', count: 6 }, 'top criterion pinned from the seeds');
+  assert(manualItems.length > 0, 'manual items exist');
+  const docIds = new Set(docs.map((d) => d.id));
+  const keys = new Set();
+  for (const m of manualItems) {
+    assert(docIds.has(m.docId), `manual item points at a real doc: ${m.docId}`);
+    assert(m.question.length > 0, 'question text is the finding title');
+    const key = `${m.docId}:${m.question}`;
+    assert(!keys.has(key), `duplicate manual item ${key}`);
+    keys.add(key);
+  }
+  assert(manualItems.some((m) => m.question === 'Alternative text may not describe the image'), 'the terse-alt finding surfaces on the card');
+});
+
+check('dismissed findings leave dashboard counts and manual items', () => {
+  mockStorage(null);
+  try {
+    mod.store.seedIfEmpty();
+    const before = mod.store.loadDashboardData();
+    const hearingBefore = before.docs.find((d) => d.id === 'hearing-notice');
+    eq(hearingBefore.counts.manual, 2, 'seed baseline: two manual findings');
+    const itemsBefore = before.manualItems.filter((m) => m.docId === 'hearing-notice').length;
+    mod.store.saveDoc('hearing-notice', { dismissed: ['img-alt-suspicious:map'] });
+    const after = mod.store.loadDashboardData();
+    const hearingAfter = after.docs.find((d) => d.id === 'hearing-notice');
+    eq(hearingAfter.counts.manual, 1, 'the dismissed finding leaves the count');
+    eq(after.manualItems.filter((m) => m.docId === 'hearing-notice').length, itemsBefore - 1, 'and leaves the card');
+    assert(!after.manualItems.some((m) => m.docId === 'hearing-notice' && m.question === 'Alternative text may not describe the image'), 'the dismissed item was the terse-alt one');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+/* ---------- store hardening: corrupt payloads and failed writes ----------
+ * NOTE: these tests mutate the store module's internal state (diskFailed,
+ * memoryDocs) with no way to reset it — keep them LAST among store tests. */
 
 check('sanitizeStoredDocs normalizes the optional dismissed field', () => {
   const { sanitizeStoredDocs } = mod.store;
@@ -664,7 +713,7 @@ check('store skips structurally invalid and unparseable docs instead of crashing
     storedDocJSON('para-top', { content: para('just a paragraph').toJSON() }), // parses fine, but is not a top-level doc node
   ]));
   try {
-    const summaries = mod.store.loadDocSummaries();
+    const summaries = mod.store.loadDashboardData().docs;
     eq(summaries.length, 1, 'only the fully valid doc is summarized');
     eq(summaries[0].id, 'valid-doc', 'the valid doc survives');
     eq(mod.store.loadDoc('bad-content'), null, 'loadDoc probes content and reports missing rather than throwing');
@@ -678,7 +727,7 @@ check('store skips structurally invalid and unparseable docs instead of crashing
 check('store reseeds when every stored entry is invalid', () => {
   mockStorage('[{"id":"bogus"}]');
   try {
-    const summaries = mod.store.loadDocSummaries();
+    const summaries = mod.store.loadDashboardData().docs;
     eq(summaries.length, 8, 'an all-invalid payload reseeds the eight demo docs');
   } finally {
     delete globalThis.window;

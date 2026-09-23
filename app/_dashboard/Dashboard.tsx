@@ -5,9 +5,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Button, Glyph, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, useAnnounce } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
-import { CRITERIA, MANUAL_ITEMS } from '../_data/seed';
 import type { DocSummary } from '../_data/seed';
-import { loadDocSummaries, seedIfEmpty } from '../_data/store';
+import { loadDashboardData, seedIfEmpty } from '../_data/store';
+import type { DashboardData } from '../_data/store';
 import './dashboard.css';
 
 type SortKey = 'urgency' | 'recent' | 'name';
@@ -67,14 +67,16 @@ export function Dashboard({
   const [sort, setSort] = useState<SortKey>('urgency');
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Documents live in localStorage with counts computed by the real engine
-  // (§3): the queue is loaded after hydration, so the server render shows the
-  // empty-queue state and there is no hand-authored data to drift.
-  const [allDocs, setAllDocs] = useState<DocSummary[]>([]);
+  // Documents live in localStorage with counts — and the side cards' criteria
+  // and manual items — computed by the real engine (§3): the queue is loaded
+  // after hydration, so the server render shows the empty-queue state and
+  // there is no hand-authored data to drift.
+  const [dash, setDash] = useState<DashboardData>({ docs: [], criteria: [], manualItems: [] });
   useEffect(() => {
     seedIfEmpty();
-    setAllDocs(loadDocSummaries());
+    setDash(loadDashboardData());
   }, []);
+  const allDocs = dash.docs;
 
   const docs = useMemo(() => {
     const list = matching(allDocs, query, severity, showPassing);
@@ -326,16 +328,16 @@ export function Dashboard({
               <h2 id="manual-heading">Waiting on a human</h2>
               <p className="dash-card__intro">Checks the engine cannot decide for you.</p>
               <ul role="list" className="dash-manual">
-                {MANUAL_ITEMS.slice(0, MANUAL_PREVIEW).map((item) => (
-                  <li key={item.question}>
+                {dash.manualItems.slice(0, MANUAL_PREVIEW).map((item) => (
+                  <li key={`${item.docId}:${item.question}`}>
                     <span className="dash-manual__q">{item.question}</span>
                     <span className="dash-manual__doc">{allDocs.find((d) => d.id === item.docId)?.title}</span>
                   </li>
                 ))}
               </ul>
-              {MANUAL_ITEMS.length > MANUAL_PREVIEW ? (
-                <Link className="dash-link" href={`/editor/${MANUAL_ITEMS[MANUAL_PREVIEW]!.docId}`}>
-                  {`${MANUAL_ITEMS.length - MANUAL_PREVIEW} more waiting on a decision`}
+              {dash.manualItems.length > MANUAL_PREVIEW ? (
+                <Link className="dash-link" href={`/editor/${dash.manualItems[MANUAL_PREVIEW]!.docId}`}>
+                  {`${dash.manualItems.length - MANUAL_PREVIEW} more waiting on a decision`}
                 </Link>
               ) : null}
             </section>
@@ -343,7 +345,7 @@ export function Dashboard({
             <section aria-labelledby="criteria-heading" className="dash-panel dash-card">
               <h2 id="criteria-heading">Most-failed criteria</h2>
               <ul role="list" className="dash-criteria">
-                {CRITERIA.map((c) => (
+                {dash.criteria.map((c) => (
                   <li key={c.id}>
                     <span className="dash-criteria__id">{c.id}</span>
                     <span className="dash-criteria__name">{c.name}</span>

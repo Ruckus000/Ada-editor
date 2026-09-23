@@ -206,22 +206,6 @@ export const SEEDS: SeedDoc[] = [
   },
 ];
 
-/** Static demo content for the dashboard's side cards. Not rule-derived. */
-export const MANUAL_ITEMS: { question: string; docId: string }[] = [
-  { question: 'Does this map image need a long description?', docId: 'health-advisory' },
-  { question: 'Is "Read the full notice" clear out of context?', docId: 'health-advisory' },
-  { question: 'Is the reading order correct after the two-column break?', docId: 'zoning-variance' },
-  { question: 'Is the table a data table or a layout table?', docId: 'hearing-notice' },
-];
-
-export const CRITERIA: { id: string; name: string; count: number }[] = [
-  { id: '1.1.1', name: 'Non-text Content', count: 6 },
-  { id: '2.4.4', name: 'Link Purpose (In Context)', count: 4 },
-  { id: '1.4.3', name: 'Contrast (Minimum)', count: 4 },
-  { id: '1.3.1', name: 'Info and Relationships', count: 3 },
-  { id: '3.1.2', name: 'Language of Parts', count: 2 },
-];
-
 /** Build the ProseMirror document from seed content. Findings are computed by
  *  checkDocument against this doc — never seeded alongside it. */
 export function buildSeedDocument(content: DocContent): PMNode {

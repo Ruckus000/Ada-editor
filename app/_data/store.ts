@@ -193,28 +193,63 @@ export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | '
   writeAll(all);
 }
 
-/** The dashboard's document list, with counts computed by the real engine (§3). */
-export function loadDocSummaries(): DocSummary[] {
+export interface DashboardData {
+  docs: DocSummary[];
+  /** Most-failed criteria, engine-derived — §3's "compute, don't author",
+   *  applied to the last hand-written numbers on the dashboard. */
+  criteria: { id: string; name: string; count: number }[];
+  /** Manual-severity findings across docs, in doc order: what is genuinely
+   *  "waiting on a human", not a scripted demo list. */
+  manualItems: { question: string; docId: string }[];
+}
+
+/**
+ * Everything the dashboard renders, in one parse+check pass per doc (§3/§9.6:
+ * recompute on load, never cache). Dismissed findings are excluded everywhere,
+ * so the dashboard and the editor cannot disagree about what is open.
+ */
+export function loadDashboardData(): DashboardData {
   seedIfEmpty();
   const sorted = [...readAll().values()].sort((a, b) => b.lastChecked - a.lastChecked);
   const now = Date.now();
-  const out: DocSummary[] = [];
+  const docs: DocSummary[] = [];
+  const criteriaTally = new Map<string, { id: string; name: string; count: number }>();
+  const manualItems: { question: string; docId: string }[] = [];
   for (const d of sorted) {
     // Unparseable or non-doc content: skip the doc rather than crash the
     // dashboard; loadDoc's probe reports it as missing if it is opened directly.
     const parsed = parseStoredDoc(d.content);
     if (!parsed) continue;
-    out.push({
+    const dismissed = new Set(d.dismissed);
+    const findings = checkDocument(parsed, { prose: true }).filter((f) => !dismissed.has(f.id));
+    docs.push({
       id: d.id,
       title: d.title,
       owner: d.owner,
       targets: d.targets,
-      counts: countsOf(checkDocument(parsed, { prose: true })),
+      counts: countsOf(findings),
       lastChecked: relativeTime(d.lastChecked, now),
-      order: out.length,
+      order: docs.length,
     });
+    for (const f of findings) {
+      const space = f.criterion.indexOf(' ');
+      const id = space === -1 ? f.criterion : f.criterion.slice(0, space);
+      const name = space === -1 ? f.criterion : f.criterion.slice(space + 1);
+      const row = criteriaTally.get(id);
+      if (row) row.count += 1;
+      else criteriaTally.set(id, { id, name, count: 1 });
+    }
+    for (const f of findings) {
+      if (f.severity !== 'manual') continue;
+      // The card keys rows by docId+title, so keep that pair unique.
+      if (manualItems.some((m) => m.docId === d.id && m.question === f.title)) continue;
+      manualItems.push({ question: f.title, docId: d.id });
+    }
   }
-  return out;
+  const criteria = [...criteriaTally.values()]
+    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id))
+    .slice(0, 5);
+  return { docs, criteria, manualItems };
 }
 
 /* ---------- pure helpers (verified by scripts/verify-rules.mjs) ---------- */
