@@ -58,7 +58,9 @@ export const sortFindings = (list: EditorFinding[]) =>
 
 /**
  * Carry findings through a transaction's position mapping. Text findings move
- * with their text; one whose range collapses (the text was deleted) is dropped;
+ * with their text; one whose range collapses (the text was deleted) is dropped
+ * — unless it was a caret to begin with (an empty heading has no text to
+ * range over), which moves as a caret;
  * figure/section/document findings don't track text positions and pass through.
  *
  * Identity-preserving (§9.4): elements that didn't move keep their objects,
@@ -85,7 +87,8 @@ export function carryPositions(
       continue;
     }
     changed = true;
-    if (to > from) out.push({ ...f, from, to });
+    if (f.from === f.to) out.push({ ...f, from, to: from });
+    else if (to > from) out.push({ ...f, from, to });
   }
   return changed || out.length !== list.length ? out : list;
 }

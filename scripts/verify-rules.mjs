@@ -637,6 +637,12 @@ check('carryPositions moves text findings, passes others through by identity', (
   const deleted = carryPositions(list, (p) => Math.min(p, 5));
   eq(deleted.length, 2, 'collapsed finding dropped');
   eq(deleted[0].id, 'b', 'survivors keep order');
+  // A caret finding (empty heading) moves as a caret instead of being dropped
+  // and re-created by the next structural run.
+  const caret = carryPositions([mkFinding('e', 'text', 4, 4)], (p) => p + 2);
+  eq(caret.length, 1, 'caret finding survives an edit above it');
+  eq(caret[0].from, 6, 'caret moved');
+  eq(caret[0].to, 6, 'still a caret');
 });
 
 check('imageIdFloor never reissues an id whose dismissal persists', () => {
