@@ -481,6 +481,26 @@ check('document-anchored findings (§6)', () => {
   eq(noH1.severity, 'violation', 'severity');
 });
 
+/* ---------- false-positive floor ---------- */
+
+check('a genuinely clean document produces zero findings', () => {
+  // The port's new failure mode is firing on PM structures the DOM spike never
+  // saw; the corpus parity gate measures fidelity, this pins the quiet side.
+  const clean = doc(
+    heading(1, 'Community Garden Program'),
+    para('Welcome to the community garden program for the 2026 growing season.'),
+    heading(2, 'How to register'),
+    para(
+      'You can register online at the ',
+      text('parks and recreation portal', link('https://city.example.gov/gardens')),
+      '. Registration takes about ten minutes, and you will get a confirmation email within two business days.',
+    ),
+    figure('img-1', 'A map of the garden plots, with the entrance on Elm Street', 'garden map'),
+    para('Bring your own gloves. Water and compost are provided at the shed near the entrance.'),
+  );
+  deepEq(checkDocument(clean, { prose: true }).map((f) => f.id), [], 'accessible content stays quiet');
+});
+
 /* ---------- store: pure helpers (the browser API paths are gate-tested) ---------- */
 
 const { relativeTime, countsOf } = mod.store;
