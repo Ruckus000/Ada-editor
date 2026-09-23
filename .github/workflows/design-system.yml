@@ -96,6 +96,11 @@ jobs:
             espeak-ng dbus-x11 python3-gi gir1.2-atspi-2.0 xdotool
           # speech-dispatcher blocks forever without an audio device.
           printf 'pcm.!default { type null }\nctl.!default { type null }\n' | sudo tee /etc/asound.conf
+          # ...and only if speech-dispatcher actually uses ALSA. Pin the output
+          # method and the one voice module the gate needs; a hung module left
+          # Orca blocked forever on speech-dispatcher's reply to a cancel.
+          printf 'AudioOutputMethod "alsa"\nAddModule "espeak-ng" "sd_espeak-ng" "espeak-ng.conf"\nDefaultModule espeak-ng\nLogDir "/tmp/speechd"\n' \
+            | sudo tee -a /etc/speech-dispatcher/speechd.conf
 
       - name: Orca screen reader gate
         run: |
@@ -120,4 +125,4 @@ jobs:
             /tmp/atspi-reg.log
             /tmp/xvfb.log
             /tmp/orca-stderr.log
-            ~/.cache/speech-dispatcher/log/
+            /tmp/speechd/
