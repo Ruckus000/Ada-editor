@@ -39,7 +39,8 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState } from './editorCommands';
-import { buildDocument, imageFinding, sortFindings, summaryLine } from './findings';
+import { checkDocument, reconcile } from '../_engine/check';
+import { buildSeedDocument, imageFinding, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -63,14 +64,17 @@ const wordsIn = (state: EditorState) =>
 
 export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocContent }) {
   const announce = useAnnounce();
-  const initial = useMemo(() => buildDocument(content), [content]);
+  const initial = useMemo(() => buildSeedDocument(content), [content]);
+  // Findings are computed, never seeded: a full check (prose rules included)
+  // runs once at mount, exactly like the blur/Recheck runs do later.
+  const initialFindings = useMemo(() => checkDocument(initial, { prose: true }), [initial]);
 
   /* ---------- state ---------- */
-  const [findings, setFindingsState] = useState<EditorFinding[]>(initial.findings);
-  const [activeId, setActiveId] = useState<string | null>(initial.findings[0]?.id ?? null);
+  const [findings, setFindingsState] = useState<EditorFinding[]>(initialFindings);
+  const [activeId, setActiveId] = useState<string | null>(initialFindings[0]?.id ?? null);
   const [filter, setFilter] = useState<OpenSeverity | null>(null);
   const [format, setFormat] = useState<FormatState | null>(null);
-  const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial.doc })));
+  const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
   const [checking, setChecking] = useState(false);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
     header: { text: content.header, align: 'left', spacing: 12, image: null },
@@ -86,8 +90,12 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const mountRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const findingsRef = useRef(findings);
+  // The array the findings list currently renders. reconcile preserves array
+  // identity when nothing changed (§9.4), so comparing against this skips the
+  // re-render, the list re-sort and the decoration rebuild on no-op edits.
+  const lastRenderedRef = useRef(findings);
   const activeRef = useRef<string | null>(activeId);
-  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, activate: (_id: string) => {}, docChanged: () => {} });
+  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
   const docRegion = useRef<HTMLElement>(null);
   const findingsRegion = useRef<HTMLElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -103,6 +111,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
 
   const setFindings = useCallback((next: EditorFinding[]) => {
     findingsRef.current = next;
+    lastRenderedRef.current = next;
     setFindingsState(next);
   }, []);
 
@@ -176,7 +185,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
 
     const view = new EditorView(mountRef.current, {
       state: EditorState.create({
-        doc: initial.doc,
+        doc: initial,
         plugins: [
           ...editingPlugins(),
           issueUnderlinePlugin(() => findingsRef.current.filter((f) => f.anchor.kind === 'text' && f.to > f.from)),
@@ -214,38 +223,38 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
         if (id) handlersRef.current.activate(id);
         return false;
       },
+      handleDOMEvents: {
+        // Prose-heuristic rules are gated on blur (§8.1) so they never flag a
+        // sentence still being typed. Returning false lets PM's own handling run.
+        blur: () => { handlersRef.current.runFullCheck(); return false; },
+      },
       dispatchTransaction(tr) {
+        const next = view.state.apply(tr);
         if (tr.docChanged) {
-          // Keep findings pinned to their text as the document changes. A finding
-          // whose text is deleted outright goes with it.
+          // Keep findings pinned to their text as the document changes; one
+          // deleted outright goes with it. Engine findings get fresh positions
+          // from the run below anyway — this mapping is what carries the gated
+          // PROSE findings across keystrokes until the next blur/Recheck (§8.1).
           findingsRef.current = findingsRef.current.flatMap((f) => {
             if (f.anchor.kind !== 'text') return [f];
             const from = tr.mapping.map(f.from, 1);
             const to = tr.mapping.map(f.to, -1);
+            if (from === f.from && to === f.to) return [f];
             return to > from ? [{ ...f, from, to }] : [];
           });
+          // Structural rules run live on every edit — they cannot false-positive
+          // on partial input. Computed BEFORE updateState so the underline
+          // decoration layer builds once, against the fresh findings (§9.5).
+          const fresh = checkDocument(next.doc, { prose: false });
+          findingsRef.current = reconcile(findingsRef.current, fresh, dismissedRef.current, { keepProse: true });
+          setWordCount(wordsIn(next));
         }
-        const next = view.state.apply(tr);
         view.updateState(next);
         setFormat(formatState(next));
         if (tr.docChanged) {
-          findingsRef.current = findingsRef.current.flatMap((f) => {
-            if (f.anchor.kind !== 'figure') return [f];
-            const pos = figurePos(next, f.anchor.figureId);
-            return pos < 0 ? [] : [{ ...f, from: pos, to: pos + 1 }];
-          });
-          // Every image without alt text is a blocker, however it arrived (toolbar,
-          // paste, drop), unless the user already dismissed that finding.
-          next.doc.descendants((node, pos) => {
-            if (node.type !== nodeTypes.figure) return true;
-            const id = node.attrs.id as string;
-            if (!node.attrs.alt && !dismissedRef.current.has(`img-alt-${id}`) && !findingsRef.current.some((f) => f.id === `img-alt-${id}`)) {
-              findingsRef.current = [...findingsRef.current, imageFinding(id, node.attrs.label as string, { kind: 'figure', figureId: id }, pos)];
-            }
-            return false;
-          });
-          setFindingsState(findingsRef.current);
-          setWordCount(wordsIn(next));
+          // reconcile returns the SAME array when nothing changed (§9.4): skip
+          // the render, the findings-list re-sort and the decoration rebuild.
+          if (findingsRef.current !== lastRenderedRef.current) setFindings(findingsRef.current);
           handlersRef.current.docChanged();
         }
       },
@@ -275,6 +284,16 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   }, [findings]);
 
   /* ---------- checking status ---------- */
+  // The gated full run (§8.1): every rule, prose heuristics included. Fires on
+  // editor blur and on the explicit Recheck action — never mid-keystroke. The
+  // engine is memoized, so an unchanged document costs one cache-hit walk.
+  const runFullCheck = useCallback(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const next = reconcile(findingsRef.current, checkDocument(view.state.doc, { prose: true }), dismissedRef.current);
+    if (next !== findingsRef.current) setFindings(next);
+  }, [setFindings]);
+
   const markChecking = useCallback((done?: () => void) => {
     clearTimeout(checkTimer.current);
     setChecking(true);
@@ -284,6 +303,8 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
 
   const onRecheck = () => {
     announce('Checking the document…');
+    runFullCheck();
+    // Purely cosmetic: the work above already finished, synchronously.
     markChecking(() => announce(`Checks up to date. ${summaryLine(findingsRef.current)}.`));
   };
 
@@ -334,7 +355,20 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
     const view = viewRef.current;
     if (!view || f.suggestion === undefined) return;
     const rest = removeFinding(f);
-    view.dispatch(view.state.tr.insertText(f.suggestion, f.from, f.to));
+    // The two machine-decidable rule fixes are attribute changes, not text
+    // replacements: applying them as text would write a literal "h2" into a
+    // heading or replace a figure node with its alt string.
+    if (f.fix?.kind === 'headingLevel') {
+      const $pos = view.state.doc.resolve(f.from);
+      const pos = $pos.before($pos.depth);
+      const attrs = view.state.doc.nodeAt(pos)?.attrs ?? {};
+      view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...attrs, level: f.fix.level }));
+    } else if (f.fix?.kind === 'figureAlt') {
+      const attrs = view.state.doc.nodeAt(f.from)?.attrs ?? {};
+      view.dispatch(view.state.tr.setNodeMarkup(f.from, undefined, { ...attrs, alt: f.fix.alt }));
+    } else {
+      view.dispatch(view.state.tr.insertText(f.suggestion, f.from, f.to));
+    }
     announce(`Fix applied: ${f.title}. ${remaining(rest)}`);
   };
 
@@ -377,9 +411,9 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
       if (!view) return;
       const pos = figurePos(view.state, altTarget.id);
       if (pos < 0) return;
-      // Empty alt: the dispatch's image reconcile re-adds the finding.
+      // The dispatch's engine reconcile updates the findings on its own: a
+      // non-empty alt drops img-alt-missing, an empty alt re-adds it.
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...view.state.doc.nodeAt(pos)!.attrs, alt }));
-      if (alt) setFindings(findingsRef.current.filter((f) => f.id !== findingId));
     } else {
       const { section } = altTarget;
       const image = sections[section].image;
@@ -401,6 +435,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
     },
     activate: (id) => { setActiveId(id); setFilter(null); },
     docChanged: () => markChecking(),
+    runFullCheck,
   };
 
   /* ---------- header & footer ---------- */
@@ -571,9 +606,12 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
                 {active.suggestion !== undefined ? (
                   <button type="button" className={styles.btnPrimary} onClick={() => onApply(active)}>Apply fix</button>
                 ) : null}
-                <button type="button" className={active.suggestion !== undefined ? styles.btnSubtle : styles.btnPrimary} onClick={() => onGoTo(active)}>
-                  {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : 'Go to text'}
-                </button>
+                {/* Document-level findings have no range to navigate to (§6): Dismiss only. */}
+                {active.anchor.kind === 'document' ? null : (
+                  <button type="button" className={active.suggestion !== undefined ? styles.btnSubtle : styles.btnPrimary} onClick={() => onGoTo(active)}>
+                    {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : 'Go to text'}
+                  </button>
+                )}
                 <button type="button" className={styles.btnGhost} onClick={() => onDismiss(active)}>Dismiss</button>
               </div>
             </div>

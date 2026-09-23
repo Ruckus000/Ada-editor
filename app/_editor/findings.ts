@@ -74,8 +74,12 @@ export function imageFinding(imageId: string, label: string, anchor: Anchor, at 
   };
 }
 
-/** Build the ProseMirror document and anchor each seeded finding to its span. */
-export function buildDocument(content: DocContent): { doc: PMNode; findings: EditorFinding[] } {
+/**
+ * Build the ProseMirror document from seed content. Findings are no longer
+ * seeded alongside it — they are computed by checkDocument (app/_engine/check.ts)
+ * against this doc, at mount and after every transaction.
+ */
+export function buildSeedDocument(content: DocContent): PMNode {
   const { marks: M, nodes: N } = schema;
   const blocks: PMNode[] = [
     N.heading!.create({ level: 1 }, schema.text(content.heading)),
@@ -84,15 +88,5 @@ export function buildDocument(content: DocContent): { doc: PMNode; findings: Edi
   for (const line of content.lines) {
     blocks.push(N.paragraph!.create(null, schema.text(line.before + line.text + line.after)));
   }
-  const doc = N.doc!.create(null, blocks);
-
-  const findings: EditorFinding[] = [];
-  // The first two blocks are the heading and subheading; prose lines follow.
-  doc.forEach((_block, offset, index) => {
-    const line = content.lines[index - 2];
-    if (!line?.finding) return;
-    const from = offset + 1 + line.before.length;
-    findings.push({ ...line.finding, from, to: from + line.text.length, original: line.text, anchor: { kind: 'text' } });
-  });
-  return { doc, findings: sortFindings(findings) };
+  return N.doc!.create(null, blocks);
 }
