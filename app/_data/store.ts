@@ -37,6 +37,13 @@ export interface StoredDoc {
   content: DocJSON;
   /** Epoch ms of the last full check. */
   lastChecked: number;
+  /**
+   * Finding ids the user dismissed. Ids are content-derived, so editing the
+   * flagged text naturally revives the finding — a dismissal only ever covers
+   * the exact text it was made against. Grows only by explicit user action and
+   * is never pruned, so an exact revert of the text stays dismissed.
+   */
+  dismissed: string[];
 }
 
 const STORAGE_KEY = 'ada.docs.v1';
@@ -65,16 +72,23 @@ const hasLocalStorage = (): boolean => {
  */
 export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
   if (!Array.isArray(parsed)) return [];
-  return parsed.filter((v): v is StoredDoc => {
-    if (typeof v !== 'object' || v === null) return false;
-    const d = v as Record<string, unknown>;
-    return typeof d.id === 'string' && d.id.length > 0 &&
-      typeof d.title === 'string' && typeof d.owner === 'string' &&
-      Array.isArray(d.targets) && typeof d.header === 'string' &&
-      typeof d.footer === 'string' &&
-      typeof d.content === 'object' && d.content !== null &&
-      typeof d.lastChecked === 'number';
-  });
+  return parsed
+    .filter((v): v is Omit<StoredDoc, 'dismissed'> & { dismissed?: unknown } => {
+      if (typeof v !== 'object' || v === null) return false;
+      const d = v as Record<string, unknown>;
+      return typeof d.id === 'string' && d.id.length > 0 &&
+        typeof d.title === 'string' && typeof d.owner === 'string' &&
+        Array.isArray(d.targets) && typeof d.header === 'string' &&
+        typeof d.footer === 'string' &&
+        typeof d.content === 'object' && d.content !== null &&
+        typeof d.lastChecked === 'number';
+    })
+    // Normalize the optional field: payloads written before dismissals existed
+    // have none, and localStorage is a trust boundary — keep strings only.
+    .map((d): StoredDoc => ({
+      ...d,
+      dismissed: Array.isArray(d.dismissed) ? d.dismissed.filter((s): s is string => typeof s === 'string') : [],
+    }));
 }
 
 /** The one-time seed, built from the demo content (§7 step 7). */
@@ -92,6 +106,7 @@ function seedDocs(): Map<string, StoredDoc> {
       content: buildSeedDocument(seed.content).toJSON() as DocJSON,
       // Staggered so the "most recently checked" order has a stable shape.
       lastChecked: now - i * 60_000,
+      dismissed: [],
     });
   });
   return map;
@@ -170,7 +185,7 @@ export function loadDoc(id: string): StoredDoc | null {
   return parseStoredDoc(stored.content) ? stored : null;
 }
 
-export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked'>>): void {
+export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked' | 'dismissed'>>): void {
   const all = readAll();
   const existing = all.get(id);
   if (!existing) return;

@@ -634,6 +634,28 @@ const mockStorage = (initial, { failWrites = false } = {}) => {
   };
 };
 
+check('sanitizeStoredDocs normalizes the optional dismissed field', () => {
+  const { sanitizeStoredDocs } = mod.store;
+  const base = {
+    id: 'x', title: 't', owner: 'o', targets: [], header: '', footer: '',
+    content: doc(heading(1, 'T')).toJSON(), lastChecked: 0,
+  };
+  deepEq(sanitizeStoredDocs([base])[0].dismissed, [], 'a payload without the field (pre-dating it) normalizes to []');
+  deepEq(sanitizeStoredDocs([{ ...base, dismissed: ['a', 3, null, 'b'] }])[0].dismissed, ['a', 'b'], 'non-string members are filtered (trust boundary)');
+});
+
+check('dismissed ids round-trip through the store', () => {
+  mockStorage(null);
+  try {
+    mod.store.seedIfEmpty();
+    mod.store.saveDoc('hearing-notice', { dismissed: ['img-alt-img-2'] });
+    deepEq(mod.store.loadDoc('hearing-notice').dismissed, ['img-alt-img-2'], 'persisted per document');
+    deepEq(mod.store.loadDoc('shelter-faq').dismissed, [], 'untouched docs stay empty');
+  } finally {
+    delete globalThis.window;
+  }
+});
+
 check('store skips structurally invalid and unparseable docs instead of crashing', () => {
   mockStorage(JSON.stringify([
     storedDocJSON('valid-doc'),

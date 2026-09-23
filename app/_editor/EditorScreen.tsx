@@ -108,8 +108,11 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const checkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // One counter for every image id (inserted, pasted, header/footer), so ids never collide.
   const imageSeq = useRef(0);
-  // Findings the user dismissed; the image reconcile below must not bring them back.
-  const dismissedRef = useRef(new Set<string>());
+  // Findings the user dismissed; the engine reconcile must not bring them
+  // back. Seeded from the store so dismissals survive reloads, and persisted
+  // on every change (below) — ids are content-derived, so a dismissal only
+  // ever covers the exact text it was made against.
+  const dismissedRef = useRef(new Set<string>(stored.dismissed));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Latest header/footer state for the debounced save (the timer must not
   // capture a stale render).
@@ -339,6 +342,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { saveTimer.current = undefined; saveNow(); }, 500);
   }, [saveNow]);
+  // Dismissals write immediately, never debounced: they are discrete user
+  // decisions, and losing one to a fast reload would resurrect a finding the
+  // user already answered.
+  const persistDismissed = useCallback(() => {
+    saveDoc(doc.id, { dismissed: [...dismissedRef.current] });
+  }, [doc.id]);
   // Flush a pending debounced save immediately. Two callers: pagehide (reload
   // or tab close) and the editor view's cleanup — SPA navigation (Next Link)
   // fires no pagehide, and unmounting is the last moment the live view exists
@@ -438,6 +447,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   const onDismiss = (f: EditorFinding) => {
     dismissedRef.current.add(f.id);
+    persistDismissed();
     const rest = removeFinding(f);
     announce(`Dismissed: ${f.title}. ${remaining(rest)}`);
   };
@@ -468,7 +478,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     if (!altTarget) return;
     const findingId = altTarget.kind === 'figure' ? `img-alt-${altTarget.id}` : `img-alt-${sections[altTarget.section].image?.id}`;
     // Clearing alt text is an explicit "this image is undescribed": flag it again even if dismissed.
-    if (!alt) dismissedRef.current.delete(findingId);
+    if (!alt && dismissedRef.current.delete(findingId)) persistDismissed();
     const exists = findingsRef.current.some((f) => f.id === findingId);
     if (altTarget.kind === 'figure') {
       const view = viewRef.current;
