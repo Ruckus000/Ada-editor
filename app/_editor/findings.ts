@@ -1,3 +1,4 @@
+import type { Node as PMNode } from 'prosemirror-model';
 // Direct module imports, not the primitives barrel: this module is bundled
 // into the Node-side engine verification (scripts/verify-rules.mjs), and the
 // barrel would drag React components and CSS along with it.
@@ -96,6 +97,28 @@ export function summaryLine(list: EditorFinding[]): string {
   // Manual is always shown, even at zero: it is the number that decides whether
   // the document is finished.
   return OPEN_SEVERITIES.filter((s) => s === 'manual' || n(s) > 0).map((s) => words[s](n(s))).join(' · ');
+}
+
+/**
+ * Floor for the editor's image-id counter: above every `img-N` in the
+ * document AND every N referenced by a persisted `img-alt-*` dismissal.
+ * Dismissals outlive the figure they were made against; without the second
+ * term, deleting a dismissed image and inserting a new one would reissue the
+ * id, and the stale dismissal would silently swallow the NEW image's
+ * missing-alt blocker — the one failure this product must never have.
+ */
+export function imageIdFloor(doc: PMNode, dismissed: Iterable<string> = []): number {
+  let max = 0;
+  doc.descendants((node) => {
+    const m = /^img-(\d+)$/.exec(String(node.attrs.id ?? ''));
+    if (m) max = Math.max(max, Number(m[1]));
+    return true;
+  });
+  for (const id of dismissed) {
+    const m = /^img-alt-(?:header-|footer-)?img-(\d+)$/.exec(id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max;
 }
 
 export function imageFinding(imageId: string, label: string, anchor: Anchor, at = 0): EditorFinding {

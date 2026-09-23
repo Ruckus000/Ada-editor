@@ -42,7 +42,7 @@ import type { FormatState } from './editorCommands';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
-import { carryPositions, imageFinding, sortFindings, summaryLine } from './findings';
+import { carryPositions, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -144,17 +144,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   /* ---------- ProseMirror ---------- */
   useEffect(() => {
-    // Stored/seed figures already occupy img-N ids: start the counter above
-    // every existing suffix so inserted and pasted figures never collide with
-    // them (a collision would make alt-text edits and findings hit the wrong
-    // figure).
-    initial.descendants((node) => {
-      if (node.type === nodeTypes.figure) {
-        const n = Number(/^img-(\d+)$/.exec(String(node.attrs.id ?? ''))?.[1] ?? 0);
-        if (n > imageSeq.current) imageSeq.current = n;
-      }
-      return true;
-    });
+    // Start the image-id counter above every id in the document AND every id
+    // a persisted dismissal references: a dismissed-then-deleted figure's id
+    // must never be reissued to a new image, or the stale dismissal would
+    // silently swallow the new image's missing-alt blocker (and a plain
+    // collision would make alt-text edits hit the wrong figure).
+    imageSeq.current = imageIdFloor(initial, stored.dismissed);
 
     const figureView: NodeViewConstructor = (initialNode) => {
       let node = initialNode;

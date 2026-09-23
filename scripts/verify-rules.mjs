@@ -608,6 +608,18 @@ check('carryPositions moves text findings, passes others through by identity', (
   eq(deleted[0].id, 'b', 'survivors keep order');
 });
 
+check('imageIdFloor never reissues an id whose dismissal persists', () => {
+  // Persisted dismissals outlive the figure they were made against. If the
+  // counter floor ignored them, deleting a dismissed image and inserting a
+  // new one would reissue the id — and the stale dismissal would silently
+  // swallow the NEW image's missing-alt blocker.
+  const { imageIdFloor } = mod.editorFindings;
+  eq(imageIdFloor(doc(para('x'), figure('img-2', ''))), 2, 'floor from live figures');
+  eq(imageIdFloor(doc(para('x'), figure('img-2', '')), ['img-alt-img-5', 'link-text-generic:here']), 5, 'persisted dismissals raise the floor');
+  eq(imageIdFloor(doc(para('no figures')), ['img-alt-img-1']), 1, 'floor survives the dismissed figure being deleted');
+  eq(imageIdFloor(doc(para('x')), []), 0, 'empty doc, no dismissals');
+});
+
 /* ---------- store mocks (shared by the sections below) ---------- */
 
 const storedDocJSON = (id, overrides = {}) => ({
