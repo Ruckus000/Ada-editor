@@ -17,6 +17,7 @@
  */
 import type { Node as PMNode } from 'prosemirror-model';
 import type { Anchor, EditorFinding } from '../_editor/findings';
+import { dismissKeyOf } from '../_editor/findings';
 import type { BlockEntry, BlockSummary, RawFinding } from './rules';
 import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock } from './rules';
 
@@ -41,20 +42,29 @@ const isProseId = (id: string): boolean => {
  * figure reconcile has always used, so dismissals and the alt dialog's
  * un-dismiss-on-clear stay continuous.
  */
-// ponytail: occurrence ordinals churn when an earlier duplicate is deleted —
-// the promoted twin loses a dismissal keyed to its old `#2` id. Content-derived
-// ids cannot distinguish identical findings by construction (§9.3), and
-// position-derived ids are exactly what §9.3 forbade; the upgrade path is a
-// per-finding persisted identity, not a smarter ordinal.
-function stableId(f: RawFinding, seen: Map<string, number>): string {
+function baseId(f: RawFinding): string {
   if (f.ruleId === 'img-alt-missing' && f.anchor.kind === 'figure') {
     return `img-alt-${f.anchor.figureId}`;
   }
-  const base = f.snippet ? `${f.ruleId}:${f.snippet}` : f.ruleId;
+  return f.snippet ? `${f.ruleId}:${f.snippet}` : f.ruleId;
+}
+
+function stableId(base: string, seen: Map<string, number>): string {
   const n = seen.get(base) ?? 0;
   seen.set(base, n + 1);
   return n === 0 ? base : `${base}#${n + 1}`;
 }
+
+/**
+ * What a dismissal records. Ordinals shift when an earlier duplicate is
+ * deleted — the surviving twin inherits the base id — so a dismissal keyed on
+ * the id alone would silently hide a finding nobody judged. Duplicates
+ * therefore key on id AND how many there are: any change to the count voids
+ * the dismissal (the finding shows again, the safe direction), and an exact
+ * revert restores it. Unique findings key on the bare id, so dismissals
+ * stored before this existed keep working.
+ */
+const dismissKey = (id: string, count: number): string => (count > 1 ? `${id}~${count}` : id);
 
 const excerptOf = (snippet: string): string =>
   snippet.length > EXCERPT_MAX ? `${snippet.slice(0, EXCERPT_MAX - 1)}…` : snippet;
@@ -95,6 +105,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
 
   const seen = new Map<string, number>();
   const mapped: EditorFinding[] = [];
+  const keyed: [EditorFinding, string][] = [];
   for (const { finding: f, blockPos } of raw) {
     let from: number;
     let to: number;
@@ -125,8 +136,9 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
         throw new Error(`unknown raw anchor: ${JSON.stringify(unreachable)}`);
       }
     }
+    const base = baseId(f);
     const out: EditorFinding = {
-      id: stableId(f, seen),
+      id: stableId(base, seen),
       severity: f.severity,
       title: f.title,
       explanation: f.explanation,
@@ -142,7 +154,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
     if (f.fix) {
       out.fix = f.fix;
       if (f.fix.kind === 'headingLevel') {
-        out.original = f.snippet;
+        out.original = f.original ?? f.snippet;
         out.suggestion = `h${f.fix.level}`;
       } else if (f.fix.kind === 'figureAlt') {
         out.original = f.snippet;
@@ -150,6 +162,12 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       }
     }
     mapped.push(out);
+    keyed.push([out, base]);
+  }
+  // Counts are final only once every finding is numbered.
+  for (const [f, base] of keyed) {
+    const count = seen.get(base) ?? 1;
+    if (count > 1) f.dismissKey = dismissKey(f.id, count);
   }
   mapped.sort((a, b) => a.from - b.from);
   return mapped;
@@ -168,6 +186,7 @@ const sameFinding = (a: EditorFinding, b: EditorFinding): boolean =>
   a.title === b.title && a.explanation === b.explanation &&
   a.excerpt === b.excerpt && a.hint === b.hint &&
   a.suggestion === b.suggestion && a.original === b.original &&
+  a.dismissKey === b.dismissKey &&
   JSON.stringify(a.fix ?? null) === JSON.stringify(b.fix ?? null);
 
 /**
@@ -190,7 +209,7 @@ export function reconcile(
 
   const result: EditorFinding[] = [];
   for (const nf of next) {
-    if (dismissed.has(nf.id)) continue;
+    if (dismissed.has(dismissKeyOf(nf))) continue;
     const pf = prevById.get(nf.id);
     result.push(pf && sameFinding(pf, nf) ? pf : nf);
   }

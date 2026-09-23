@@ -86,6 +86,9 @@ export interface RawFinding {
   /** The full flagged text, whitespace-collapsed. check.ts derives the stable id
    *  from this and truncates it for the card's excerpt. */
   snippet: string;
+  /** What the diff shows struck through, when that isn't the snippet itself
+   *  (heading-skip flags the heading's text but fixes its level). */
+  original?: string;
   hint: string;
   fix?: FindingFix;
   anchor: RawAnchor;
@@ -363,7 +366,10 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
         criterion: crit('heading-skip'),
         title: `Heading level jumps from h${previous} to h${level}`,
         explanation: 'Users navigating by heading rely on the levels describing the real structure.',
-        snippet: `h${level}`,
+        // The heading's own text, so the id — and any dismissal — belongs to
+        // this heading, not to every heading that ever skips to this level.
+        snippet: e.summary.text || `h${level}`,
+        original: `h${level}`,
         hint: 'Fix the heading level',
         // Mechanical: the only correct level is one below its parent.
         fix: { kind: 'headingLevel', level: previous + 1 },

@@ -18,6 +18,7 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { EditorFinding } from '../_editor/findings';
+import { dismissKeyOf } from '../_editor/findings';
 import { schema } from '../_editor/editorSchema';
 import { checkDocument } from '../_engine/check';
 import { SEEDS, buildSeedDocument } from './seed';
@@ -38,10 +39,12 @@ export interface StoredDoc {
   /** Epoch ms of the last full check. */
   lastChecked: number;
   /**
-   * Finding ids the user dismissed. Ids are content-derived, so editing the
-   * flagged text naturally revives the finding — a dismissal only ever covers
-   * the exact text it was made against. Grows only by explicit user action and
-   * is never pruned, so an exact revert of the text stays dismissed.
+   * Dismissal keys (`dismissKeyOf`) the user dismissed. Keys are content-
+   * derived, so editing the flagged text naturally revives the finding — a
+   * dismissal only ever covers the exact text it was made against, and for
+   * duplicate findings only while the number of duplicates is unchanged.
+   * Grows only by explicit user action and is never pruned, so an exact revert
+   * of the text stays dismissed.
    */
   dismissed: string[];
 }
@@ -221,7 +224,7 @@ export function loadDashboardData(): DashboardData {
     const parsed = parseStoredDoc(d.content);
     if (!parsed) continue;
     const dismissed = new Set(d.dismissed);
-    const findings = checkDocument(parsed, { prose: true }).filter((f) => !dismissed.has(f.id));
+    const findings = checkDocument(parsed, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f)));
     docs.push({
       id: d.id,
       title: d.title,

@@ -374,7 +374,7 @@ const DENSE = 'Applicants must furnish documentation substantiating residency pr
 check('checkDocument maps rules to anchored findings with stable ids', () => {
   const d = doc(heading(1, 'Title'), linkPara(), figure('img-1', ''), heading(3, 'Jumped'));
   const found = checkDocument(d, { prose: false });
-  deepEq(found.map((f) => f.id), ['link-text-generic:click here', 'img-alt-img-1', 'heading-skip:h3'], 'ids in doc order');
+  deepEq(found.map((f) => f.id), ['link-text-generic:click here', 'img-alt-img-1', 'heading-skip:Jumped'], 'ids in doc order');
   const linkF = found[0];
   deepEq(linkF.anchor, { kind: 'text' }, 'text anchor');
   eq(linkF.from, 11, 'link from');
@@ -390,6 +390,7 @@ check('checkDocument maps rules to anchored findings with stable ids', () => {
   eq(headF.from, 25, 'heading from');
   eq(headF.to, 31, 'heading to');
   deepEq(headF.fix, { kind: 'headingLevel', level: 2 }, 'fix descriptor');
+  eq(headF.excerpt, 'Jumped', 'card excerpt is the heading text');
   eq(headF.original, 'h3', 'diff shows the current level');
   eq(headF.suggestion, 'h2', 'diff shows the corrected level');
 });
@@ -457,6 +458,36 @@ check('reconcile drops dismissed ids and keeps non-engine findings', () => {
   const merged2 = reconcile(prev, next, dismissed);
   eq(merged2.length, 1, 'a dismissed finding stays gone across recomputes');
   assert(merged2[0] === sectionFinding, 'only the section finding remains');
+});
+
+check('a dismissal never hides a duplicate nobody judged', () => {
+  const here = (href) => para(text('here', link(href)));
+  const generic = (list) => list.filter((f) => f.id.startsWith('link-text-generic:'));
+  const two = generic(checkDocument(doc(here('https://a.example/x'), here('https://b.example/y')), { prose: false }));
+  deepEq(two.map((f) => f.dismissKey), ['link-text-generic:here~2', 'link-text-generic:here#2~2'], 'duplicates key on id and count');
+  const dismissed = new Set([two[0].dismissKey]);
+  eq(generic(reconcile([], two, dismissed)).length, 1, 'the dismissed twin is hidden, the other is not');
+  // Delete the dismissed link: the survivor inherits the base id, but not the dismissal.
+  const one = generic(checkDocument(doc(here('https://b.example/y')), { prose: false }));
+  eq(one[0].id, 'link-text-generic:here', 'survivor takes the base id');
+  eq(generic(reconcile([], one, dismissed)).length, 1, 'survivor stays visible');
+  // An exact revert restores the count, so the dismissal re-applies.
+  eq(generic(reconcile([], two, dismissed)).length, 1, 'exact revert re-hides only the dismissed one');
+  // A unique finding keys on its bare id, so older stored dismissals still match.
+  eq(one[0].dismissKey, undefined, 'unique findings carry no separate key');
+  eq(reconcile([], one, new Set(['link-text-generic:here'])).filter((f) => f.id === 'link-text-generic:here').length, 0, 'bare-id dismissal still applies');
+});
+
+check('heading-skip ids belong to the heading, not the level', () => {
+  const skips = (...hs) => checkDocument(doc(heading(1, 'Title'), ...hs), { prose: false }).filter((f) => f.id.startsWith('heading-skip'));
+  const alpha = skips(heading(3, 'Alpha'));
+  const dismissed = new Set(alpha.map((f) => f.id));
+  // Fix Alpha's level; a different heading that later skips to h3 must not inherit the dismissal.
+  const beta = skips(heading(2, 'Alpha'), heading(4, 'Beta'));
+  eq(beta.length, 1, 'Beta skips');
+  eq(reconcile([], beta, dismissed).length, 1, 'Beta is not hidden by Alpha\'s dismissal');
+  const twoSkips = skips(heading(3, 'Alpha'), heading(1, 'Again'), heading(3, 'Gamma'));
+  deepEq(twoSkips.map((f) => f.id), ['heading-skip:Alpha', 'heading-skip:Gamma'], 'two headings skipping to h3 get different ids');
 });
 
 check('reconcile carries prose findings between gated runs', () => {
@@ -571,7 +602,7 @@ check('the hearing-notice seed exercises the gate-critical paths', () => {
   const byId = Object.fromEntries(found.map((f) => [f.id, f]));
   assert('img-alt-img-1' in byId, 'figure without alt is a blocker (paste/insert path)');
   assert('link-text-generic:click here' in byId, 'generic link fires');
-  const skip = byId['heading-skip:h3'];
+  const skip = byId['heading-skip:Public Comment'];
   assert(skip, 'heading-skip fires');
   deepEq(skip.fix, { kind: 'headingLevel', level: 2 }, 'heading-skip carries the anchor-aware Apply fix');
   eq(skip.suggestion, 'h2', 'suggestion renders in the diff UI');

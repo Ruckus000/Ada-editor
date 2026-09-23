@@ -42,7 +42,7 @@ import type { FormatState } from './editorCommands';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
-import { carryPositions, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
+import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -72,7 +72,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // the findings this user already dismissed, which persist with the document.
   const initialFindings = useMemo(() => {
     const dismissed = new Set(stored.dismissed);
-    return checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(f.id));
+    return checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f)));
   }, [initial, stored]);
 
   /* ---------- state ---------- */
@@ -445,7 +445,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   };
 
   const onDismiss = (f: EditorFinding) => {
-    dismissedRef.current.add(f.id);
+    dismissedRef.current.add(dismissKeyOf(f));
     persistDismissed();
     const rest = removeFinding(f);
     announce(`Dismissed: ${f.title}. ${remaining(rest)}`);

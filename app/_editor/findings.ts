@@ -42,7 +42,13 @@ export interface EditorFinding extends Issue {
   original?: string;
   anchor: Anchor;
   fix?: FindingFix;
+  /** What a dismissal of this finding records; `id` when absent. The engine
+   *  sets it for duplicate findings (see `dismissKey` in check.ts). */
+  dismissKey?: string;
 }
+
+/** The key a dismissal is stored and matched under. */
+export const dismissKeyOf = (f: EditorFinding): string => f.dismissKey ?? f.id;
 
 /** Triage order: severity first, then document position — never insertion
  *  order, or carried prose findings would drift to the bottom of their group
