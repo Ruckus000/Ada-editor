@@ -39,6 +39,8 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState } from './editorCommands';
+import { saveDoc } from '../_data/store';
+import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
 import { buildSeedDocument, imageFinding, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
@@ -106,6 +108,11 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const imageSeq = useRef(0);
   // Findings the user dismissed; the image reconcile below must not bring them back.
   const dismissedRef = useRef(new Set<string>());
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Latest header/footer state for the debounced save (the timer must not
+  // capture a stale render).
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
 
   useRegionCycling(useMemo(() => [docRegion, findingsRegion], []));
 
@@ -256,6 +263,7 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
           // the render, the findings-list re-sort and the decoration rebuild.
           if (findingsRef.current !== lastRenderedRef.current) setFindings(findingsRef.current);
           handlersRef.current.docChanged();
+          scheduleSave();
         }
       },
     });
@@ -292,7 +300,8 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
     if (!view) return;
     const next = reconcile(findingsRef.current, checkDocument(view.state.doc, { prose: true }), dismissedRef.current);
     if (next !== findingsRef.current) setFindings(next);
-  }, [setFindings]);
+    saveDoc(doc.id, { lastChecked: Date.now() });
+  }, [setFindings, doc.id]);
 
   const markChecking = useCallback((done?: () => void) => {
     clearTimeout(checkTimer.current);
@@ -300,6 +309,24 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
     checkTimer.current = setTimeout(() => { setChecking(false); done?.(); }, 900);
   }, []);
   useEffect(() => () => clearTimeout(checkTimer.current), []);
+
+  /* ---------- persistence (§3) ---------- */
+  // Debounced save, hand-rolled setTimeout — no debounce library (§9.7).
+  const scheduleSave = useCallback(() => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const view = viewRef.current;
+      const patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer'>> = {
+        header: sectionsRef.current.header.text,
+        footer: sectionsRef.current.footer.text,
+      };
+      if (view) patch.content = view.state.doc.toJSON() as DocJSON;
+      saveDoc(doc.id, patch);
+    }, 500);
+  }, [doc.id]);
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
+  // The mount check counts as a full check: the doc is current as of now.
+  useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
 
   const onRecheck = () => {
     announce('Checking the document…');
@@ -439,8 +466,10 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   };
 
   /* ---------- header & footer ---------- */
-  const updateSection = (key: Section, patch: Partial<SectionState>) =>
+  const updateSection = (key: Section, patch: Partial<SectionState>) => {
     setSections((s) => ({ ...s, [key]: { ...s[key], ...patch } }));
+    scheduleSave();
+  };
 
   const sectionSpacing = (key: Section, delta: number) => {
     const spacing = Math.max(4, Math.min(40, sections[key].spacing + delta));

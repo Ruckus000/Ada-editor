@@ -477,6 +477,36 @@ check('document-anchored findings (§6)', () => {
   eq(noH1.severity, 'violation', 'severity');
 });
 
+/* ---------- store: pure helpers (the browser API paths are gate-tested) ---------- */
+
+const { relativeTime, countsOf } = mod.store;
+
+check('relativeTime formats the dashboard\'s "last checked" column', () => {
+  const now = Date.now();
+  eq(relativeTime(now, now), 'just now', 'now');
+  eq(relativeTime(now - 30_000, now), 'just now', 'under a minute');
+  eq(relativeTime(now - 2 * 60_000, now), '2 min ago', 'minutes');
+  eq(relativeTime(now - 60 * 60_000, now), '1 h ago', 'one hour');
+  eq(relativeTime(now - 3 * 60 * 60_000, now), '3 h ago', 'hours');
+  eq(relativeTime(now - 25 * 60 * 60_000, now), 'Yesterday', 'yesterday');
+  const mar3 = new Date(2026, 2, 3, 12).getTime();
+  eq(relativeTime(mar3, mar3 + 72 * 60 * 60_000), 'Mar 3', 'older dates show month and day');
+  eq(relativeTime(now + 60_000, now), 'just now', 'clock skew into the future stays "just now"');
+});
+
+check('countsOf aggregates findings into DocSummary.counts', () => {
+  const fake = (severity, n) => ({
+    id: `x-${severity}-${n}`, severity, title: 't', explanation: 'e', criterion: 'c',
+    from: 0, to: 1, excerpt: 'x', hint: 'h', anchor: { kind: 'text' },
+  });
+  deepEq(countsOf([]), {}, 'no findings, no counts');
+  deepEq(
+    countsOf([fake('blocker', 1), fake('blocker', 2), fake('manual', 3)]),
+    { blocker: 2, manual: 1 },
+    'only present severities appear',
+  );
+});
+
 /* ---------- report ---------- */
 
 console.log('');

@@ -1,6 +1,11 @@
 import type { Node as PMNode } from 'prosemirror-model';
-import { OPEN_SEVERITIES, SEVERITY_RANK } from '../../design-system/primitives';
-import type { Issue, OpenSeverity } from '../../design-system/primitives';
+// Direct module imports, not the primitives barrel: this module is bundled
+// into the Node-side engine verification (scripts/verify-rules.mjs), and the
+// barrel would drag React components and CSS along with it.
+import { SEVERITY_RANK } from '../../design-system/primitives/severity';
+import { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
+import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
+import type { Issue } from '../../design-system/primitives/types';
 import type { DocContent } from '../_data/fixtures';
 import { schema } from './editorSchema';
 
