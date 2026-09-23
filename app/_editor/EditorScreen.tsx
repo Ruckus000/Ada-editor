@@ -19,7 +19,7 @@ import {
   useRegionCycling,
 } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
-import type { DocContent, DocSummary } from '../_data/fixtures';
+import type { DocSummary } from '../_data/seed';
 import { AltTextDialog, HeaderFooterDialog, ImageIcon, LinkDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
@@ -39,10 +39,10 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState } from './editorCommands';
-import { saveDoc } from '../_data/store';
+import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
-import { buildSeedDocument, imageFinding, sortFindings, summaryLine } from './findings';
+import { imageFinding, sortFindings, summaryLine } from './findings';
 import type { EditorFinding, Section } from './findings';
 import { Toolbar } from './Toolbar';
 import styles from './editor.module.css';
@@ -64,9 +64,9 @@ const figurePos = (state: EditorState, id: string) => {
 const wordsIn = (state: EditorState) =>
   state.doc.textBetween(0, state.doc.content.size, ' ', ' ').trim().split(/\s+/).filter(Boolean).length;
 
-export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocContent }) {
+export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredDoc }) {
   const announce = useAnnounce();
-  const initial = useMemo(() => buildSeedDocument(content), [content]);
+  const initial = useMemo(() => docFromJSON(stored.content), [stored]);
   // Findings are computed, never seeded: a full check (prose rules included)
   // runs once at mount, exactly like the blur/Recheck runs do later.
   const initialFindings = useMemo(() => checkDocument(initial, { prose: true }), [initial]);
@@ -79,8 +79,8 @@ export function EditorScreen({ doc, content }: { doc: DocSummary; content: DocCo
   const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
   const [checking, setChecking] = useState(false);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
-    header: { text: content.header, align: 'left', spacing: 12, image: null },
-    footer: { text: content.footer, align: 'left', spacing: 12, image: null },
+    header: { text: stored.header, align: 'left', spacing: 12, image: null },
+    footer: { text: stored.footer, align: 'left', spacing: 12, image: null },
   });
   const [hfOpen, setHfOpen] = useState(false);
   const [hfTab, setHfTab] = useState<Section>('header');

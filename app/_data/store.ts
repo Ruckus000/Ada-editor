@@ -18,11 +18,10 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { EditorFinding } from '../_editor/findings';
-import { buildSeedDocument } from '../_editor/findings';
 import { schema } from '../_editor/editorSchema';
 import { checkDocument } from '../_engine/check';
-import { DOCS, contentFor } from './fixtures';
-import type { DocSummary } from './fixtures';
+import { SEEDS, buildSeedDocument } from './seed';
+import type { DocSummary } from './seed';
 
 export type DocJSON = Record<string, unknown>;
 
@@ -57,16 +56,15 @@ const hasLocalStorage = (): boolean => {
 function seedDocs(): Map<string, StoredDoc> {
   const now = Date.now();
   const map = new Map<string, StoredDoc>();
-  DOCS.forEach((meta, i) => {
-    const content = contentFor(meta);
-    map.set(meta.id, {
-      id: meta.id,
-      title: meta.title,
-      owner: meta.owner,
-      targets: [...meta.targets],
-      header: content.header,
-      footer: content.footer,
-      content: buildSeedDocument(content).toJSON() as DocJSON,
+  SEEDS.forEach((seed, i) => {
+    map.set(seed.id, {
+      id: seed.id,
+      title: seed.title,
+      owner: seed.owner,
+      targets: [...seed.targets],
+      header: seed.content.header,
+      footer: seed.content.footer,
+      content: buildSeedDocument(seed.content).toJSON() as DocJSON,
       // Staggered so the "most recently checked" order has a stable shape.
       lastChecked: now - i * 60_000,
     });

@@ -1,4 +1,3 @@
-import type { Node as PMNode } from 'prosemirror-model';
 // Direct module imports, not the primitives barrel: this module is bundled
 // into the Node-side engine verification (scripts/verify-rules.mjs), and the
 // barrel would drag React components and CSS along with it.
@@ -6,8 +5,6 @@ import { SEVERITY_RANK } from '../../design-system/primitives/severity';
 import { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { Issue } from '../../design-system/primitives/types';
-import type { DocContent } from '../_data/fixtures';
-import { schema } from './editorSchema';
 
 export type Section = 'header' | 'footer';
 
@@ -79,19 +76,3 @@ export function imageFinding(imageId: string, label: string, anchor: Anchor, at 
   };
 }
 
-/**
- * Build the ProseMirror document from seed content. Findings are no longer
- * seeded alongside it — they are computed by checkDocument (app/_engine/check.ts)
- * against this doc, at mount and after every transaction.
- */
-export function buildSeedDocument(content: DocContent): PMNode {
-  const { marks: M, nodes: N } = schema;
-  const blocks: PMNode[] = [
-    N.heading!.create({ level: 1 }, schema.text(content.heading)),
-    N.paragraph!.create(null, schema.text(content.subheading, [M.fontSize!.create({ size: 13 }), M.textColor!.create({ color: '#5E6C84' })])),
-  ];
-  for (const line of content.lines) {
-    blocks.push(N.paragraph!.create(null, schema.text(line.before + line.text + line.after)));
-  }
-  return N.doc!.create(null, blocks);
-}

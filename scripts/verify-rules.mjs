@@ -507,6 +507,41 @@ check('countsOf aggregates findings into DocSummary.counts', () => {
   );
 });
 
+/* ---------- seed content: the demo docs must produce what they promise ---------- */
+
+check('seed docs produce real engine findings across all four severities', () => {
+  // In Node there is no localStorage, so the store runs on its in-memory seed
+  // fallback — exactly the content the browser seeds from.
+  const canon = (counts) => JSON.stringify(Object.keys(counts).sort().map((k) => [k, counts[k]]));
+  const summaries = mod.store.loadDocSummaries();
+  eq(summaries.length, 8, 'eight seed documents');
+  const byId = Object.fromEntries(summaries.map((s) => [s.id, s.counts]));
+  const expect = (id, counts) => eq(canon(byId[id]), canon(counts), id);
+  expect('hearing-notice', { blocker: 1, violation: 2, advisory: 3, manual: 2 });
+  expect('shelter-faq', { blocker: 1, violation: 1, advisory: 1 });
+  expect('benefits-guide', { violation: 1, advisory: 1 });
+  expect('health-advisory', { violation: 1, manual: 2 });
+  expect('transit-notice', { blocker: 1, advisory: 2 });
+  expect('zoning-variance', { blocker: 1, manual: 1 });
+  expect('water-quality', {});
+  expect('voter-deadlines', {});
+});
+
+check('the hearing-notice seed exercises the gate-critical paths', () => {
+  const stored = mod.store.loadDoc('hearing-notice');
+  assert(stored, 'hearing-notice is stored');
+  const found = checkDocument(mod.store.docFromJSON(stored.content), { prose: true });
+  const byId = Object.fromEntries(found.map((f) => [f.id, f]));
+  assert('img-alt-img-1' in byId, 'figure without alt is a blocker (paste/insert path)');
+  assert('link-text-generic:click here' in byId, 'generic link fires');
+  const skip = byId['heading-skip:h3'];
+  assert(skip, 'heading-skip fires');
+  deepEq(skip.fix, { kind: 'headingLevel', level: 2 }, 'heading-skip carries the anchor-aware Apply fix');
+  eq(skip.suggestion, 'h2', 'suggestion renders in the diff UI');
+  const severities = new Set(found.map((f) => f.severity));
+  deepEq([...severities].sort(), ['advisory', 'blocker', 'manual', 'violation'], 'all four severities present');
+});
+
 /* ---------- report ---------- */
 
 console.log('');
