@@ -68,8 +68,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const announce = useAnnounce();
   const initial = useMemo(() => docFromJSON(stored.content), [stored]);
   // Findings are computed, never seeded: a full check (prose rules included)
-  // runs once at mount, exactly like the blur/Recheck runs do later.
-  const initialFindings = useMemo(() => checkDocument(initial, { prose: true }), [initial]);
+  // runs once at mount, exactly like the blur/Recheck runs do later — minus
+  // the findings this user already dismissed, which persist with the document.
+  const initialFindings = useMemo(() => {
+    const dismissed = new Set(stored.dismissed);
+    return checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(f.id));
+  }, [initial, stored]);
 
   /* ---------- state ---------- */
   const [findings, setFindingsState] = useState<EditorFinding[]>(initialFindings);

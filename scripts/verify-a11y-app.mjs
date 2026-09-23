@@ -247,6 +247,15 @@ async function dashboard() {
     if (filtered !== 3 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
     else note('severity filter toggles, sets aria-pressed and narrows the queue');
 
+    // Side cards are engine-derived now: the manual card must show a real
+    // finding title from the seeds (not a scripted question), and the criteria
+    // card must hold 1–5 derived rows.
+    const manualCard = await evaluate(send, `document.querySelector('.dash-manual')?.textContent ?? ''`);
+    const criteriaRows = await evaluate(send, `document.querySelectorAll('.dash-criteria li').length`);
+    if (!manualCard.includes('Alternative text may not describe the image')) fail('SIDECARDS  the manual card does not show an engine-derived finding title');
+    else if (criteriaRows < 1 || criteriaRows > 5) fail(`SIDECARDS  criteria card has ${criteriaRows} rows, expected 1-5 derived rows`);
+    else note('side cards show engine-derived findings and criteria');
+
     await send('Page.reload');
     await sleep(1200);
     await checkReflow(send);
@@ -367,6 +376,9 @@ async function editor() {
     const inAside = await evaluate(send, `!!document.activeElement.closest('aside')`);
     if (!inAside) fail('KEYBOARD  focus left the findings region after Dismiss');
     else note('focus stays in the findings region after Dismiss');
+    // Baseline for the reload check below: only the two pasted images may
+    // change this count — in particular, the dismissal must survive.
+    const countAfterDismiss = await findingCount();
 
     // Header & footer dialog: opens, traps, closes on Escape, returns focus.
     await focusByName(send, '[role=toolbar] button', 'Edit header and footer');
@@ -467,6 +479,9 @@ async function editor() {
     else if (!persisted.pasted) fail('PERSIST  reload lost the pasted content (debounced localStorage save)');
     else if (persisted.figures !== 4) fail(`PERSIST  expected 2 seed + 2 pasted figures after reload, got ${persisted.figures}`);
     else note('reload restores the edited document from localStorage');
+    const findingsAfterReload = await findingCount();
+    if (findingsAfterReload !== countAfterDismiss + 2) fail(`PERSIST  findings went ${countAfterDismiss} -> ${findingsAfterReload} across reload; expected exactly +2 (the pasted images), i.e. the dismissal persisted`);
+    else note('dismissals persist across reloads (count = post-dismiss + 2 pasted images)');
 
     await checkReflow(send);
     await checkForcedColors(send);
