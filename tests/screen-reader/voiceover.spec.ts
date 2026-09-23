@@ -13,6 +13,10 @@ import {
   assertSeverityIsSpoken,
 } from './assertions';
 
+// WebKit, like Safari, skips buttons and links on plain Tab by default; Option+Tab
+// reaches every focusable element. CI showed plain Tab never leaving the h1.
+const TAB = 'Alt+Tab';
+
 voiceOverTest.describe('VoiceOver', () => {
   voiceOverTest('announces severity as words, not colour', async ({ page, voiceOver }) => {
     await assertSeverityIsSpoken(page, voiceOver);
@@ -23,10 +27,10 @@ voiceOverTest.describe('VoiceOver', () => {
   });
 
   voiceOverTest('distinguishes the action buttons', async ({ page, voiceOver }) => {
-    await assertButtonsAreDistinct(page, voiceOver);
+    await assertButtonsAreDistinct(page, voiceOver, TAB);
   });
 
   voiceOverTest("keeps the user's place after applying a fix", async ({ page, voiceOver }) => {
-    await assertFocusSurvivesApplyingAFix(page, voiceOver);
+    await assertFocusSurvivesApplyingAFix(page, voiceOver, TAB);
   });
 });

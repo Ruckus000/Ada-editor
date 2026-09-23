@@ -141,10 +141,10 @@ export async function assertFindingsReachableByHeading(page: Page, sr: ScreenRea
  * Guards the defect that motivated the whole harness: four buttons named only
  * "Dismiss" are each individually valid and collectively useless.
  */
-export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader) {
+export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader, tabKey = 'Tab') {
   await open(page, sr);
   // Tab moves focus between controls; each stop announces the control's name.
-  for (let i = 0; i < 14; i++) await sr.press('Tab');
+  for (let i = 0; i < 14; i++) await sr.press(tabKey);
 
   const said = await transcriptText(sr);
   expect(
@@ -162,7 +162,7 @@ export async function assertButtonsAreDistinct(page: Page, sr: ScreenReader) {
  * it — Orca announced the document instead, and the user lost their place in the
  * list while the live region said the right thing to nobody.
  */
-export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenReader) {
+export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenReader, tabKey = 'Tab') {
   await open(page, sr);
 
   // Seek a button that actually REMOVES a finding. Since the rule-set spike the
@@ -170,7 +170,7 @@ export async function assertFocusSurvivesApplyingAFix(page: Page, sr: ScreenRead
   // in place, so stopping at the first button would test nothing.
   const button = await seek(
     sr,
-    'Tab',
+    tabKey,
     (phrase) => phrase.includes('apply fix') || phrase.includes('dismiss'),
     16
   );

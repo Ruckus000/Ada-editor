@@ -18,9 +18,12 @@ name: screen readers
 #
 # Both: the harness hand-rolled "focus the page" (bringToFront, osascript
 # activate, Control+Home). VoiceOver got as far as "You are currently in a
-# main." and never read content; NVDA said only "blank". It now calls
-# Guidepup's own navigateToWebContent() for each reader instead. Unconfirmed
-# until a transcript shows page content being read.
+# main." and never read content; NVDA said only "blank". Switching to Guidepup's
+# own navigateToWebContent() fixed VoiceOver: CI run 35868250903 passed the
+# severity and heading tests, the first screen reader assertions ever to pass
+# here. Its Tab tests then failed because WebKit's plain Tab skips buttons, so
+# the VoiceOver spec uses Option+Tab. NVDA still says only "blank" with the
+# helper, so its cause is something else and remains undiagnosed.
 #
 # These jobs still RUN and still report failure in the UI; continue-on-error
 # only stops them gating the branch.
