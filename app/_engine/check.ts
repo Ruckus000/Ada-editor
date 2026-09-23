@@ -222,6 +222,10 @@ export function reconcile(
     }
   }
 
-  if (result.length === prev.length && result.every((f, i) => f === prev[i])) return prev;
+  // Order carries no meaning (every consumer sorts or looks up by id), and the
+  // rebuild order differs from prev's — carried prose is appended — so compare
+  // as a set, or the first structural run after a full run re-renders for nothing.
+  const kept = new Set(prev);
+  if (result.length === prev.length && result.every((f) => kept.has(f))) return prev;
   return result;
 }

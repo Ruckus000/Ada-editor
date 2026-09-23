@@ -501,6 +501,13 @@ check('reconcile carries prose findings between gated runs', () => {
   const refreshed = reconcile(carried, checkDocument(d, { prose: true }), new Set());
   deepEq(refreshed.map((f) => f.id), full.map((f) => f.id), 'full run re-anchors prose findings');
   assert(refreshed === carried, 'identity preserved across the full run');
+  // A prose finding BEFORE a structural one: reconcile rebuilds structural
+  // first and appends carried prose, a different order over the same objects.
+  const mixed = doc(heading(1, 'Title'), para(DENSE), linkPara());
+  const mixedFull = checkDocument(mixed, { prose: true });
+  eq(mixedFull.length, 2, 'one prose + one structural finding');
+  const mixedCarried = reconcile(mixedFull, checkDocument(mixed, { prose: false }), new Set(), { keepProse: true });
+  assert(mixedCarried === mixedFull, 'reordering alone never allocates a new array (no extra render after a full run)');
 });
 
 check('document-anchored findings (§6)', () => {

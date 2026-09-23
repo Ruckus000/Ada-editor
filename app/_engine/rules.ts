@@ -94,13 +94,14 @@ export interface RawFinding {
   anchor: RawAnchor;
 }
 
+// ponytail: two ADJACENT links sharing an href read as one link — PM coalesces
+// identical-mark text, so they are the same node sequence as one link split by
+// formatting (a data-model ceiling; §9.9 requires the merge). Upgrade: give the
+// link mark an id attr once a real document has adjacent same-href links that
+// must be flagged separately.
 /** A contiguous run of text carrying the same link href (§9.9: merge on the
  *  link mark + href, never on full mark-set equality — "click **here**" is one
- *  link split across two text nodes with different complete mark sets).
- *  ponytail: two ADJACENT links sharing an href are therefore indistinguishable
- *  from one link split by formatting — PM coalesces identical-mark text at the
- *  Fragment level, so the two cases are the same node sequence. Ceiling of the
- *  data model, not of this function; §9.9 requires the merge. */
+ *  link split across two text nodes with different complete mark sets). */
 export interface LinkRun {
   text: string;
   href: string;
