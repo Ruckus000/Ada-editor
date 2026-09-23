@@ -17,6 +17,7 @@
  */
 
 import { build } from 'esbuild';
+import { parseHTML } from 'linkedom';
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -655,6 +656,45 @@ check('imageIdFloor never reissues an id whose dismissal persists', () => {
   eq(imageIdFloor(doc(para('x'), figure('img-2', '')), ['img-alt-img-5', 'link-text-generic:here']), 5, 'persisted dismissals raise the floor');
   eq(imageIdFloor(doc(para('no figures')), ['img-alt-img-1']), 1, 'floor survives the dismissed figure being deleted');
   eq(imageIdFloor(doc(para('x')), []), 0, 'empty doc, no dismissals');
+});
+
+/* ---------- HTML export ---------- */
+
+check('exportHtml builds an accessible standalone page', () => {
+  const { exportHtml } = mod.exportHtml;
+  // Shaped like the browser's createHTMLDocument(''), which already has an empty <title>.
+  const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
+  const listItem = (s) => N.list_item.create(null, [para(s)]);
+  const d = doc(
+    heading(1, 'Hearing'),
+    para(text('Read '), text('the agenda', [...link('https://x.org/a'), M.strong.create()]), text('.')),
+    para(text('bad', link('javascript:alert(1)'))),
+    N.bullet_list.create(null, [listItem('one'), listItem('two')]),
+    figure('img-1', 'Site plan of the shelter', 'site plan'),
+    figure('img-2', '', 'map'),
+  );
+  // A hostile title is checked in the browser by the app gate: linkedom does
+  // not escape <title> text on serialization, browsers do (HTML spec).
+  const html = exportHtml(d, { title: 'Hearing notice', header: 'CITY OF X', footer: '' }, empty());
+  assert(html.startsWith('<!doctype html>'), 'doctype first');
+  const page = parseHTML(html).document;
+  eq(page.documentElement.getAttribute('lang'), 'en', 'page language declared (WCAG 3.1.1)');
+  eq(page.querySelectorAll('title').length, 1, 'exactly one title');
+  eq(page.querySelector('title').textContent, 'Hearing notice', 'title');
+  eq(page.querySelector('meta[name=viewport]').getAttribute('content'), 'width=device-width, initial-scale=1', 'zoom is not locked');
+  eq(page.querySelector('main h1').textContent, 'Hearing', 'content keeps its structure');
+  eq(page.querySelector('main a strong')?.textContent, 'the agenda', 'marks nest inside the link');
+  eq(page.querySelector('main a').getAttribute('href'), 'https://x.org/a', 'safe href kept');
+  const bad = [...page.querySelectorAll('main a')].find((a) => a.textContent === 'bad');
+  assert(bad && !bad.hasAttribute('href'), 'unsafe href dropped, text kept');
+  eq(page.querySelectorAll('main ul > li').length, 2, 'lists survive');
+  const [withAlt, withoutAlt] = page.querySelectorAll('main figure');
+  eq(withAlt.getAttribute('role'), 'img', 'figure is an image');
+  eq(withAlt.getAttribute('aria-label'), 'Site plan of the shelter', 'alt text is its name');
+  assert(!withoutAlt.hasAttribute('aria-label'), 'missing alt stays missing — never filled from the label');
+  eq(page.querySelector('header').textContent, 'CITY OF X', 'header text exported');
+  eq(page.querySelector('footer'), null, 'empty footer omitted');
+  eq(exportHtml(doc(para('x')), { title: '  ', header: '', footer: '' }, empty()).match(/<title>(.*)<\/title>/)[1], 'Untitled document', 'blank title falls back');
 });
 
 /* ---------- store mocks (shared by the sections below) ---------- */
