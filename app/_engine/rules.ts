@@ -10,6 +10,10 @@
  * table node) and `document-language` (no language field exists in the data
  * model; the spike itself flagged it as noise).
  *
+ * One rule is engine-only, added after the port: `document-no-headings` closes
+ * the gap `document-no-h1` leaves (a document with no headings at all). The
+ * parity gate (scripts/measure-engine.mjs) pins its one corpus firing.
+ *
  * Shape: per-block rules run inside `summarizeBlock`, whose result check.ts
  * memoizes by node identity (a WeakMap — untouched blocks are reference-identical
  * across edits, so every unchanged paragraph is a cache hit). Cross-block rules
@@ -57,6 +61,9 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'colour-only-reference', criterion: '1.4.1 Use of Color', kind: 'prose' },
   { id: 'reading-level', criterion: '3.1.5 Reading Level', kind: 'prose' },
   { id: 'long-sentence', criterion: '3.1.5 Reading Level', kind: 'prose' },
+  // Structural, not prose-gated: it must retract the moment a heading is added
+  // (prose findings are carried across structural runs until blur).
+  { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', kind: 'structural' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
@@ -380,10 +387,12 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
     previous = level;
   }
 
-  // document-no-h1
+  // document-no-h1 (and the counts document-no-headings reads)
   let headings = 0;
   let hasH1 = false;
+  let textBlocks = 0;
   for (const e of entries) {
+    if (e.summary.figure === null && e.summary.text !== '') textBlocks++;
     if (e.summary.headingLevel === null) continue;
     headings++;
     if (e.summary.headingLevel === 1) hasH1 = true;
@@ -397,6 +406,27 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
       explanation: 'There is no h1, so the document has no stated title in its structure.',
       snippet: '',
       hint: 'Add a top-level heading',
+      anchor: { kind: 'document' },
+    });
+  }
+
+  // document-no-headings: the gap document-no-h1 leaves (it needs at least one
+  // heading). No headings is not itself an AA failure (1.3.1 fails only when
+  // visual headings are not marked up; requiring headings is 2.4.10, AAA), so
+  // a person decides whether the document has sections.
+  // ponytail: "several blocks" is a fixed count of non-empty text blocks.
+  // Upgrade trigger: false positives on real letters — weigh length in words,
+  // or pair it with detecting bold lines that act as headings.
+  const NO_HEADINGS_MIN_BLOCKS = 5;
+  if (headings === 0 && textBlocks >= NO_HEADINGS_MIN_BLOCKS) {
+    out.push({
+      ruleId: 'document-no-headings',
+      severity: 'manual',
+      criterion: crit('document-no-headings'),
+      title: 'Document has no headings',
+      explanation: 'Screen reader users move through a document by its headings; with none, they can only read it from top to bottom. If it has sections, or lines that work as headings (such as short bold lines that introduce a section), mark them as headings.',
+      snippet: '',
+      hint: 'Mark section headings',
       anchor: { kind: 'document' },
     });
   }
