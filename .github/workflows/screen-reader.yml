@@ -89,7 +89,31 @@ jobs:
           killall Finder || true
 
       # Enables VoiceOver and grants the automation permissions it needs.
-      - # Pinned to a commit: the action publishes no version tags.
+      #
+      # It intermittently fails before any test runs: it writes the automation
+      # permissions, then at once drives Control Center to turn on Do Not
+      # Disturb, and macOS refuses — "Not authorized to send Apple events to
+      # System Events (-2700)". Upstream already retries that script 5 times,
+      # 500ms apart (guidepup/setup enableDoNotDisturb.ts), and it still fails;
+      # a later, fresh attempt passes. 2 of 32 first attempts failed this way
+      # (runs 35992468630, 35998157585); every re-run passed. This pin is the
+      # latest release, and there is no option to skip Do Not Disturb.
+      #
+      # So: one retry after a pause. A second failure still fails the job.
+      # Ceiling: one retry. Upgrade trigger: the retry ever fails too, or
+      # upstream adds a way to skip Do Not Disturb.
+      - name: Guidepup setup
+        id: guidepup
+        continue-on-error: true
+        # Pinned to a commit: the action publishes no version tags.
+        uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+      - name: Wait before retrying Guidepup setup
+        if: steps.guidepup.outcome == 'failure'
+        run: |
+          echo "::warning::Guidepup setup failed on its first attempt (the Do Not Disturb permission race); retrying once."
+          sleep 30
+      - name: Guidepup setup (retry)
+        if: steps.guidepup.outcome == 'failure'
         uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
 
       - name: Install Guidepup screen reader assets
