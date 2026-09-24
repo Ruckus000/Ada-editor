@@ -8,12 +8,13 @@ name: screen readers
 # navigateToWebContent() and stepped the VO cursor instead of sending Tab, which
 # never moved focus under VoiceOver.
 #
-# NVDA is NON-BLOCKING (continue-on-error), as is the Orca gate in
-# design-system.yml: neither reaches the page in CI yet. NVDA says only "blank",
-# with or without navigateToWebContent(), so its cause is undiagnosed. Their
-# assertions are untested rather than wrong; the jobs still run and report
-# failure in the UI. Remove continue-on-error once a transcript shows the
-# reader reading this page. See docs/design-system/screen-reader-test-plan.md.
+# NVDA is NON-BLOCKING (continue-on-error): it does not reach the page in CI
+# yet. It says only "blank", with or without navigateToWebContent(), so its
+# cause is undiagnosed. Its assertions are untested rather than wrong; the job
+# still runs and reports failure in the UI. Remove continue-on-error once a
+# transcript shows it reading this page. (The Orca gate in design-system.yml
+# has blocked since it was fixed to read the page in CI.) See
+# docs/design-system/screen-reader-test-plan.md.
 
 on:
   push:
