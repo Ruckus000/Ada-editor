@@ -1,12 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { ChangeEvent, CSSProperties } from 'react';
 import { Button, Glyph, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, useAnnounce } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
-import { loadDashboardData, seedIfEmpty } from '../_data/store';
+import { createDoc, loadDashboardData, saveDoc, seedIfEmpty } from '../_data/store';
+import { summaryLine } from '../_editor/findings';
+import { checkDocument } from '../_engine/check';
+import { ImportError, importDocxFile } from '../_import/importDocx';
 import type { DashboardData } from '../_data/store';
 import './dashboard.css';
 
@@ -66,6 +70,43 @@ export function Dashboard({
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('urgency');
   const searchRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const importing = useRef(false);
+  const [importError, setImportError] = useState('');
+
+  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // choosing the same file again must fire change again
+    if (!file || importing.current) return;
+    importing.current = true;
+    setImportError('');
+    announce(`Importing ${file.name}…`);
+    try {
+      const imported = await importDocxFile(file);
+      const findings = checkDocument(imported.content, { prose: true });
+      const { id, persisted } = createDoc({
+        title: imported.title,
+        header: imported.header,
+        footer: imported.footer,
+        content: imported.content.toJSON() as Record<string, unknown>,
+        importNotes: imported.notes,
+      });
+      const notes = [...imported.notes];
+      if (!persisted) {
+        notes.push('Browser storage is full or unavailable, so this document is kept for this session only.');
+        saveDoc(id, { importNotes: notes });
+      }
+      router.push(`/editor/${id}`);
+      // The announcer lives in the root layout, so this survives the navigation.
+      announce([`Imported ${imported.title}.`, `${summaryLine(findings)}.`, ...notes].join(' '));
+    } catch (error) {
+      // Visible and announced once, by role="alert".
+      setImportError(error instanceof ImportError ? error.userMessage : 'This file couldn’t be imported.');
+    } finally {
+      importing.current = false;
+    }
+  };
 
   // Documents live in localStorage with counts — and the side cards' criteria
   // and manual items — computed by the real engine (§3): the queue is loaded
@@ -178,12 +219,21 @@ export function Dashboard({
             ) : null}
           </label>
           <Button variant="secondary" onClick={notYet('Re-running checks')}>Re-run checks</Button>
+          <Button variant="secondary" onClick={() => fileRef.current?.click()}>Upload .docx</Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            hidden
+            onChange={onFile}
+          />
           <Button variant="primary" onClick={notYet('Creating a document')}>New document</Button>
           <span className="dash-avatar" aria-hidden="true">JD</span>
         </div>
       </header>
 
       <main className="dash-main">
+        {importError ? <p role="alert" className="dash-import-error">{importError}</p> : null}
         <section aria-label="Queue at a glance" className="dash-stats">
           <div className="dash-stat">
             <span className="dash-stat__label">Open findings</span>

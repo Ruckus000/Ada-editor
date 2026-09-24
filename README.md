@@ -27,8 +27,11 @@ the **real checking engine**: eleven WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
 (`lang`, landmarks, headings and links intact; figures are still placeholders,
-and whatever the checker flags is still wrong in the export). There is no
-backend, no auth, no PDF output and no file upload yet.
+and whatever the checker flags is still wrong in the export). **Upload .docx**
+imports an existing Word file in the browser (the file never leaves the device)
+and checks it like any other document; what the editor can't hold yet (tables,
+footnotes, decorative images) is listed on the document instead of dropped
+silently. There is no backend, no auth, no PDF output and no PDF upload yet.
 
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused

@@ -9,3 +9,5 @@ export * as store from '../../app/_data/store';
 export * as editorFindings from '../../app/_editor/findings';
 export * as exportHtml from '../../app/_editor/exportHtml';
 export { schema } from '../../app/_editor/editorSchema';
+export * as importDocx from '../../app/_import/importDocx';
+export * as unzip from '../../app/_import/unzip';

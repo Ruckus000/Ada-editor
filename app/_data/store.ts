@@ -47,6 +47,9 @@ export interface StoredDoc {
    * of the text stays dismissed.
    */
   dismissed: string[];
+  /** What an imported file held that the editor could not (tables flattened,
+   *  footnotes left out…), shown until the user dismisses it. */
+  importNotes: string[];
 }
 
 const STORAGE_KEY = 'ada.docs.v1';
@@ -76,7 +79,7 @@ const hasLocalStorage = (): boolean => {
 export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
   if (!Array.isArray(parsed)) return [];
   return parsed
-    .filter((v): v is Omit<StoredDoc, 'dismissed'> & { dismissed?: unknown } => {
+    .filter((v): v is Omit<StoredDoc, 'dismissed' | 'importNotes'> & { dismissed?: unknown; importNotes?: unknown } => {
       if (typeof v !== 'object' || v === null) return false;
       const d = v as Record<string, unknown>;
       return typeof d.id === 'string' && d.id.length > 0 &&
@@ -91,8 +94,13 @@ export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
     // have none, and localStorage is a trust boundary — keep strings only.
     .map((d): StoredDoc => ({
       ...d,
-      dismissed: Array.isArray(d.dismissed) ? d.dismissed.filter((s): s is string => typeof s === 'string') : [],
+      dismissed: strings(d.dismissed),
+      importNotes: strings(d.importNotes),
     }));
+}
+
+function strings(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : [];
 }
 
 /** The one-time seed, built from the demo content (§7 step 7). */
@@ -111,6 +119,7 @@ function seedDocs(): Map<string, StoredDoc> {
       // Staggered so the "most recently checked" order has a stable shape.
       lastChecked: now - i * 60_000,
       dismissed: [],
+      importNotes: [],
     });
   });
   return map;
@@ -132,11 +141,12 @@ function readAll(): Map<string, StoredDoc> {
   return memoryDocs;
 }
 
-function writeAll(docs: Map<string, StoredDoc>): void {
+/** Returns whether the write reached localStorage (false: this session only). */
+function writeAll(docs: Map<string, StoredDoc>): boolean {
   if (!diskFailed && hasLocalStorage()) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...docs.values()]));
-      return;
+      return true;
     } catch {
       // Quota or private mode: keep the session running in memory — and stop
       // reading the stale on-disk copy, so saves stay visible this session.
@@ -144,6 +154,7 @@ function writeAll(docs: Map<string, StoredDoc>): void {
     }
   }
   memoryDocs = docs;
+  return false;
 }
 
 /** Populate the store from the seed content on first visit (or after corruption). */
@@ -189,12 +200,41 @@ export function loadDoc(id: string): StoredDoc | null {
   return parseStoredDoc(stored.content) ? stored : null;
 }
 
-export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked' | 'dismissed'>>): void {
+export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked' | 'dismissed' | 'importNotes'>>): void {
   const all = readAll();
   const existing = all.get(id);
   if (!existing) return;
   all.set(id, { ...existing, ...patch });
   writeAll(all);
+}
+
+/** URL- and filename-safe id from a title, unique among stored docs. */
+export function slugId(title: string, taken: (id: string) => boolean): string {
+  const base = title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').slice(0, 40).replace(/^-+|-+$/g, '') || 'document';
+  let id = base;
+  for (let n = 2; taken(id); n++) id = `${base}-${n}`;
+  return id;
+}
+
+/**
+ * Add a new document (an imported file). `persisted` is false when the store
+ * could only keep it in memory (quota, private mode): the caller must say so,
+ * or the document silently disappears on reload.
+ */
+export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' | 'content' | 'importNotes'>): { id: string; persisted: boolean } {
+  seedIfEmpty();
+  const all = readAll();
+  const id = slugId(draft.title, (candidate) => all.has(candidate));
+  all.set(id, {
+    ...draft,
+    id,
+    owner: 'You',
+    targets: ['WCAG 2.1 AA', 'Section 508', 'PDF/UA'],
+    lastChecked: Date.now(),
+    dismissed: [],
+  });
+  return { id, persisted: writeAll(all) };
 }
 
 export interface DashboardData {

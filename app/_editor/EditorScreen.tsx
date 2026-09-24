@@ -85,6 +85,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [format, setFormat] = useState<FormatState | null>(null);
   const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
   const [checking, setChecking] = useState(false);
+  const [importNotes, setImportNotes] = useState(stored.importNotes);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
     header: { text: stored.header, align: 'left', spacing: 12, image: null },
     footer: { text: stored.footer, align: 'left', spacing: 12, image: null },
@@ -667,6 +668,28 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               {filter ? `Showing ${SEVERITY_ENCODING[filter].label.toLowerCase()} findings only` : summaryLine(findings)}
             </p>
           </section>
+
+          {importNotes.length > 0 ? (
+            <section aria-labelledby="import-notes-heading" className={styles.summaryCard}>
+              <h2 id="import-notes-heading" className={styles.summaryHeading}>Not carried over from Word</h2>
+              <ul className={styles.importNotes}>
+                {importNotes.map((n) => <li key={n}>{n}</li>)}
+              </ul>
+              <button
+                type="button"
+                className={styles.btnSubtle}
+                onClick={() => {
+                  setImportNotes([]);
+                  saveDoc(doc.id, { importNotes: [] });
+                  announce('Import notes dismissed.');
+                  // The button is gone; keep keyboard focus in the findings panel.
+                  headingRef.current?.focus();
+                }}
+              >
+                Dismiss import notes
+              </button>
+            </section>
+          ) : null}
 
           <h2 id="ada-issues-heading" ref={headingRef} tabIndex={-1} className={styles.findingsHeading}>
             Findings <span className={styles.findingsCount}>{`(${findings.length})`}</span>

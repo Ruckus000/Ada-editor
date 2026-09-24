@@ -276,6 +276,78 @@ async function dashboard() {
   }
 }
 
+/* ---------- upload a .docx ---------- */
+
+// The file never leaves the browser, so this drives the real path: a file set
+// on the hidden input, the importer running in Chromium (its DOMParser and
+// DecompressionStream, not linkedom's), the store, and navigation.
+async function upload() {
+  page = '/ (upload)';
+  const { proc, ws, send } = await openPage('/');
+  const choose = async (file) => {
+    const { result } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file]')` });
+    if (!result.objectId) { fail('UPLOAD  no file input behind the Upload button'); return false; }
+    await send('DOM.setFileInputFiles', { objectId: result.objectId, files: [resolve(ROOT, file)] });
+    return true;
+  };
+  try {
+    await evaluate(send, `localStorage.clear()`);
+    await send('Page.reload');
+    await sleep(1200);
+    if (!(await focusByName(send, 'button', 'Upload .docx'))) fail('UPLOAD  no Upload .docx button');
+
+    // A file that is not a .docx: a visible, announced message, and nothing stored.
+    if (!(await choose('corpus/docx/library-hours.source.html'))) return;
+    await sleep(800);
+    const alert = await evaluate(send, `document.querySelector('.dash-import-error[role=alert]')?.textContent ?? ''`);
+    if (!alert.includes('isn’t a .docx')) fail(`UPLOAD  a non-.docx file gave no visible alert (got ${JSON.stringify(alert)})`);
+    else note('a non-.docx upload shows a visible role=alert message');
+    await runAxe(send, ' (import error shown)');
+
+    // A real .docx (pandoc's): stored, opened, announced with what was left out.
+    if (!(await choose('corpus/docx/library-hours.pandoc.docx'))) return;
+    let path = '';
+    for (let i = 0; i < 30 && !path.startsWith('/editor/'); i++) {
+      await sleep(200);
+      path = await evaluate(send, `location.pathname`);
+    }
+    if (path !== '/editor/library-hours-notice') { fail(`UPLOAD  expected to land on /editor/library-hours-notice, got ${path}`); return; }
+    page = path;
+    await sleep(1500);
+    const said = await liveText(send);
+    if (!/^Imported Library hours notice\. .*blocking.* 1 table flattened/.test(said)) fail(`UPLOAD  announcement must name the document, what was found and what was not imported (got ${JSON.stringify(said)})`);
+    else note(`upload announced: ${JSON.stringify(said)}`);
+    const view = await evaluate(send, `({
+      h1: document.querySelector('h1')?.textContent,
+      notes: [...document.querySelectorAll('[aria-labelledby=import-notes-heading] li')].map((li) => li.textContent),
+      headings: [...document.querySelectorAll('.ProseMirror h1, .ProseMirror h2, .ProseMirror h4')].length,
+      lists: document.querySelectorAll('.ProseMirror ul, .ProseMirror ol').length,
+      figures: document.querySelectorAll('.ProseMirror figure').length,
+    })`);
+    if (view.h1 !== 'Library hours notice' || view.headings !== 4 || view.lists !== 3 || view.figures !== 2) fail(`UPLOAD  the imported document lost structure: ${JSON.stringify(view)}`);
+    else note('the imported document keeps its headings, nested lists and images in the editor');
+    if (view.notes.length !== 1 || !view.notes[0].includes('table')) fail(`UPLOAD  import notes are not visible on the page (${JSON.stringify(view.notes)})`);
+    else note('what was not carried over is visible, not only announced');
+    await runAxe(send, ' (imported document)');
+    // The imported h2 -> h4 jump is the file's own finding, flagged by the engine.
+    await checkTree(send, { contentTextbox: 'Document text' });
+
+    // Dismissing the notes keeps focus in the findings panel and survives a reload.
+    if (!(await focusByName(send, 'button', 'Dismiss import notes'))) { fail('UPLOAD  no way to dismiss the import notes'); return; }
+    await key(send, 'Enter');
+    await sleep(300);
+    const focus = await evaluate(send, `document.activeElement?.id ?? ''`);
+    if (focus !== 'ada-issues-heading') fail(`UPLOAD  dismissing the notes dropped focus to ${JSON.stringify(focus)}`);
+    await send('Page.reload');
+    await sleep(1500);
+    const after = await evaluate(send, `document.querySelectorAll('[aria-labelledby=import-notes-heading]').length`);
+    if (after !== 0) fail('UPLOAD  dismissed import notes came back after a reload');
+    else note('dismissing the notes keeps focus in the findings panel and persists');
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 /* ---------- editor: initial triage ---------- */
 
 // The initially-active finding card must be the MOST SEVERE finding, not the
@@ -569,6 +641,7 @@ async function checkExport(send) {
 
 try {
   await dashboard();
+  await upload();
   await triage();
   await editor();
 } finally {
