@@ -762,7 +762,14 @@ check('loadDashboardData derives the side cards from real findings', () => {
     assert(/^\d+\.\d+\.\d+$/.test(c.id), `criterion id shape: ${c.id}`);
     assert(c.name.length > 0 && c.count > 0, `criterion row: ${JSON.stringify(c)}`);
   }
-  deepEq(criteria[0], { id: '1.1.1', name: 'Non-text Content', count: 6 }, 'top criterion pinned from the seeds');
+  // Failures only (blocker + violation). 1.1.1 used to lead with 6, but three of
+  // those were alt-text questions and advisories; 3.1.5 (advisory, AAA) and
+  // 1.4.1 (questions only) no longer appear at all.
+  deepEq(criteria, [
+    { id: '2.4.4', name: 'Link Purpose (In Context)', count: 4 },
+    { id: '1.1.1', name: 'Non-text Content', count: 3 },
+    { id: '1.3.1', name: 'Info and Relationships', count: 2 },
+  ], 'criteria pinned from the seeds');
   assert(manualItems.length > 0, 'manual items exist');
   const docIds = new Set(docs.map((d) => d.id));
   const keys = new Set();
@@ -1167,6 +1174,22 @@ await acheck('store: createDoc gives a safe, unique id and keeps import notes', 
     delete globalThis.window;
   }
   deepEq(store.sanitizeStoredDocs([{ ...storedDocJSON('d'), importNotes: ['ok', 3, null] }])[0].importNotes, ['ok'], 'notes sanitized to strings');
+});
+
+await acheck('dashboard "Most-failed criteria" counts failures only, never questions or advisories', async () => {
+  const { store } = await import(`${pathToFileURL(TMP).href}?criteria`);
+  // No headings in six blocks (a Needs-your-call question) and dense prose (advisory, 3.1.5 is AAA).
+  const questionsOnly = doc(para(DENSE), para('Two.'), para('Three.'), para('Four.'), para('Five.'), para('Six.'));
+  const failing = doc(heading(1, 'T'), figure('img-1', ''));
+  mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() })]));
+  try {
+    const { criteria, docs } = store.loadDashboardData();
+    const q = docs.find((d) => d.id === 'q');
+    assert(q.counts.manual >= 1 && q.counts.advisory >= 1, `fixture has manual and advisory findings: ${JSON.stringify(q.counts)}`);
+    deepEq(criteria, [{ id: '1.1.1', name: 'Non-text Content', count: 1 }], 'only the missing alt text is a failed criterion');
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 /* ---------- report ---------- */

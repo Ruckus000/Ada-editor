@@ -240,7 +240,8 @@ export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' |
 export interface DashboardData {
   docs: DocSummary[];
   /** Most-failed criteria, engine-derived — §3's "compute, don't author",
-   *  applied to the last hand-written numbers on the dashboard. */
+   *  applied to the last hand-written numbers on the dashboard. Counts only
+   *  blocker and violation findings: questions and advisories are not failures. */
   criteria: { id: string; name: string; count: number }[];
   /** Manual-severity findings across docs, in doc order: what is genuinely
    *  "waiting on a human", not a scripted demo list. */
@@ -276,6 +277,10 @@ export function loadDashboardData(): DashboardData {
       order: docs.length,
     });
     for (const f of findings) {
+      // A card that says "failed" counts failures only. Needs-your-call
+      // findings are questions (listed on their own card) and advisories sit
+      // beyond the AA target; counting them overstated conformance failures.
+      if (f.severity !== 'blocker' && f.severity !== 'violation') continue;
       const space = f.criterion.indexOf(' ');
       const id = space === -1 ? f.criterion : f.criterion.slice(0, space);
       const name = space === -1 ? f.criterion : f.criterion.slice(space + 1);

@@ -394,15 +394,20 @@ export function Dashboard({
 
             <section aria-labelledby="criteria-heading" className="dash-panel dash-card">
               <h2 id="criteria-heading">Most-failed criteria</h2>
-              <ul role="list" className="dash-criteria">
-                {dash.criteria.map((c) => (
-                  <li key={c.id}>
-                    <span className="dash-criteria__id">{c.id}</span>
-                    <span className="dash-criteria__name">{c.name}</span>
-                    <span className="dash-criteria__count">{c.count}</span>
-                  </li>
-                ))}
-              </ul>
+              {dash.criteria.length ? (
+                <ul role="list" className="dash-criteria">
+                  {dash.criteria.map((c) => (
+                    <li key={c.id}>
+                      <span className="dash-criteria__id">{c.id}</span>
+                      <span className="dash-criteria__name">{c.name}</span>
+                      <span className="dash-criteria__count">{c.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                // Neutral, not a verdict: open questions and advisories may remain.
+                <p className="dash-muted">No failed criteria in the open findings.</p>
+              )}
             </section>
           </div>
         </div>
