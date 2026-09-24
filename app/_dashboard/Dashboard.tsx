@@ -394,15 +394,22 @@ export function Dashboard({
 
             <section aria-labelledby="criteria-heading" className="dash-panel dash-card">
               <h2 id="criteria-heading">Most-failed criteria</h2>
-              <ul role="list" className="dash-criteria">
-                {dash.criteria.map((c) => (
-                  <li key={c.id}>
-                    <span className="dash-criteria__id">{c.id}</span>
-                    <span className="dash-criteria__name">{c.name}</span>
-                    <span className="dash-criteria__count">{c.count}</span>
-                  </li>
-                ))}
-              </ul>
+              {/* docs is empty until the store loads after hydration: no "none"
+                  claim on first paint while the real rows are still coming. */}
+              {dash.criteria.length || !dash.docs.length ? (
+                <ul role="list" className="dash-criteria">
+                  {dash.criteria.map((c) => (
+                    <li key={c.id}>
+                      <span className="dash-criteria__id">{c.id}</span>
+                      <span className="dash-criteria__name">{c.name}</span>
+                      <span className="dash-criteria__count">{c.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                // Neutral, not a verdict: open questions and advisories may remain.
+                <p className="dash-card__intro">No failed criteria in the open findings.</p>
+              )}
             </section>
           </div>
         </div>
