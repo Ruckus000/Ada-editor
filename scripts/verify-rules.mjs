@@ -17,7 +17,8 @@
  */
 
 import { build } from 'esbuild';
-import { parseHTML } from 'linkedom';
+import { DOMParser as XmlParser, parseHTML } from 'linkedom';
+import { crc32, deflateRawSync } from 'node:zlib';
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -59,12 +60,10 @@ await build({
   logLevel: 'warning',
 });
 
-let mod;
-try {
-  mod = await import(pathToFileURL(TMP).href);
-} finally {
-  rmSync(TMP, { force: true });
-}
+// Kept until exit so a test can import a fresh module instance (module state
+// such as the store's disk-failure flag must not leak between tests).
+process.on('exit', () => rmSync(TMP, { force: true }));
+const mod = await import(pathToFileURL(TMP).href);
 
 /* ---------- textHelpers ---------- */
 
@@ -839,6 +838,265 @@ check('a failed localStorage write flips reads to memory — no stale-disk loop'
   } finally {
     delete globalThis.window;
   }
+});
+
+/* ---------- .docx import ---------- */
+
+// Async twin of check(): the importer inflates with DecompressionStream.
+const acheck = async (name, fn) => {
+  try {
+    await fn();
+    passed++;
+    console.log(`  ok   ${name}`);
+  } catch (error) {
+    failures.push(`${name}: ${error.message}`);
+    console.log(`  FAIL ${name} — ${error.message}`);
+  }
+};
+const parseXml = (xml) => new XmlParser().parseFromString(xml, 'text/xml');
+const { importDocx, ImportError } = mod.importDocx;
+const fixture = (name) => new Uint8Array(readFileSync(resolve(ROOT, 'corpus/docx', name)));
+const shape = (d) => { const out = []; d.forEach((n) => out.push(n.type.name === 'heading' ? `h${n.attrs.level}` : n.type.name)); return out; };
+const hrefs = (d) => { const out = []; d.descendants((n) => { const l = n.marks?.find((m) => m.type.name === 'link'); if (l) out.push(l.attrs.href); }); return out; };
+const figures = (d) => { const out = []; d.descendants((n) => { if (n.type.name === 'figure') out.push(n.attrs.alt); }); return out; };
+const findingIds = (d) => mod.check.checkDocument(d, { prose: true }).map((f) => f.id);
+const rejects = async (bytes, message, what) => {
+  try {
+    await importDocx(bytes, 'x.docx', parseXml);
+  } catch (error) {
+    assert(error instanceof ImportError, `${what}: expected an ImportError, got ${error?.constructor?.name}: ${error?.message}`);
+    assert(error.userMessage.includes(message), `${what}: message ${JSON.stringify(error.userMessage)} lacks ${JSON.stringify(message)}`);
+    return;
+  }
+  throw new Error(`${what}: imported without error`);
+};
+
+/** Build a ZIP from [name, content, { method, flags }] entries — enough to forge hostile archives. */
+function makeZip(files, { centralSize } = {}) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const [name, content, opt = {}] of files) {
+    const data = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
+    const method = opt.method ?? 8;
+    const body = method === 8 ? deflateRawSync(data) : data;
+    const nameBuf = Buffer.from(name, 'utf8');
+    const head = (sig, central) => {
+      const b = Buffer.alloc(central ? 46 : 30);
+      let o = 0;
+      const w16 = (v) => { b.writeUInt16LE(v, o); o += 2; };
+      const w32 = (v) => { b.writeUInt32LE(v >>> 0, o); o += 4; };
+      w32(sig);
+      if (central) w16(20);
+      w16(20); w16(opt.flags ?? 0); w16(method); w16(0); w16(0);
+      w32(crc32(data)); w32(centralSize ?? body.length); w32(data.length);
+      w16(nameBuf.length); w16(0);
+      if (central) { w16(0); w16(0); w16(0); w32(0); w32(offset); }
+      return b;
+    };
+    const local = Buffer.concat([head(0x04034b50, false), nameBuf, body]);
+    centrals.push(Buffer.concat([head(0x02014b50, true), nameBuf]));
+    locals.push(local);
+    offset += local.length;
+  }
+  const cd = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(cd.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return new Uint8Array(Buffer.concat([...locals, cd, end]));
+}
+
+const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:v="urn:schemas-microsoft-com:vml"';
+const REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const rel = (id, type, target, external = false) =>
+  `<Relationship Id="${id}" Type="${REL_NS}/${type}" Target="${target}"${external ? ' TargetMode="External"' : ''}/>`;
+const rels = (...r) => `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${r.join('')}</Relationships>`;
+
+/** A minimal .docx: body XML plus optional styles, numbering, extra document rels and parts. */
+function docx({ body, styles = '', numbering = '', docRels = [], parts = [], title } = {}) {
+  const files = [
+    ['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'), title === undefined ? '' : rel('rId2', 'metadata/core-properties', 'docProps/core.xml'))],
+    ['word/document.xml', `<?xml version="1.0"?><w:document ${NS}><w:body>${body}</w:body></w:document>`],
+    ['word/_rels/document.xml.rels', rels(rel('rS', 'styles', 'styles.xml'), rel('rN', 'numbering', 'numbering.xml'), ...docRels)],
+    ['word/styles.xml', `<?xml version="1.0"?><w:styles ${NS}>${styles}</w:styles>`],
+    ['word/numbering.xml', `<?xml version="1.0"?><w:numbering ${NS}>${numbering}</w:numbering>`],
+    ...parts,
+  ];
+  if (title !== undefined) files.push(['docProps/core.xml', `<?xml version="1.0"?><cp:coreProperties xmlns:cp="x" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${title}</dc:title></cp:coreProperties>`]);
+  return makeZip(files);
+}
+const P = (inner, pPr = '') => `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ''}${inner}</w:p>`;
+const R = (text, rPr = '') => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${text}</w:t></w:r>`;
+const style = (id, name, extra = '') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/>${extra}</w:style>`;
+const drawing = (docPr, graphic = '<pic:pic/>') => `<w:r><w:drawing><wp:inline>${docPr}<a:graphic><a:graphicData>${graphic}</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+
+await acheck('linkedom matches OOXML by qualified name, as the importer assumes', () => {
+  const el = parseXml(`<w:p ${NS}/>`).documentElement;
+  eq(el.tagName, 'w:p', 'qualified tagName');
+});
+
+for (const producer of ['pandoc', 'libreoffice']) {
+  await acheck(`import: ${producer}'s .docx keeps headings, lists, links, images and reports the table`, async () => {
+    const r = await importDocx(fixture(`library-hours.${producer}.docx`), `library-hours.${producer}.docx`, parseXml);
+    eq(r.title, 'Library hours notice', 'title from docProps');
+    deepEq(shape(r.content), ['h1', 'h1', 'paragraph', 'h2', 'bullet_list', 'ordered_list', 'h4', 'paragraph', 'figure', 'figure',
+      'paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph'], 'block structure');
+    const bullets = r.content.child(4);
+    eq(bullets.childCount, 2, 'two top-level bullets');
+    eq(bullets.child(1).lastChild.type.name, 'bullet_list', 'the second bullet holds the nested list');
+    eq(r.content.child(5).childCount, 2, 'one ordered list of two items, even across numIds');
+    deepEq(hrefs(r.content), ['https://example.org/hours', 'https://example.org/branch'], 'links');
+    deepEq(figures(r.content), ['Bar chart of visits by weekday', ''], 'image alt text');
+    deepEq(r.notes, ['1 table flattened into paragraphs; table structure isn’t checked yet.'], 'notes');
+    const ids = findingIds(r.content);
+    for (const want of ['heading-skip:Details', 'link-text-generic:click here', 'img-alt-img-2']) {
+      assert(ids.includes(want), `finding ${want} in ${JSON.stringify(ids)}`);
+    }
+    assert(ids.some((id) => id.startsWith('link-text-raw-url')), `raw-URL link flagged in ${JSON.stringify(ids)}`);
+  });
+}
+
+await acheck('import: a TextEdit .docx with fake headings and typed bullets stays unstructured, and is flagged', async () => {
+  const r = await importDocx(fixture('library-hours.textedit.docx'), 'library-hours.textedit.docx', parseXml);
+  eq(r.title, 'library-hours.textedit', 'no docProps title: the file name');
+  assert(shape(r.content).every((t) => t === 'paragraph'), `no invented structure: ${shape(r.content)}`);
+  eq(r.content.child(3).textContent, ' • Weekdays: 9 to 6', 'a typed bullet stays text');
+});
+
+await acheck('import: styles, numbering and fields resolve the way Word renders them', async () => {
+  const r = await importDocx(docx({
+    styles: style('Heading2', 'heading 2') + style('Sect', 'Section Head', '<w:basedOn w:val="Heading2"/>')
+      + style('LoopA', 'Loop A', '<w:basedOn w:val="LoopB"/>') + style('LoopB', 'Loop B', '<w:basedOn w:val="LoopA"/>')
+      + style('__proto__', 'heading 3') + style('ListPara', 'List Bullet', '<w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr>')
+      + style('NumHead', 'heading 1', '<w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr>'),
+    numbering: '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>',
+    docRels: [rel('rL', 'hyperlink', 'https://example.org/a', true), rel('rJ', 'hyperlink', 'javascript:alert(1)', true)],
+    body: [
+      P(R('Inherited'), '<w:pStyle w:val="Sect"/>'),
+      P(R('Cycle'), '<w:pStyle w:val="LoopA"/>'),
+      P(R('Proto'), '<w:pStyle w:val="__proto__"/>'),
+      P(R('Numbered heading'), '<w:pStyle w:val="NumHead"/>'),
+      P(R('Item'), '<w:pStyle w:val="ListPara"/>'),
+      P(R('Not an item'), '<w:pStyle w:val="ListPara"/><w:numPr><w:numId w:val="0"/></w:numPr>'),
+      P('<w:r><w:t>See </w:t></w:r><w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> HYPERLINK "https://example.org/f" </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>the form</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>'),
+      P('<w:r><w:fldChar w:fldCharType="begin"/><w:instrText>HYPERLINK \\l "top"</w:instrText><w:fldChar w:fldCharType="separate"/><w:t>back to top</w:t><w:fldChar w:fldCharType="end"/></w:r>'),
+      P('<w:hyperlink r:id="rL">' + R('safe') + '</w:hyperlink> <w:hyperlink r:id="rJ">' + R('unsafe') + '</w:hyperlink>'),
+    ].join(''),
+  }), 'f.docx', parseXml);
+  deepEq(shape(r.content), ['h2', 'paragraph', 'h3', 'h1', 'bullet_list', 'paragraph', 'paragraph', 'paragraph', 'paragraph'], 'structure');
+  eq(r.content.child(6).textContent, 'See the form', 'field code text is not content');
+  deepEq(hrefs(r.content), ['https://example.org/f', 'https://example.org/a'], 'field hyperlink linked; bookmark and javascript: are not');
+  eq(r.content.child(7).textContent, 'back to top', 'bookmark field keeps its text');
+  eq(r.title, 'f', 'file name without extension');
+});
+
+await acheck('import: tracked changes, hidden text, symbols, notes and text boxes are read once and correctly', async () => {
+  const r = await importDocx(docx({
+    body: [
+      P('<w:ins>' + R('kept') + '</w:ins><w:del><w:r><w:delText>gone</w:delText></w:r></w:del>' + R('hidden', '<w:vanish/>') + R(' shown', '<w:vanish w:val="0"/>')),
+      P('<w:r><w:t>a</w:t><w:sym w:font="Symbol" w:char="F0B7"/><w:sym w:font="Arial" w:char="00E9"/><w:noBreakHyphen/><w:softHyphen/><w:t>b</w:t><w:footnoteReference w:id="1"/></w:r>'),
+      P('<w:r><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor><wp:docPr id="1" name="Box"/><a:graphic><a:graphicData><wps:wsp><wps:txbx><w:txbxContent>' + P(R('Box text')) + '</w:txbxContent></wps:txbx></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice><mc:Fallback><w:pict><v:shape><v:textbox><w:txbxContent>' + P(R('Box text')) + '</w:txbxContent></v:textbox></v:shape></w:pict></mc:Fallback></mc:AlternateContent></w:r>'),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  eq(r.content.child(0).textContent, 'kept shown', 'insertions kept, deletions and hidden text dropped');
+  eq(r.content.child(1).textContent, 'aé‑b', 'symbol-font glyph dropped, real character kept, hyphens mapped');
+  eq(r.content.textContent.split('Box text').length - 1, 1, 'a text box is read once, not once per AlternateContent branch');
+  deepEq(r.notes, ['1 footnote or endnote not imported.', 'Tracked changes were imported as if accepted.'], 'notes');
+});
+
+await acheck('import: images keep their alt text, decorative ones are left out, headings survive a split', async () => {
+  const r = await importDocx(docx({
+    styles: style('Heading1', 'heading 1'),
+    body: [
+      P(R('Chart ') + drawing('<wp:docPr id="1" name="P" descr="Visits by day"/>') + R(' after'), '<w:pStyle w:val="Heading1"/>'),
+      P(drawing('<wp:docPr id="2" name="P" title="Title only"/>')),
+      P(drawing('<wp:docPr id="3" name="P"><a:extLst><a:ext><adec:decorative xmlns:adec="x" val="1"/></a:ext></a:extLst></wp:docPr>')),
+      P(drawing('<wp:docPr id="4" name="P"><a:extLst><a:ext><adec:decorative xmlns:adec="x" val="0"/></a:ext></a:extLst></wp:docPr>')),
+      P(drawing('<wp:docPr id="5" name="Shape"/>', '<wps:wsp/>')),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  deepEq(shape(r.content), ['h1', 'figure', 'h1', 'figure', 'figure', 'figure'], 'heading text on both sides of the image; no empty heading');
+  deepEq(figures(r.content), ['Visits by day', 'Title only', '', ''], 'alt from descr, then title; decorative val=0 is not decorative; a shape without alt is flagged like Word does');
+  deepEq(r.notes, ['1 decorative image marked in Word left out.'], 'notes');
+});
+
+await acheck('import: header, footer and body text arrive as text, never markup', async () => {
+  const r = await importDocx(docx({
+    body: P(R('&lt;img src=x onerror=alert(1)&gt;')) + '<w:sectPr><w:headerReference w:type="default" r:id="rH"/><w:footerReference w:type="first" r:id="rF"/></w:sectPr>',
+    docRels: [rel('rH', 'header', 'header1.xml'), rel('rF', 'footer', 'footer1.xml')],
+    parts: [['word/header1.xml', `<w:hdr ${NS}>${P(R('CITY  OF  X'))}</w:hdr>`], ['word/footer1.xml', `<w:ftr ${NS}>${P(R('first page only'))}</w:ftr>`]],
+    title: '  Council   minutes ',
+  }), 'x.docx', parseXml);
+  eq(r.content.child(0).textContent, '<img src=x onerror=alert(1)>', 'markup-looking text is plain text');
+  eq(r.header, 'CITY OF X', 'default header text');
+  eq(r.footer, '', 'a first-page-only footer is not the default');
+  eq(r.title, 'Council minutes', 'whitespace-collapsed dc:title');
+});
+
+await acheck('import: an empty body still yields a valid document', async () => {
+  const r = await importDocx(docx({ body: '' }), 'Empty.docx', parseXml);
+  deepEq(shape(r.content), ['paragraph'], 'one empty paragraph');
+  eq(r.content.type.name, 'doc', 'a doc node');
+});
+
+await acheck('import rejects hostile or unreadable files with a plain message', async () => {
+  await rejects(new Uint8Array(Buffer.from('%PDF-1.7 not a zip')), 'isn’t a .docx', 'a PDF');
+  await rejects(new Uint8Array(Buffer.from('\xd0\xcf\x11\xe0 legacy .doc or encrypted docx', 'latin1')), 'isn’t a .docx', 'an OLE file');
+  await rejects(makeZip([['a.txt', 'hello']]), 'isn’t a .docx', 'a zip without a document');
+  const bomb = makeZip([
+    ['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'))],
+    ['word/document.xml', Buffer.alloc(40 * 1024 * 1024, 0x20)],
+  ]);
+  assert(bomb.length < 200_000, `the bomb is small on disk (${bomb.length} bytes)`);
+  await rejects(bomb, 'too large to import', 'a zip bomb');
+  await rejects(docx({ body: '' }).slice(0, 400), 'isn’t a .docx', 'a truncated file');
+  const doctype = makeZip([
+    ['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'))],
+    ['word/document.xml', `<?xml version="1.0"?><!DOCTYPE d [<!ENTITY a "aaaa">]><w:document ${NS}><w:body>${P(R('&a;'))}</w:body></w:document>`],
+  ]);
+  await rejects(doctype, 'couldn’t be read', 'a DTD');
+  await rejects(makeZip([['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'))], ['word/document.xml', 'x', { flags: 1 }]]), 'couldn’t be read', 'an encrypted entry');
+  await rejects(makeZip([['_rels/.rels', 'a'], ['_rels/.rels', 'b']]), 'couldn’t be read', 'duplicate entry names');
+  await rejects(makeZip([['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'))], ['word/document.xml', 'x']], { centralSize: 0x7fffffff }), 'couldn’t be read', 'sizes pointing past the end');
+  const corrupt = makeZip([['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'))], ['word/document.xml', `<w:document ${NS}><w:body/></w:document>`]]);
+  const i = Buffer.from(corrupt).indexOf('word/document.xml') + 'word/document.xml'.length;
+  corrupt.fill(0xff, i, i + 8);
+  await rejects(corrupt, 'couldn’t be read', 'corrupt deflate data');
+  const strict = makeZip([['_rels/.rels', `<Relationships xmlns="x"><Relationship Id="r" Type="http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument" Target="word/document.xml"/></Relationships>`]]);
+  await rejects(strict, 'Strict Open XML', 'Strict OOXML');
+  await rejects(docx({ body: '<w:p/>'.repeat(401_000) }), 'too large to import', 'an element budget blow-out');
+});
+
+await acheck('store: createDoc gives a safe, unique id and keeps import notes', async () => {
+  const { store } = await import(`${pathToFileURL(TMP).href}?fresh`);
+  const { slugId } = store;
+  eq(slugId('Library hours notice', () => false), 'library-hours-notice', 'slug');
+  eq(slugId('Café  Menu!', () => false), 'cafe-menu', 'accents and punctuation');
+  eq(slugId('../../etc/passwd', () => false), 'etc-passwd', 'no path characters');
+  eq(slugId('日本語', () => false), 'document', 'nothing sluggable');
+  eq(slugId('x', (id) => id === 'x' || id === 'x-2'), 'x-3', 'unique suffix');
+  mockStorage(JSON.stringify([storedDocJSON('library-hours-notice')]));
+  try {
+    const content = doc(para('Hello')).toJSON();
+    const a = store.createDoc({ title: 'Library hours notice', header: '', footer: '', content, importNotes: ['1 table flattened'] });
+    eq(a.id, 'library-hours-notice-2', 'collides with an existing doc');
+    eq(a.persisted, true, 'written to storage');
+    deepEq(store.loadDoc(a.id).importNotes, ['1 table flattened'], 'notes stored');
+  } finally {
+    delete globalThis.window;
+  }
+  mockStorage('[]', { failWrites: true });
+  try {
+    const b = store.createDoc({ title: 'T', header: '', footer: '', content: doc(para('x')).toJSON(), importNotes: [] });
+    eq(b.persisted, false, 'a failed write is reported, not hidden');
+    eq(store.loadDoc(b.id)?.title, 'T', 'still usable this session');
+  } finally {
+    delete globalThis.window;
+  }
+  deepEq(store.sanitizeStoredDocs([{ ...storedDocJSON('d'), importNotes: ['ok', 3, null] }])[0].importNotes, ['ok'], 'notes sanitized to strings');
 });
 
 /* ---------- report ---------- */
