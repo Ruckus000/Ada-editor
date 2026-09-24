@@ -96,14 +96,24 @@ export function sentenceSpans(text: string): SentenceSpan[] {
 
 /* ---------- language of parts (WCAG 3.1.2) ---------- */
 
-/** The 15 languages HHS requires taglines for (Section 1557 notices), in its
- *  order: the Language menu, and every language the detector can name. */
+/** The Language menu, and every language the detector can name: the 15 HHS
+ *  requires taglines for (Section 1557 notices), in its order, then the
+ *  languages of the other alphabets the detector reads (SCRIPTS), including
+ *  those that share one, so a flagged passage can always be marked. */
 export const LANGUAGES: readonly { code: string; name: string }[] = [
   { code: 'es', name: 'Spanish' }, { code: 'zh', name: 'Chinese' }, { code: 'vi', name: 'Vietnamese' },
   { code: 'ko', name: 'Korean' }, { code: 'tl', name: 'Tagalog' }, { code: 'ru', name: 'Russian' },
   { code: 'ar', name: 'Arabic' }, { code: 'ht', name: 'Haitian Creole' }, { code: 'fr', name: 'French' },
   { code: 'pl', name: 'Polish' }, { code: 'pt', name: 'Portuguese' }, { code: 'it', name: 'Italian' },
   { code: 'de', name: 'German' }, { code: 'ja', name: 'Japanese' }, { code: 'fa', name: 'Persian' },
+  { code: 'am', name: 'Amharic' }, { code: 'hy', name: 'Armenian' }, { code: 'bn', name: 'Bengali' },
+  { code: 'my', name: 'Burmese' }, { code: 'ka', name: 'Georgian' }, { code: 'el', name: 'Greek' },
+  { code: 'gu', name: 'Gujarati' }, { code: 'he', name: 'Hebrew' }, { code: 'hi', name: 'Hindi' },
+  { code: 'kn', name: 'Kannada' }, { code: 'km', name: 'Khmer' }, { code: 'lo', name: 'Lao' },
+  { code: 'ml', name: 'Malayalam' }, { code: 'mr', name: 'Marathi' }, { code: 'ne', name: 'Nepali' },
+  { code: 'pa', name: 'Punjabi' }, { code: 'ta', name: 'Tamil' }, { code: 'te', name: 'Telugu' },
+  { code: 'th', name: 'Thai' }, { code: 'ti', name: 'Tigrinya' }, { code: 'uk', name: 'Ukrainian' },
+  { code: 'ur', name: 'Urdu' },
 ];
 
 const primaryTag = (tag: string): string => tag.split('-')[0]!.toLowerCase();
@@ -155,33 +165,118 @@ interface Guess { lang: string; strong: boolean }
 const letterCount = (s: string, re: RegExp): number => s.match(re)?.length ?? 0;
 
 /**
+ * Alphabets other than Latin, with every language commonly written in each
+ * (`family`, for trusting a file's language tag) and the one a passage is
+ * taken to be in (`lang`): 'unknown' where the family shares the alphabet and
+ * nothing here tells them apart (Devanagari: Hindi, Marathi, Nepali;
+ * Ethiopic: Amharic, Tigrinya), so it is flagged without a guess. `cased`
+ * alphabets have capitals, so a sentence has lower-case words and a name
+ * doesn't. `spaced` ones put spaces between words; Thai, Lao, Khmer and
+ * Burmese mostly don't, so they are judged by length.
+ * ponytail: an uncased alphabet can't tell a name of three or more words from
+ * a sentence. Upgrade trigger: one is flagged.
+ */
+interface Alphabet { word: RegExp; family: readonly string[]; cased: boolean; spaced: boolean; lang: (clause: string) => string }
+const script = (name: string, family: string[], opts: Partial<Alphabet> = {}): Alphabet => ({
+  // The zero-width (non-)joiner sits inside words (Persian "علی‌رضا"), not between them.
+  word: new RegExp(`[\\p{Script=${name}}\\u200C\\u200D]+`, 'gu'),
+  family,
+  cased: false,
+  spaced: true,
+  lang: () => (family.length === 1 ? family[0]! : 'unknown'),
+  ...opts,
+});
+const SCRIPTS: readonly Alphabet[] = [
+  // Named only on letters that show it, since Apply writes the name: Serbian,
+  // Macedonian, Belarusian and the Central Asian languages have letters of
+  // their own; Ukrainian writes і ї є ґ; Russian ы э ё, which Bulgarian,
+  // Serbian and Ukrainian don't. Anything else is flagged unnamed.
+  script('Cyrillic', ['ru', 'uk', 'be', 'bg', 'sr', 'mk', 'kk', 'ky', 'mn', 'tg'], {
+    cased: true,
+    lang: (c) => (/[ђјљњћџѓќѕўәғқңөұүһҳҷӣӯ]/iu.test(c) ? 'unknown' : /[іїєґ]/iu.test(c) ? 'uk' : /[ыэё]/iu.test(c) ? 'ru' : 'unknown'),
+  }),
+  // Pashto, Kurdish, Sindhi and Uyghur have letters of their own; Urdu writes
+  // ٹ ڈ ڑ ں ھ ے; Persian پ چ ژ گ and its own kaf and yeh (ک ی), which Urdu
+  // shares; Arabic none of them.
+  script('Arabic', ['ar', 'fa', 'ur', 'ps', 'ku', 'sd', 'ug'], {
+    lang: (c) => (/[ټډړږښځڅڼۍېێۆڵڕڤٻڄڃڦڱڳڻۇۈۋ]/u.test(c) ? 'unknown' : /[ٹڈڑںھے]/u.test(c) ? 'ur' : /[پچژگکی]/u.test(c) ? 'fa' : 'ar'),
+  }),
+  script('Hebrew', ['he', 'yi'], { lang: () => 'he' }),
+  script('Greek', ['el'], { cased: true }),
+  script('Armenian', ['hy'], { cased: true }),
+  script('Georgian', ['ka']),
+  script('Devanagari', ['hi', 'mr', 'ne', 'sa', 'mai', 'kok']),
+  script('Bengali', ['bn', 'as'], { lang: () => 'bn' }),
+  script('Gurmukhi', ['pa']),
+  script('Gujarati', ['gu']),
+  script('Tamil', ['ta']),
+  script('Telugu', ['te']),
+  script('Kannada', ['kn']),
+  script('Malayalam', ['ml']),
+  script('Ethiopic', ['am', 'ti']),
+  script('Thai', ['th'], { spaced: false }),
+  script('Lao', ['lo'], { spaced: false }),
+  script('Khmer', ['km'], { spaced: false }),
+  script('Myanmar', ['my'], { spaced: false }),
+];
+
+/** Enough of an unspaced alphabet to stand alone: longer than a name. */
+const UNSPACED_MIN = 20;
+
+/** The alphabet most of `clause` is written in, as a guess plus the languages
+ *  written in it; null for Latin (or no letters). */
+function guessAlphabet(clause: string): (Guess & { family: readonly string[] }) | null {
+  const letters = letterCount(clause, /\p{L}/gu);
+  if (letters === 0) return null;
+  const hangul = letterCount(clause, /\p{Script=Hangul}/gu);
+  const kana = letterCount(clause, /[\p{Script=Hiragana}\p{Script=Katakana}]/gu);
+  const cjk = hangul + kana + letterCount(clause, /\p{Script=Han}/gu);
+  if (cjk * 2 >= letters) {
+    const lang = hangul * 2 >= cjk ? 'ko' : kana > 0 ? 'ja' : 'zh';
+    return { lang, strong: cjk >= 6, family: lang === 'zh' ? ['zh', 'ja', 'yue'] : [lang] };
+  }
+  for (const s of SCRIPTS) {
+    const words = clause.match(s.word) ?? [];
+    // Letters only, as `letters` counts them: the vowel signs of the Indian
+    // scripts and Thai are marks, and counting them would tip a mostly
+    // English clause with one Hindi word into "mostly Devanagari".
+    const chars = letterCount(words.join(''), /\p{L}/gu);
+    if (chars * 2 < letters) continue;
+    // A full Russian name is three capitalised words ("Сковорода Никита
+    // Андреевич"); a sentence always has lower-case ones.
+    const lower = words.filter((w) => /^\p{Ll}/u.test(w)).length;
+    const strong = s.spaced ? words.length >= 3 && (!s.cased || lower >= 2) : chars >= UNSPACED_MIN;
+    return { lang: s.lang(clause), strong, family: s.family };
+  }
+  // Any other alphabet: flagged, not named, and no file's tag is trusted for it.
+  if ((letters - letterCount(clause, /\p{Script=Latin}/gu)) * 2 > letters) {
+    const other = clause.split(/\s+/).filter((w) => /\p{L}/u.test(w) && !/\p{Script=Latin}/u.test(w));
+    return { lang: 'unknown', strong: other.length >= 3 || other.join('').length >= UNSPACED_MIN, family: [] };
+  }
+  return null;
+}
+
+/** The languages written in the alphabet most of `text` is in: null for
+ *  Latin text (or none), which any Latin-alphabet language could be; empty
+ *  for an alphabet not listed here. */
+export const alphabetLanguages = (text: string): readonly string[] | null => guessAlphabet(text)?.family ?? null;
+
+/** Every language written in an alphabet listed here: a tag for one of them
+ *  is known to be wrong for text in any other alphabet. */
+export const LISTED_ALPHABET_LANGUAGES: ReadonlySet<string> =
+  new Set([...SCRIPTS.flatMap((s) => s.family), 'zh', 'ja', 'yue', 'ko']);
+
+/**
  * What language one clause is in, or null for English or undecidable. `strong`
  * is enough to flag on its own; a weak guess (a word or two, like "ATENCIÓN"
  * or "Llame al 311") only joins a strong neighbour of the same language.
  */
 function guessClause(clause: string): Guess | null {
-  const letters = letterCount(clause, /\p{L}/gu);
-  if (letters === 0) return null;
+  if (letterCount(clause, /\p{L}/gu) === 0) return null;
   // Other alphabets: a majority of the letters, and more than a name's worth
   // to stand alone (a name's worth may still join a passage beside it).
-  const hangul = letterCount(clause, /\p{Script=Hangul}/gu);
-  const kana = letterCount(clause, /[\p{Script=Hiragana}\p{Script=Katakana}]/gu);
-  const cjk = hangul + kana + letterCount(clause, /\p{Script=Han}/gu);
-  if (cjk * 2 >= letters) return { lang: hangul * 2 >= cjk ? 'ko' : kana > 0 ? 'ja' : 'zh', strong: cjk >= 6 };
-  const cyrillic = clause.match(/\p{Script=Cyrillic}+/gu) ?? [];
-  // A full Russian name is three capitalised words ("Сковорода Никита
-  // Андреевич"); a sentence always has lower-case ones.
-  const cyrillicLower = cyrillic.filter((w) => /^\p{Ll}/u.test(w)).length;
-  if (cyrillic.join('').length * 2 >= letters) return { lang: 'ru', strong: cyrillic.length >= 3 && cyrillicLower >= 2 };
-  const arabic = clause.match(/\p{Script=Arabic}+/gu) ?? [];
-  if (arabic.join('').length * 2 >= letters) {
-    // Persian writes پ چ ژ گ and its own kaf and yeh (ک ی); Arabic has none of them.
-    // ponytail: the script has no capitals, so a name of three or more words
-    // can pass as a sentence. Upgrade trigger: one does.
-    return { lang: /[پچژگکی]/u.test(clause) ? 'fa' : 'ar', strong: arabic.length >= 3 };
-  }
-  // ponytail: Hebrew, Greek, Devanagari and other scripts outside the list are
-  // not flagged. Upgrade trigger: a document carrying one of them.
+  const alphabet = guessAlphabet(clause);
+  if (alphabet) return { lang: alphabet.lang, strong: alphabet.strong };
 
   // Latin alphabet: count common words. A capitalised word after the first is
   // a name, so it counts for no language; handles, emails, URLs and

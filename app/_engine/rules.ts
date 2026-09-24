@@ -472,9 +472,11 @@ export function summarizeBlock(node: PMNode): BlockSummary {
     });
   }
 
-  // Prose-heuristic rules apply to paragraphs only (the spike graded <p>/<li>;
-  // list items hold paragraphs in this schema), and are gated to blur/Recheck
-  // by check.ts's callers so they never flag a sentence still being typed.
+  // The spike's prose heuristics (colour, grade, sentence length) apply to
+  // paragraphs only (it graded <p>/<li>; list items hold paragraphs in this
+  // schema); language of parts also reads headings, below. All prose rules are
+  // gated to blur/Recheck by check.ts's callers so they never flag a sentence
+  // still being typed.
   if (node.type === PARAGRAPH) {
     if (COLOUR_WORDS.test(text) && COLOUR_REFERENCE.test(text)) {
       findings.push({
@@ -519,8 +521,10 @@ export function summarizeBlock(node: PMNode): BlockSummary {
         anchor: { kind: 'blockRange', from, to },
       });
     }
-    findings.push(...languageFindings(node, text, offsets));
   }
+  // Language of parts also reads headings: "Ayuda en español" is a heading
+  // screen readers announce with English pronunciation too.
+  if (node.type === PARAGRAPH || node.type === HEADING) findings.push(...languageFindings(node, text, offsets));
 
   findings.push(...contrastFindings(node, headingLevel));
 
@@ -528,13 +532,12 @@ export function summarizeBlock(node: PMNode): BlockSummary {
 }
 
 /**
- * Passages that read as another language and aren't marked as one (3.1.2).
+ * Passages in paragraphs and headings that read as another language and
+ * aren't marked as one (3.1.2).
  * Marked text is blanked before detection, so a marked passage is never
  * flagged and a partly marked one is judged only on what's left. Needs your
  * call, not a failure: the guess comes from common words and alphabets, and
  * names and borrowed words need no marking.
- * ponytail: paragraphs only, like the other prose rules; upgrade when a
- * foreign-language heading turns up.
  */
 function languageFindings(node: PMNode, text: string, offsets: number[]): RawFinding[] {
   const marked = runsBy(node, (child) => (LANG.isInSet(child.marks) ? true : null), () => true);

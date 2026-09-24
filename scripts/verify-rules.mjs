@@ -722,7 +722,7 @@ check('languageRuns names each of the 15 tagline languages and stays quiet on En
     ja: '注意事項：日本語を話される場合、無料の言語支援をご利用いただけます。1-888-555-0100 まで、お電話にてご連絡ください。',
     fa: 'توجه: اگر به زبان فارسی گفتگو می کنید، تسهیلات زبانی بصورت رایگان برای شما فراهم می باشد. با 1-888-555-0100 تماس بگیرید.',
   };
-  deepEq(Object.keys(TAGLINES).sort(), mod.textHelpers.LANGUAGES.map((l) => l.code).sort(), 'one tagline per menu language');
+  deepEq(mod.textHelpers.LANGUAGES.slice(0, 15).map((l) => l.code).sort(), Object.keys(TAGLINES).sort(), 'the menu leads with the 15');
   for (const [code, tagline] of Object.entries(TAGLINES)) {
     const runs = languageRuns(tagline);
     eq(runs.length, 1, `${code}: one passage`);
@@ -756,6 +756,63 @@ check('languageRuns names each of the 15 tagline languages and stays quiet on En
   deepEq(languageRuns('que para por se está gratuitos').map((r) => r.lang), ['unknown'], 'Spanish/Portuguese tie is unknown');
 });
 
+check('languageRuns reads the other alphabets: named when one language uses it, flagged when several do', () => {
+  const { languageRuns, alphabetLanguages, LANGUAGES } = mod.textHelpers;
+  const OTHER_ALPHABETS = {
+    uk: 'УВАГА! Якщо ви розмовляєте українською мовою, ви можете звернутися до безкоштовної служби мовної підтримки.',
+    ur: 'خبردار: اگر آپ اردو بولتے ہیں، تو آپ کو زبان کی مدد کی خدمات مفت میں دستیاب ہیں۔',
+    he: 'שימו לב: אם אתם מדברים עברית, שירותי סיוע בשפה זמינים עבורכם ללא תשלום.',
+    el: 'ΠΡΟΣΟΧΗ: Αν μιλάτε ελληνικά, στη διάθεσή σας βρίσκονται υπηρεσίες γλωσσικής υποστήριξης, οι οποίες παρέχονται δωρεάν.',
+    hy: 'ՈՒՇԱԴՐՈՒԹՅՈՒՆ՝ Եթե խոսում եք հայերեն, ապա ձեզ անվճար կարող են տրամադրվել լեզվական աջակցության ծառայություններ:',
+    ka: 'ყურადღება: თუ ქართულად საუბრობთ, ენობრივი დახმარების მომსახურება უფასოდ ხელმისაწვდომია.',
+    bn: 'লক্ষ্য করুন: যদি আপনি বাংলায় কথা বলেন, তাহলে বিনামূল্যে ভাষা সহায়তা পরিষেবা আপনার জন্য উপলব্ধ আছে।',
+    pa: 'ਧਿਆਨ ਦਿਓ: ਜੇ ਤੁਸੀਂ ਪੰਜਾਬੀ ਬੋਲਦੇ ਹੋ, ਤਾਂ ਭਾਸ਼ਾ ਵਿੱਚ ਸਹਾਇਤਾ ਸੇਵਾ ਤੁਹਾਡੇ ਲਈ ਮੁਫਤ ਉਪਲਬਧ ਹੈ।',
+    gu: 'સુચના: જો તમે ગુજરાતી બોલતા હો, તો મફત ભાષા સહાય સેવાઓ તમારા માટે ઉપલબ્ધ છે.',
+    ta: 'கவனிக்கவும்: நீங்கள் தமிழ் பேசுபவராக இருந்தால், உங்களுக்கு மொழி உதவி சேவைகள் இலவசமாக கிடைக்கின்றன.',
+    te: 'శ్రద్ధ పెట్టండి: ఒకవేళ మీరు తెలుగు భాష మాట్లాడుతున్నట్లయితే, మీ కొరకు భాషా సహాయ సేవలు ఉచితంగా లభిస్తాయి.',
+    kn: 'ಗಮನಿಸಿ: ನೀವು ಕನ್ನಡ ಮಾತನಾಡುತ್ತಿದ್ದರೆ, ನಿಮಗೆ ಉಚಿತ ಭಾಷಾ ಸಹಾಯ ಸೇವೆಗಳು ಲಭ್ಯವಿವೆ.',
+    ml: 'ശ്രദ്ധിക്കുക: നിങ്ങൾ മലയാളം സംസാരിക്കുന്നുവെങ്കിൽ, സൗജന്യ ഭാഷാ സഹായ സേവനങ്ങൾ ലഭ്യമാണ്.',
+    th: 'เรียน: ถ้าคุณพูดภาษาไทยคุณสามารถใช้บริการช่วยเหลือทางภาษาได้ฟรี',
+    lo: 'ໂປດຊາບ: ຖ້າວ່າ ທ່ານເວົ້າພາສາ ລາວ, ການບໍລິການຊ່ວຍເຫຼືອດ້ານພາສາ, ໂດຍບໍ່ເສັຽຄ່າ, ແມ່ນມີພ້ອມໃຫ້ທ່ານ.',
+    km: 'ប្រយ័ត្ន៖ បើសិនជាអ្នកនិយាយ ភាសាខ្មែរ, សេវាជំនួយផ្នែកភាសា ដោយមិនគិតឈ្នួល គឺអាចមានសំរាប់បំរើអ្នក។',
+    my: 'သတိပြုရန် - အကယ်၍ သင်သည် မြန်မာစကား ကို ပြောပါက၊ ဘာသာစကား အကူအညီ၊ အခမဲ့၊ သင့်အတွက် စီစဉ်ဆောင်ရွက်ပေးပါမည်။',
+  };
+  // One alphabet, several languages: flagged, not named.
+  const SHARED_ALPHABETS = {
+    hi: 'ध्यान दें: यदि आप हिंदी बोलते हैं तो आपके लिए मुफ्त में भाषा सहायता सेवाएं उपलब्ध हैं।',
+    am: 'ማስታወሻ: የሚናገሩት ቋንቋ ኣማርኛ ከሆነ የትርጉም እርዳታ ድርጅቶች፣ በነጻ ሊያግዝዎት ተዘጋጀተዋል።',
+    si: 'අවධානය: ඔබ සිංහල භාෂාව කතා කරන්නේ නම්, ඔබට භාෂා සහාය සේවා නොමිලේ ලබා ගත හැකිය.', // Sinhala: an alphabet not listed
+  };
+  const NAMES = ['علی‌رضا محمدی', 'Thanks to יוסי כהן for the review.', 'יוסי כהן', 'Γιώργος Παπαδόπουλος Νικολάου', 'राहुल शर्मा', 'สมชาย ใจดี', 'Արամ Խաչատրյան'];
+  for (const [code, sample] of Object.entries(OTHER_ALPHABETS)) {
+    deepEq(languageRuns(sample).map((r) => r.lang), [code], `${code}: named`);
+  }
+  // Devanagari (Hindi, Marathi, Nepali), Ethiopic (Amharic, Tigrinya), and an
+  // alphabet not listed at all (Sinhala): flagged, but no guess to apply.
+  for (const [code, sample] of Object.entries(SHARED_ALPHABETS)) {
+    deepEq(languageRuns(sample).map((r) => r.lang), ['unknown'], `${code}: flagged without a name`);
+  }
+  // Every menu language is either named by the detector or shares an alphabet.
+  const named = new Set(['es', 'zh', 'vi', 'ko', 'tl', 'ru', 'ar', 'ht', 'fr', 'pl', 'pt', 'it', 'de', 'ja', 'fa', ...Object.keys(OTHER_ALPHABETS)]);
+  deepEq(LANGUAGES.map((l) => l.code).filter((c) => !named.has(c)).sort(), ['am', 'hi', 'mr', 'ne', 'ti'], 'the rest share Devanagari or Ethiopic');
+  // A name's worth of any alphabet stays quiet: uncased ones by word count,
+  // cased ones because a name has no lower-case word, unspaced ones by length.
+  for (const name of NAMES) deepEq(languageRuns(name), [], `quiet on the name "${name}"`);
+  // A borrowed word in an English sentence: its vowel signs are marks, not letters.
+  for (const english of ['नमस्ते means hello in Hindi.', 'Say धन्यवाद to the volunteers.', 'The word สวัสดี is a greeting.']) {
+    deepEq(languageRuns(english), [], `quiet on "${english}"`);
+  }
+  deepEq([...alphabetLanguages('שלום עולם')], ['he', 'yi'], 'the languages of an alphabet');
+  eq(alphabetLanguages('Hello there'), null, 'Latin text could be any Latin-alphabet language');
+  deepEq([...alphabetLanguages('අවධානය ඔබ සිංහල')], [], 'an alphabet not listed trusts no language');
+  // Named only when the letters show which: Apply writes the name.
+  for (const [what, sample] of [
+    ['Bulgarian', 'ВНИМАНИЕ: Ако говорите български, можете да получите безплатна езикова помощ.'],
+    ['Serbian', 'ПАЖЊА: Ако говорите српски, услуге језичке помоћи доступне су вам бесплатно.'],
+    ['Pashto', 'پاملرنه: که تاسو پښتو خبرې کوئ، د ژبې د مرستې خدمتونه تاسو ته وړیا شتون لري.'],
+  ]) deepEq(languageRuns(sample).map((r) => r.lang), ['unknown'], `${what} is flagged, not called Russian or Persian`);
+});
+
 check('language-of-parts: prose-gated Needs-your-call with a fix; marked text is never flagged', () => {
   const LANG = (lang) => [M.lang.create({ lang })];
   const found = (d) => mod.check.checkDocument(d, { prose: true }).filter((f) => f.id.startsWith('language-of-parts'));
@@ -783,6 +840,13 @@ check('language-of-parts: prose-gated Needs-your-call with a fix; marked text is
   const [tie] = found(doc(para('que para por se está gratuitos')));
   eq(tie.title, 'Text may be in another language but isn’t marked', 'unknown language title');
   eq(tie.fix, undefined, 'no guessed fix');
+  // Headings are read too, and an English heading is not.
+  const headed = doc(heading(2, 'Ayuda en español para residentes'), heading(2, 'Help for residents'), para('Contact us.'));
+  const [h] = found(headed);
+  eq(found(headed).length, 1, 'one heading flagged');
+  eq(headed.textBetween(h.from, h.to), 'Ayuda en español para residentes', 'the Spanish heading');
+  deepEq(h.fix, { kind: 'lang', lang: 'es' }, 'with its fix');
+  eq(found(doc(N.heading.create({ level: 2 }, text('Ayuda en español para residentes', LANG('es'))))).length, 0, 'a marked heading is quiet');
 });
 
 check('lang mark: paste keeps a language, the export writes it, Clear formatting leaves it', () => {
@@ -1392,6 +1456,12 @@ await acheck('import: Word run languages arrive as lang marks, by the characters
       P(R('خدمات', L('w:val="en-US" w:bidi="ar-SA"'))),
       P(R('junk', L('w:val="x&lt;y"'))),
       P(R('no language')),
+      P(R('שלום לכולם', L('w:val="en-US" w:bidi="ar-SA"'))),
+      P(R('สวัสดีครับ', L('w:val="en-US" w:bidi="th-TH"'))),
+      P(R('Привет всем', L('w:val="ru-RU"'))),
+      P(R('Llamar', L('w:val="en-US" w:eastAsia="ja-JP" w:bidi="he-IL"'))),
+      P(R('අවධානය ඔබ සිංහල', L('w:val="es-ES" w:bidi="si-LK"'))),
+      P(R('අවධානය ඔබ සිංහල', L('w:val="es-ES" w:bidi="ar-SA"'))),
     ].join(''),
   }), 'x.docx', parseXml);
   const langOf = (i) => M.lang.isInSet(r.content.child(i).firstChild.marks)?.attrs.lang ?? null;
@@ -1401,8 +1471,16 @@ await acheck('import: Word run languages arrive as lang marks, by the characters
   eq(langOf(3), 'ar-SA', 'right-to-left characters read w:bidi');
   eq(langOf(4), null, 'a malformed tag is dropped');
   eq(langOf(5), null, 'no w:lang, no mark');
+  eq(langOf(6), null, 'Hebrew text is never marked with Word\'s default "ar-SA"');
+  eq(langOf(7), 'th-TH', 'Thai reads whichever attribute holds a Thai tag');
+  eq(langOf(8), 'ru-RU', 'Cyrillic in w:val');
+  eq(langOf(9), null, 'Latin text reads w:val only');
+  eq(langOf(10), 'si-LK', 'an alphabet the detector doesn\'t list keeps Word\'s complex-script tag, not w:val\'s Spanish');
+  eq(langOf(11), null, 'but never a tag for a language of another alphabet');
   const flagged = mod.check.checkDocument(r.content, { prose: true }).filter((f) => f.id.startsWith('language-of-parts'));
-  eq(flagged.length, 0, 'Spanish Word already marked is not flagged');
+  // Word's Spanish arrives marked, so it isn't flagged; the second Sinhala run
+  // took no tag, so it arrives unmarked and is (the only one long enough to be).
+  deepEq(flagged.map((f) => f.excerpt), ['අවධානය ඔබ සිංහල'], 'only the untagged alphabet is flagged');
 });
 
 await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {
