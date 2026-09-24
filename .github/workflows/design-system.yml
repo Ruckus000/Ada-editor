@@ -1,10 +1,16 @@
 name: design system
 
+# Once per PR: a feature branch runs through pull_request only, so a push to a
+# branch with an open PR no longer runs everything twice (push + pull_request).
+# Pushes to main still run, so every merge is checked. workflow_dispatch runs a
+# branch by hand before it has a PR.
 on:
   push:
+    branches: [main]
     paths: ['design-system/**', 'app/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
   pull_request:
     paths: ['design-system/**', 'app/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+  workflow_dispatch:
 
 jobs:
   verify:
