@@ -285,7 +285,7 @@ check('heading-skip fires on level jumps with a level fix (cross-block)', () => 
 check('document-no-h1 fires only when headings exist but none is h1', () => {
   const found = crossFindings(doc(para('intro'), heading(2, 'Section')), 'document-no-h1');
   eq(found.length, 1, 'one finding');
-  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].severity, 'advisory', 'severity: 2.4.10 is AAA, which the scale grades Advisory');
   deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored (§6)');
   eq(crossFindings(doc(heading(1, 'T'), heading(2, 'S')), 'document-no-h1').length, 0, 'h1 present is quiet');
   eq(crossFindings(doc(para('no headings at all')), 'document-no-h1').length, 0, 'no headings is quiet');
@@ -386,11 +386,27 @@ check('colour-only-reference fires when a colour does the pointing', () => {
 
 /* ---------- checkDocument + reconcile ---------- */
 
+
 const { checkDocument, reconcile } = mod.check;
 
 const linkPara = () => para(text('Go '), text('click here', link('https://x.org/a')), text('.'));
 const DENSE = 'Applicants must furnish documentation substantiating residency prior to the aforementioned deadline, '
   + 'notwithstanding any prior determination issued by the commission to the contrary in this particular matter.';
+
+check('an AAA rule never grades a finding "Blocks access" or "Fails AA"', () => {
+  const levelOf = new Map(RULES.map((r) => [r.criterion, r.level]));
+  const aaaRules = RULES.filter((r) => r.level === 'AAA').map((r) => r.id).sort();
+  // One document that makes every AAA rule fire: an h2 with no h1, dense prose, a long sentence.
+  const findings = mod.check.checkDocument(doc(heading(2, 'Section'), para(DENSE), para(LONG)), { prose: true });
+  const fired = new Set();
+  for (const f of findings) {
+    if (levelOf.get(f.criterion) !== 'AAA') continue;
+    assert(f.severity === 'advisory' || f.severity === 'manual', `${f.id} is AAA but graded ${f.severity}`);
+    const rule = aaaRules.find((id) => f.id === id || f.id.startsWith(`${id}:`));
+    if (rule) fired.add(rule);
+  }
+  deepEq([...fired].sort(), aaaRules, 'every AAA rule fired, so the check is not vacuous');
+});
 
 check('checkDocument maps rules to anchored findings with stable ids', () => {
   const d = doc(heading(1, 'Title'), linkPara(), figure('img-1', ''), heading(3, 'Jumped'));
@@ -537,7 +553,7 @@ check('document-anchored findings (§6)', () => {
   deepEq(noH1.anchor, { kind: 'document' }, 'document anchor');
   eq(noH1.from, 0, 'from');
   eq(noH1.to, 0, 'to');
-  eq(noH1.severity, 'violation', 'severity');
+  eq(noH1.severity, 'advisory', 'severity: 2.4.10 is AAA, which the scale grades Advisory');
 });
 
 /* ---------- display order ---------- */
@@ -1181,10 +1197,13 @@ await acheck('dashboard "Most-failed criteria" counts failures only, never quest
   // No headings in six blocks (a Needs-your-call question) and dense prose (advisory, 3.1.5 is AAA).
   const questionsOnly = doc(para(DENSE), para('Two.'), para('Three.'), para('Four.'), para('Five.'), para('Six.'));
   const failing = doc(heading(1, 'T'), figure('img-1', ''), para(text('click here', link('https://x.org/a'))));
-  mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() })]));
+  // An h2 with no h1: document-no-h1 is 2.4.10, which is AAA, so it is not an AA failure either.
+  const noH1 = doc(heading(2, 'Section'), para('Body.'));
+  mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() }), storedDocJSON('h', { content: noH1.toJSON() })]));
   try {
     const { criteria, docs } = store.loadDashboardData();
     const q = docs.find((d) => d.id === 'q');
+    eq(docs.find((d) => d.id === 'h').counts.advisory, 1, 'the no-h1 fixture really produces its advisory');
     assert(q.counts.manual >= 1 && q.counts.advisory >= 1, `fixture has manual and advisory findings: ${JSON.stringify(q.counts)}`);
     deepEq(criteria, [
       { id: '1.1.1', name: 'Non-text Content', count: 1 },
