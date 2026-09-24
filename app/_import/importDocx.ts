@@ -1,6 +1,7 @@
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { safeHref, schema } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
+import { contrastRatio, parseColour } from '../_engine/contrast';
 
 /**
  * Import a .docx into the editor's document model, in the browser.
@@ -52,6 +53,14 @@ const MAX_BAND = 500;
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const STRICT_NS = 'http://purl.oclc.org/ooxml/';
 const FALSE_VALS = new Set(['0', 'false', 'off', 'none']);
+const HEX6 = /^[0-9a-f]{6}$/i;
+/** Word's fixed highlight palette (ST_HighlightColor); `none` is simply absent. */
+const WORD_HIGHLIGHT = new Map<string, string>([
+  ['black', '#000000'], ['blue', '#0000ff'], ['cyan', '#00ffff'], ['green', '#00ff00'],
+  ['magenta', '#ff00ff'], ['red', '#ff0000'], ['yellow', '#ffff00'], ['white', '#ffffff'],
+  ['darkBlue', '#000080'], ['darkCyan', '#008080'], ['darkGreen', '#008000'], ['darkMagenta', '#800080'],
+  ['darkRed', '#800000'], ['darkYellow', '#808000'], ['darkGray', '#808080'], ['lightGray', '#c0c0c0'],
+]);
 
 type Rel = { type: string; target: string; external: boolean };
 type ListKind = 'bullet' | 'ordered';
@@ -291,6 +300,28 @@ function readNumbering(doc: Document | null, styles: Styles): Numbering {
   };
 }
 
+/* ---------- colours ---------- */
+
+/** A shading layer's visible colour: a hex, 'unknown' (a pattern we can't resolve), or null (none). */
+type Fill = string | 'unknown' | null;
+
+/** w:shd: `clear`/absent shows its fill; `solid` shows its pattern colour; other patterns blend. */
+function shadingFill(shd: Element | null): Fill {
+  if (!shd) return null;
+  const pattern = val(shd) ?? 'clear';
+  if (pattern === 'nil') return null;
+  const pick = (v: string | null): Fill => (!v || v === 'auto' ? (pattern === 'solid' ? '#000000' : null) : HEX6.test(v) ? `#${v.toLowerCase()}` : 'unknown');
+  if (pattern === 'clear') return pick(val(shd, 'w:fill'));
+  if (pattern === 'solid') return pick(val(shd, 'w:color'));
+  return 'unknown';
+}
+
+/** Word's "automatic" text colour: black or white, whichever reads on the background. */
+function automaticText(background: string): string {
+  const bg = parseColour(background)!;
+  return contrastRatio([0, 0, 0], bg) >= contrastRatio([255, 255, 255], bg) ? '#000000' : '#ffffff';
+}
+
 /* ---------- the body walk ---------- */
 
 interface Field { phase: 'code' | 'result'; instr: string; href: string | null }
@@ -300,6 +331,9 @@ class Walker {
   private figures = 0;
   private paragraphs = 0;
   private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0 };
+  /** Shading behind the current paragraph and table cell: what a run sits on when it has none of its own. */
+  private paragraphFill: Fill = null;
+  private cellFill: Fill = null;
   /**
    * Complex fields (fldChar begin/separate/end) open in the current paragraph.
    * Scoped per paragraph: a field whose end is missing (truncated, or its end
@@ -350,7 +384,15 @@ class Walker {
     const out: Block[] = [];
     for (const k of kids(el)) {
       this.tick();
-      if (k.tagName === 'w:tc') out.push(...this.blocks(k));
+      if (k.tagName === 'w:tc') {
+        const outer = this.cellFill;
+        this.cellFill = shadingFill(child(child(k, 'w:tcPr'), 'w:shd')) ?? outer;
+        try {
+          out.push(...this.blocks(k));
+        } finally {
+          this.cellFill = outer;
+        }
+      }
       else if (k.tagName === 'w:tr' || k.tagName === 'w:customXml') out.push(...this.table(k));
       else if (k.tagName === 'w:sdt') { const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
     }
@@ -396,11 +438,14 @@ class Walker {
       out.push(...blocks.map((b) => (b.src === 0 ? { ...b, list, src } : b)));
     };
     const outer = this.fields;
+    const outerFill = this.paragraphFill;
     this.fields = [];
+    this.paragraphFill = shadingFill(child(pPr, 'w:shd'));
     try {
       this.inline(p, [], inline, emitBlocks);
     } finally {
       this.fields = outer;
+      this.paragraphFill = outerFill;
     }
     // A paragraph deleted under tracked changes (its mark is in w:del) and left
     // empty is gone in the accepted document.
@@ -450,9 +495,34 @@ class Walker {
     if (on(child(rPr, 'w:b'))) runMarks = M.strong!.create().addToSet(runMarks);
     if (on(child(rPr, 'w:i'))) runMarks = M.em!.create().addToSet(runMarks);
     if (on(child(rPr, 'w:u'))) runMarks = M.underline!.create().addToSet(runMarks);
-    // ponytail: colour, size, font and highlight are dropped, and character
-    // styles (rStyle) are not resolved; no rule reads them. Upgrade trigger: a
-    // contrast or colour rule that needs authored colours.
+    // Colours and size feed the contrast rule (large text is judged at 3:1).
+    // The background is the topmost layer: highlight, then run, paragraph and
+    // cell shading. When it can't be resolved, no colour is imported at all:
+    // light text kept without its dark fill would arrive invisible.
+    const highlightName = val(child(rPr, 'w:highlight'));
+    const layers: Fill[] = [
+      highlightName && highlightName !== 'none' ? WORD_HIGHLIGHT.get(highlightName) ?? 'unknown' : null,
+      shadingFill(child(rPr, 'w:shd')),
+      this.paragraphFill,
+      this.cellFill,
+    ];
+    const background = layers.find((l) => l !== null) ?? null;
+    if (background !== 'unknown') {
+      const colour = val(child(rPr, 'w:color'));
+      // ponytail: "auto" (or no colour) on a background is resolved the way Word
+      // draws it, black or white by contrast; Word's exact switch point is not
+      // documented. Upgrade trigger: an imported file whose auto text flips.
+      const fg = colour && HEX6.test(colour) ? `#${colour.toLowerCase()}` : background ? automaticText(background) : null;
+      if (fg) runMarks = M.textColor!.create({ color: fg }).addToSet(runMarks);
+      if (background) runMarks = M.highlight!.create({ color: background }).addToSet(runMarks);
+    }
+    const halfPoints = Number(val(child(rPr, 'w:sz')));
+    if (Number.isFinite(halfPoints) && halfPoints > 0 && halfPoints <= 3276) {
+      runMarks = M.fontSize!.create({ size: Math.round((halfPoints / 2) * (4 / 3) * 100) / 100 }).addToSet(runMarks);
+    }
+    // ponytail: colours and sizes set by styles (pStyle/rStyle, docDefaults),
+    // theme-only colours and the page colour are not resolved, nor are fonts.
+    // Upgrade trigger: a real file whose colours come from styles.
 
     for (const k of kids(r)) {
       this.tick();

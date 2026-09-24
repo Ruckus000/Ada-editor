@@ -24,15 +24,17 @@ export type Anchor =
 
 /**
  * What "Apply fix" does. Absent (or `text`) means the suggestion string
- * replaces the from..to range; the attribute fixes exist because the two
+ * replaces the from..to range; the other fixes exist because the
  * machine-decidable rule fixes are not text replacements — applying them as
- * text would write a literal "h2" into a heading or replace a figure node
- * with its alt string.
+ * text would write a literal "h2" into a heading, replace a figure node with
+ * its alt string, or overwrite text whose only problem is its colours.
  */
 export type FindingFix =
   | { kind: 'text' }
   | { kind: 'headingLevel'; level: number }
-  | { kind: 'figureAlt'; alt: string };
+  | { kind: 'figureAlt'; alt: string }
+  /** Remove text colour and highlight over the range: default black on white is 21:1. */
+  | { kind: 'defaultColours' };
 
 export interface EditorFinding extends Issue {
   severity: OpenSeverity;

@@ -46,6 +46,9 @@ function baseId(f: RawFinding): string {
   if (f.ruleId === 'img-alt-missing' && f.anchor.kind === 'figure') {
     return `img-alt-${f.anchor.figureId}`;
   }
+  // A contrast finding is about the text AND its colours: a dismissal made at
+  // 3.96:1 must not keep hiding the same text recoloured to 1.2:1.
+  if (f.ruleId === 'contrast-minimum' && f.original) return `${f.ruleId}:${f.snippet}|${f.original}`;
   return f.snippet ? `${f.ruleId}:${f.snippet}` : f.ruleId;
 }
 
@@ -149,8 +152,8 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       to,
       anchor,
     };
-    // The diff UI shows original → suggestion; only the two machine-decidable
-    // fixes set one, and both are attribute changes (see FindingFix).
+    // The diff UI shows original → suggestion; only the machine-decidable
+    // fixes set one, and none is a text replacement (see FindingFix).
     if (f.fix) {
       out.fix = f.fix;
       if (f.fix.kind === 'headingLevel') {
@@ -159,6 +162,9 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       } else if (f.fix.kind === 'figureAlt') {
         out.original = f.snippet;
         out.suggestion = f.fix.alt;
+      } else if (f.fix.kind === 'defaultColours') {
+        out.original = f.original ?? f.snippet;
+        out.suggestion = 'default colours';
       }
     }
     mapped.push(out);

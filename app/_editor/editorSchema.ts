@@ -114,7 +114,9 @@ const marks: Record<string, MarkSpec> = {
   },
   fontSize: {
     attrs: { size: {} },
-    parseDOM: [{ style: 'font-size', getAttrs: (value) => ({ size: parseInt(value, 10) || 16 }) }],
+    // parseFloat: an imported 18.67px must survive copy/paste (the editor's own
+    // clipboard round-trips through parseDOM), or a large-text verdict flips.
+    parseDOM: [{ style: 'font-size', getAttrs: (value) => ({ size: parseFloat(value) || 16 }) }],
     toDOM: (mark): DOMOutputSpec => ['span', { style: `font-size: ${mark.attrs.size}px` }, 0],
   },
 };

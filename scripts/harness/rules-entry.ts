@@ -11,3 +11,5 @@ export * as exportHtml from '../../app/_editor/exportHtml';
 export { schema } from '../../app/_editor/editorSchema';
 export * as importDocx from '../../app/_import/importDocx';
 export * as unzip from '../../app/_import/unzip';
+export * as contrast from '../../app/_engine/contrast';
+export * as pm from 'prosemirror-model';

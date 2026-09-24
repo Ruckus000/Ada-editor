@@ -1,11 +1,16 @@
 import { DOMSerializer } from 'prosemirror-model';
 import type { DOMOutputSpec, Node as PMNode } from 'prosemirror-model';
 import { schema } from './editorSchema';
+import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_BACKGROUND, PAGE_TEXT } from '../_engine/contrast';
 
 // Readable standalone defaults. 40rem keeps lines under the 80-character
-// ceiling the design system adopts from WCAG 1.4.8.
+// ceiling the design system adopts from WCAG 1.4.8. Colours and heading sizes
+// are pinned to the values the contrast rule judges against (contrast.ts), so
+// its verdicts hold for the page as delivered, not for a browser's defaults.
 const STYLE = `
-body { font: 16px/1.6 system-ui, sans-serif; max-width: 40rem; margin: 0 auto; padding: 1rem; }
+body { font: ${BODY_PX}px/1.6 system-ui, sans-serif; color: ${PAGE_TEXT}; background: ${PAGE_BACKGROUND}; max-width: 40rem; margin: 0 auto; padding: 1rem; }
+a, a:visited { color: ${LINK_TEXT}; }
+${[1, 2, 3, 4, 5, 6].map((n) => `h${n} { font-size: ${HEADING_PX[n]}px; font-weight: bold; }`).join('\n')}
 figure.placeholder { margin: 1.5rem 0; padding: 3rem 1rem; border: 2px dashed currentColor; text-align: center; }
 `;
 

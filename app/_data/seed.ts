@@ -10,7 +10,8 @@ import { schema } from '../_editor/editorSchema';
  *
  * The seed content is deliberately crafted so the ported rules fire across all
  * four severities — a figure without alt (blocker), generic and raw-URL links
- * (violation), a heading-level jump with its mechanical fix (violation), dense
+ * (violation), a heading-level jump with its mechanical fix (violation), text
+ * colours below 4.5:1 with their one-click fix (violation), dense
  * and overlong prose (advisory), a terse alt and a colour-only instruction
  * (manual) — and two documents stay clean so the "no open findings" states are
  * real, not authored.
@@ -31,6 +32,9 @@ export interface SeedSpan {
   text: string;
   link?: string;
   strong?: boolean;
+  /** Text colour and highlight, as the toolbar sets them. */
+  color?: string;
+  highlight?: string;
 }
 
 export type SeedBlock =
@@ -119,6 +123,8 @@ export const SEEDS: SeedDoc[] = [
         { kind: 'paragraph', spans: ['Details are available in the ', { text: 'learn more', link: 'https://city.example.gov/benefits' }, ' section.'] },
         { kind: 'heading', level: 2, text: 'What to bring' },
         { kind: 'paragraph', spans: ['You must bring proof of where you live before the deadline. If you do not, we cannot process the form that you sent to us last week.'] },
+        // The toolbar's Gray text on its Blue highlight: 3.96:1, below 4.5:1.
+        { kind: 'paragraph', spans: ['Deadlines are ', { text: 'shown in light grey', color: '#5E6C84', highlight: '#CCE0FF' }, ' beside each program.'] },
       ],
     },
   },
@@ -225,6 +231,8 @@ export function buildSeedDocument(content: DocContent): PMNode {
         const marks = [];
         if (s.link) marks.push(M.link!.create({ href: s.link }));
         if (s.strong) marks.push(M.strong!.create());
+        if (s.color) marks.push(M.textColor!.create({ color: s.color }));
+        if (s.highlight) marks.push(M.highlight!.create({ color: s.highlight }));
         return schema.text(s.text, marks.length ? marks : undefined);
       });
       blocks.push(N.paragraph!.create(null, children));

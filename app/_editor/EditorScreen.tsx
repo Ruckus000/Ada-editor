@@ -452,6 +452,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       const node = view.state.doc.nodeAt(f.from);
       if (!node) return;
       tr = view.state.tr.setNodeMarkup(f.from, undefined, { ...node.attrs, alt: f.fix.alt });
+    } else if (f.fix?.kind === 'defaultColours') {
+      if (f.from >= f.to || f.to > view.state.doc.content.size) return;
+      tr = view.state.tr.removeMark(f.from, f.to, markTypes.textColor!).removeMark(f.from, f.to, markTypes.highlight!);
     } else {
       tr = view.state.tr.insertText(f.suggestion, f.from, f.to);
     }
