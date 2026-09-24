@@ -2,7 +2,7 @@ import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { safeHref, schema } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import { contrastRatio, parseColour } from '../_engine/contrast';
-import { isForeignLangTag } from '../_engine/textHelpers';
+import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isForeignLangTag } from '../_engine/textHelpers';
 
 /**
  * Import a .docx into the editor's document model, in the browser.
@@ -688,17 +688,23 @@ function hyperlinkOf(instr: string): string | null {
 }
 
 /**
- * A run's language, if it isn't English. Word keeps three per run and uses
- * the one matching the characters: East Asian text reads w:eastAsia,
- * right-to-left text w:bidi, everything else w:val.
+ * A run's language, if it isn't English. Word keeps three per run (w:val,
+ * w:eastAsia, w:bidi) and uses the one for the run's kind of characters.
+ * Rather than second-guess Word's classes, a run in a non-Latin alphabet takes
+ * whichever tag names a language written in that alphabet, and none if no tag
+ * does, so Hebrew text is never marked with a default "ar-SA". An alphabet
+ * not listed here (Sinhala, Odia …) takes Word's complex-script or East Asian
+ * tag unless it names a language of a listed alphabet. A Latin run takes w:val.
  */
 function runLanguage(lang: Element | null, text: string): string | null {
   if (!lang) return null;
-  const which = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(text)
-    ? 'w:eastAsia'
-    : /[\p{Script=Arabic}\p{Script=Hebrew}]/u.test(text) ? 'w:bidi' : 'w:val';
-  const tag = val(lang, which);
-  return tag && isForeignLangTag(tag) ? tag : null;
+  const family = alphabetLanguages(text);
+  const primary = (tag: string) => tag.split('-')[0]!.toLowerCase();
+  const pick = (attrs: string[], fits: (code: string) => boolean) =>
+    attrs.map((a) => val(lang, a)).find((tag): tag is string => !!tag && isForeignLangTag(tag) && fits(primary(tag))) ?? null;
+  if (!family) return pick(['w:val'], () => true);
+  if (family.length) return pick(['w:val', 'w:eastAsia', 'w:bidi'], (code) => family.includes(code));
+  return pick(['w:bidi', 'w:eastAsia'], (code) => !LISTED_ALPHABET_LANGUAGES.has(code));
 }
 
 function withLink(marks: readonly Mark[], href: string): readonly Mark[] {
