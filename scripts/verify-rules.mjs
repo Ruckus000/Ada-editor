@@ -386,11 +386,27 @@ check('colour-only-reference fires when a colour does the pointing', () => {
 
 /* ---------- checkDocument + reconcile ---------- */
 
+
 const { checkDocument, reconcile } = mod.check;
 
 const linkPara = () => para(text('Go '), text('click here', link('https://x.org/a')), text('.'));
 const DENSE = 'Applicants must furnish documentation substantiating residency prior to the aforementioned deadline, '
   + 'notwithstanding any prior determination issued by the commission to the contrary in this particular matter.';
+
+check('an AAA rule never grades a finding "Blocks access" or "Fails AA"', () => {
+  const levelOf = new Map(RULES.map((r) => [r.criterion, r.level]));
+  const aaaRules = RULES.filter((r) => r.level === 'AAA').map((r) => r.id).sort();
+  // One document that makes every AAA rule fire: an h2 with no h1, dense prose, a long sentence.
+  const findings = mod.check.checkDocument(doc(heading(2, 'Section'), para(DENSE), para(LONG)), { prose: true });
+  const fired = new Set();
+  for (const f of findings) {
+    if (levelOf.get(f.criterion) !== 'AAA') continue;
+    assert(f.severity === 'advisory' || f.severity === 'manual', `${f.id} is AAA but graded ${f.severity}`);
+    const rule = aaaRules.find((id) => f.id === id || f.id.startsWith(`${id}:`));
+    if (rule) fired.add(rule);
+  }
+  deepEq([...fired].sort(), aaaRules, 'every AAA rule fired, so the check is not vacuous');
+});
 
 check('checkDocument maps rules to anchored findings with stable ids', () => {
   const d = doc(heading(1, 'Title'), linkPara(), figure('img-1', ''), heading(3, 'Jumped'));
@@ -1187,6 +1203,7 @@ await acheck('dashboard "Most-failed criteria" counts failures only, never quest
   try {
     const { criteria, docs } = store.loadDashboardData();
     const q = docs.find((d) => d.id === 'q');
+    eq(docs.find((d) => d.id === 'h').counts.advisory, 1, 'the no-h1 fixture really produces its advisory');
     assert(q.counts.manual >= 1 && q.counts.advisory >= 1, `fixture has manual and advisory findings: ${JSON.stringify(q.counts)}`);
     deepEq(criteria, [
       { id: '1.1.1', name: 'Non-text Content', count: 1 },

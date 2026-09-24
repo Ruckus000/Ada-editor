@@ -103,6 +103,11 @@ Pre-registered criteria
 VERDICT: F2 tripped — the inline-assistant form is NOT supported as designed.
 ```
 
+> **Later change (2026-09):** the shipped engine grades `document-no-h1`
+> **advisory**, not violation. Its criterion, 2.4.10 Section Headings, is AAA,
+> and the product's severity scale grades AAA as Advisory. The numbers above
+> are the spike's, as measured.
+
 ### Sensitivity
 
 One document — webpack's README, a wall of logo images — contributes 267 of

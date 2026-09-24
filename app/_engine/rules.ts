@@ -14,6 +14,11 @@
  * the gap `document-no-h1` leaves (a document with no headings at all). The
  * parity gate (scripts/measure-engine.mjs) pins its one corpus firing.
  *
+ * One severity departs from the spike: `document-no-h1` is Advisory, not
+ * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
+ * criterion's `level`, and verify-rules asserts no AAA rule ever grades a
+ * finding "Blocks access" or "Fails AA". Do not re-sync severities from the spike.
+ *
  * Shape: per-block rules run inside `summarizeBlock`, whose result check.ts
  * memoizes by node identity (a WeakMap — untouched blocks are reference-identical
  * across edits, so every unchanged paragraph is a cache hit). Cross-block rules
@@ -47,23 +52,29 @@ export interface RuleInfo {
   criterion: string;
   /** structural rules run live per keystroke; prose rules only on blur/Recheck (§8.1). */
   kind: RuleKind;
+  /**
+   * The criterion's WCAG conformance level. An AAA rule may only emit advisory
+   * or manual findings: the product targets AA, and the severity scale grades
+   * AAA as Advisory (verified in scripts/verify-rules.mjs).
+   */
+  level: 'A' | 'AA' | 'AAA';
 }
 
 export const RULES: readonly RuleInfo[] = [
-  { id: 'img-alt-missing', criterion: '1.1.1 Non-text Content', kind: 'structural' },
-  { id: 'img-alt-suspicious', criterion: '1.1.1 Non-text Content', kind: 'structural' },
-  { id: 'link-text-generic', criterion: '2.4.4 Link Purpose (In Context)', kind: 'structural' },
-  { id: 'link-text-raw-url', criterion: '2.4.4 Link Purpose (In Context)', kind: 'structural' },
-  { id: 'link-text-ambiguous', criterion: '2.4.4 Link Purpose (In Context)', kind: 'structural' },
-  { id: 'heading-skip', criterion: '1.3.1 Info and Relationships', kind: 'structural' },
-  { id: 'heading-empty', criterion: '1.3.1 Info and Relationships', kind: 'structural' },
-  { id: 'document-no-h1', criterion: '2.4.10 Section Headings', kind: 'structural' },
-  { id: 'colour-only-reference', criterion: '1.4.1 Use of Color', kind: 'prose' },
-  { id: 'reading-level', criterion: '3.1.5 Reading Level', kind: 'prose' },
-  { id: 'long-sentence', criterion: '3.1.5 Reading Level', kind: 'prose' },
+  { id: 'img-alt-missing', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
+  { id: 'img-alt-suspicious', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
+  { id: 'link-text-generic', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
+  { id: 'link-text-raw-url', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
+  { id: 'link-text-ambiguous', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
+  { id: 'heading-skip', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  { id: 'heading-empty', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  { id: 'document-no-h1', criterion: '2.4.10 Section Headings', level: 'AAA', kind: 'structural' },
+  { id: 'colour-only-reference', criterion: '1.4.1 Use of Color', level: 'A', kind: 'prose' },
+  { id: 'reading-level', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
+  { id: 'long-sentence', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
   // Structural, not prose-gated: it must retract the moment a heading is added
   // (prose findings are carried across structural runs until blur).
-  { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', kind: 'structural' },
+  { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
