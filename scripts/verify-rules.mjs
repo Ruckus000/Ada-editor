@@ -1042,6 +1042,54 @@ await acheck('import: an empty body still yields a valid document', async () => 
   eq(r.content.type.name, 'doc', 'a doc node');
 });
 
+await acheck('import (review regressions): nothing is silently lost', async () => {
+  const pic = drawing('<wp:docPr id="9" name="P" descr="Logo"/>');
+  const r = await importDocx(docx({
+    styles: '<w:style w:type="numbering" w:styleId="MyList"><w:name w:val="My List"/><w:pPr><w:numPr><w:numId w:val="2"/></w:numPr></w:pPr></w:style>' + style('H2', 'heading 2'),
+    numbering: '<w:abstractNum w:abstractNumId="0"><w:numStyleLink w:val="MyList"/></w:abstractNum>'
+      + '<w:abstractNum w:abstractNumId="1"><w:styleLink w:val="MyList"/><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>'
+      + '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>',
+    body: [
+      // A field whose end never comes must not swallow what follows.
+      P('<w:r><w:fldChar w:fldCharType="begin"/><w:instrText>PAGE</w:instrText></w:r>'),
+      P(R('After the broken field')),
+      // A text box holding an image keeps its text, and its image.
+      P('<w:r><w:drawing><wp:anchor><wp:docPr id="1" name="Box"/><a:graphic><a:graphicData><wps:wsp><wps:txbx><w:txbxContent>' + P(R('Callout') + pic) + '</w:txbxContent></wps:txbx></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>'),
+      // Rows inside a repeating-section content control.
+      '<w:tbl><w:sdt><w:sdtContent><w:tr><w:tc>' + P(R('Row in a control')) + '</w:tc></w:tr></w:sdtContent></w:sdt></w:tbl>',
+      // A list defined through a list style is ordered, not a fallback bullet;
+      // an image inside an item stays in that item.
+      P(R('Step A') + pic + R(' continued'), '<w:numPr><w:numId w:val="1"/></w:numPr>'),
+      P(R('Step B'), '<w:numPr><w:numId w:val="1"/></w:numPr>'),
+      // A block-level tracked insertion is reported; a deleted empty heading is gone.
+      '<w:ins>' + P(R('Inserted paragraph')) + '</w:ins>',
+      P('<w:del><w:r><w:delText>Old heading</w:delText></w:r></w:del>', '<w:pStyle w:val="H2"/><w:rPr><w:del w:id="1"/></w:rPr>'),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  const text = r.content.textContent;
+  for (const want of ['After the broken field', 'Callout', 'Row in a control', 'Inserted paragraph']) assert(text.includes(want), `"${want}" imported (got ${JSON.stringify(text)})`);
+  eq(figures(r.content).length, 2, 'the text box image and the list image');
+  const ol = [];
+  r.content.forEach((n) => { if (n.type.name.endsWith('_list')) ol.push(n); });
+  eq(ol.length, 1, 'one list: the image does not restart it');
+  eq(ol[0].type.name, 'ordered_list', 'numStyleLink resolved to the decimal definition');
+  eq(ol[0].childCount, 2, 'two items');
+  deepEq(ol[0].child(0).content.content.map((n) => n.type.name), ['paragraph', 'figure', 'paragraph'], 'the image stays inside its item');
+  assert(!shape(r.content).includes('h2'), 'a deleted heading is not imported as an empty h2');
+  assert(r.notes.includes('Tracked changes were imported as if accepted.'), 'tracked changes noted');
+});
+
+await acheck('import (review regressions): header text boxes are read once; many fields stay linear', async () => {
+  const box = '<w:r><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor><wp:docPr id="1" name="B"/><a:graphic><a:graphicData><wps:wsp><wps:txbx><w:txbxContent>' + P(R('CITY OF X')) + '</w:txbxContent></wps:txbx></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice><mc:Fallback><w:pict><v:shape><v:textbox><w:txbxContent>' + P(R('CITY OF X')) + '</w:txbxContent></v:textbox></v:shape></w:pict></mc:Fallback></mc:AlternateContent></w:r>';
+  const r = await importDocx(docx({
+    body: P('<w:r>' + '<w:fldChar w:fldCharType="begin"/><w:fldChar w:fldCharType="end"/>'.repeat(50_000) + '<w:t>still here</w:t></w:r>') + '<w:sectPr><w:headerReference w:type="default" r:id="rH"/></w:sectPr>',
+    docRels: [rel('rH', 'header', 'header1.xml')],
+    parts: [['word/header1.xml', `<w:hdr ${NS}>${P(box)}</w:hdr>`]],
+  }), 'x.docx', parseXml);
+  eq(r.header, 'CITY OF X', 'header text box read once');
+  eq(r.content.textContent, 'still here', '100k fldChars in one run: processed without cloning or recursion');
+});
+
 await acheck('import rejects hostile or unreadable files with a plain message', async () => {
   await rejects(new Uint8Array(Buffer.from('%PDF-1.7 not a zip')), 'isn’t a .docx', 'a PDF');
   await rejects(new Uint8Array(Buffer.from('\xd0\xcf\x11\xe0 legacy .doc or encrypted docx', 'latin1')), 'isn’t a .docx', 'an OLE file');

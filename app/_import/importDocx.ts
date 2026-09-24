@@ -55,9 +55,9 @@ const FALSE_VALS = new Set(['0', 'false', 'off', 'none']);
 
 type Rel = { type: string; target: string; external: boolean };
 type ListKind = 'bullet' | 'ordered';
-type Block =
-  | { kind: 'text'; node: PMNode; list: { kind: ListKind; ilvl: number } | null }
-  | { kind: 'figure'; node: PMNode };
+type ListInfo = { kind: ListKind; ilvl: number };
+/** `src` is the source paragraph's serial: an image inside a list paragraph stays in that item. */
+type Block = { node: PMNode; list: ListInfo | null; src: number };
 
 /* ---------- element helpers ---------- */
 
@@ -146,7 +146,7 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
   const numberingPart = byType(rels, 'numbering')?.target;
   const corePart = [...rootRels.values()].find((r) => r.type.endsWith('/metadata/core-properties'))?.target;
   const styles = readStyles(stylesPart ? await xml(stylesPart) : null);
-  const numbering = readNumbering(numberingPart ? await xml(numberingPart) : null);
+  const numbering = readNumbering(numberingPart ? await xml(numberingPart) : null, styles);
   const core = corePart ? await xml(corePart) : null;
 
   const walker = new Walker(rels, styles, numbering);
@@ -157,7 +157,7 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
     const ref = sectPr && kids(sectPr).find((k) => k.tagName === tag && (val(k, 'w:type') ?? 'default') === 'default');
     const rel = ref ? rels.get(val(ref, 'r:id') ?? '') : undefined;
     const doc = rel && !rel.external ? await xml(rel.target) : null;
-    return doc ? bandText(doc.documentElement) : '';
+    return doc ? bandText(doc.documentElement, styles, numbering) : '';
   };
 
   const coreTitle = core ? (first(core.documentElement, 'dc:title')?.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
@@ -194,7 +194,10 @@ function readStyles(doc: Document | null): Styles {
   const map = new Map<string, StyleInfo>();
   for (const s of doc ? Array.from(doc.getElementsByTagName('w:style')) : []) {
     const id = s.getAttribute('w:styleId');
-    if (!id || s.getAttribute('w:type') !== 'paragraph') continue;
+    // Paragraph styles carry headings and lists; numbering styles are what a
+    // list definition's numStyleLink points at.
+    const type = s.getAttribute('w:type');
+    if (!id || (type !== 'paragraph' && type !== 'numbering')) continue;
     const pPr = child(s, 'w:pPr');
     const numPr = child(pPr, 'w:numPr');
     const lvl = val(child(pPr, 'w:outlineLvl'));
@@ -246,16 +249,21 @@ function headingLevel(outlineLvl: number): number | null {
 
 type Numbering = (numId: string, ilvl: number) => ListKind | null;
 
-function readNumbering(doc: Document | null): Numbering {
+function readNumbering(doc: Document | null, styles: Styles): Numbering {
   const abstract = new Map<string, Map<number, string>>();
+  /** abstractNum → the list style it defers to (w:numStyleLink), when it has no levels of its own. */
+  const styleLinks = new Map<string, string>();
   const nums = new Map<string, string>();
   if (doc) {
     for (const a of Array.from(doc.getElementsByTagName('w:abstractNum'))) {
+      const id = a.getAttribute('w:abstractNumId') ?? '';
       const levels = new Map<number, string>();
       for (const l of kids(a)) {
         if (l.tagName === 'w:lvl') levels.set(Number(l.getAttribute('w:ilvl') ?? 0), val(child(l, 'w:numFmt')) ?? 'decimal');
       }
-      abstract.set(a.getAttribute('w:abstractNumId') ?? '', levels);
+      abstract.set(id, levels);
+      const link = val(child(a, 'w:numStyleLink'));
+      if (link) styleLinks.set(id, link);
     }
     for (const n of Array.from(doc.getElementsByTagName('w:num'))) {
       nums.set(n.getAttribute('w:numId') ?? '', val(child(n, 'w:abstractNumId')) ?? '');
@@ -264,8 +272,19 @@ function readNumbering(doc: Document | null): Numbering {
   // ponytail: w:lvlOverride (per-list format overrides) is ignored; the
   // abstract definition decides bullet vs ordered. Upgrade trigger: a real
   // file whose list kind comes out wrong.
+  const levelsOf = (numId: string): Map<number, string> | undefined => {
+    const absId = nums.get(numId) ?? '';
+    const own = abstract.get(absId);
+    const link = styleLinks.get(absId);
+    if ((!own || own.size === 0) && link) {
+      // One hop: the list style's numPr names the num whose abstract holds the levels.
+      const viaStyle = styles.numPr(link)?.numId;
+      if (viaStyle && viaStyle !== numId) return abstract.get(nums.get(viaStyle) ?? '');
+    }
+    return own;
+  };
   return (numId, ilvl) => {
-    const fmt = abstract.get(nums.get(numId) ?? '')?.get(ilvl);
+    const fmt = levelsOf(numId)?.get(ilvl);
     if (fmt === undefined) return nums.has(numId) ? 'bullet' : null;
     if (fmt === 'none') return null;
     return fmt === 'bullet' ? 'bullet' : 'ordered';
@@ -279,8 +298,14 @@ interface Field { phase: 'code' | 'result'; instr: string; href: string | null }
 class Walker {
   private visited = 0;
   private figures = 0;
+  private paragraphs = 0;
   private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0 };
-  /** Complex fields (fldChar begin/separate/end) may span runs and paragraphs. */
+  /**
+   * Complex fields (fldChar begin/separate/end) open in the current paragraph.
+   * Scoped per paragraph: a field whose end is missing (truncated, or its end
+   * inside a tracked deletion) must not swallow the rest of the document. A
+   * field spanning paragraphs (a table of contents) then shows its result text.
+   */
   private fields: Field[] = [];
 
   constructor(private rels: Map<string, Rel>, private styles: Styles, private numbering: Numbering) {}
@@ -309,7 +334,8 @@ class Walker {
         case 'w:p': out.push(...this.paragraph(el)); break;
         case 'w:tbl': this.counts.tables++; out.push(...this.table(el)); break;
         case 'w:sdt': { const c = child(el, 'w:sdtContent'); if (c) out.push(...this.blocks(c)); break; }
-        case 'w:customXml': case 'w:ins': case 'w:moveTo': out.push(...this.blocks(el)); break;
+        case 'w:customXml': out.push(...this.blocks(el)); break;
+        case 'w:ins': case 'w:moveTo': this.counts.tracked++; out.push(...this.blocks(el)); break;
         case 'mc:AlternateContent': { const c = child(el, 'mc:Choice'); if (c) out.push(...this.blocks(c)); break; }
         case 'w:altChunk': this.counts.chunks++; break;
         case 'w:del': case 'w:moveFrom': this.counts.tracked++; break;
@@ -319,15 +345,14 @@ class Walker {
     return out;
   }
 
-  private table(tbl: Element): Block[] {
+  /** Table text in reading order. Rows and cells may be wrapped in content controls or custom XML. */
+  private table(el: Element): Block[] {
     const out: Block[] = [];
-    for (const tr of kids(tbl)) {
-      if (tr.tagName !== 'w:tr') continue;
-      for (const tc of kids(tr)) {
-        this.tick();
-        if (tc.tagName === 'w:tc') out.push(...this.blocks(tc));
-        else if (tc.tagName === 'w:sdt') { const c = child(tc, 'w:sdtContent'); if (c) for (const inner of kids(c)) if (inner.tagName === 'w:tc') out.push(...this.blocks(inner)); }
-      }
+    for (const k of kids(el)) {
+      this.tick();
+      if (k.tagName === 'w:tc') out.push(...this.blocks(k));
+      else if (k.tagName === 'w:tr' || k.tagName === 'w:customXml') out.push(...this.table(k));
+      else if (k.tagName === 'w:sdt') { const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
     }
     return out;
   }
@@ -338,7 +363,7 @@ class Walker {
     const directLvl = val(child(pPr, 'w:outlineLvl'));
     const level = directLvl !== null ? headingLevel(Number(directLvl)) : this.styles.heading(styleId);
 
-    let list: { kind: ListKind; ilvl: number } | null = null;
+    let list: ListInfo | null = null;
     if (level === null) {
       // Direct numPr wins, and numId 0 explicitly switches off the style's list.
       const direct = child(pPr, 'w:numPr');
@@ -349,6 +374,7 @@ class Walker {
       if (kind && numPr) list = { kind, ilvl: Math.max(0, Math.min(8, numPr.ilvl || 0)) };
     }
 
+    const src = ++this.paragraphs;
     const out: Block[] = [];
     // One array for the whole paragraph, emptied in place: the walk below holds
     // a reference to it, so text after an image must land in the same array.
@@ -360,14 +386,28 @@ class Walker {
       const node = level !== null
         ? schema.nodes.heading!.create({ level }, content)
         : schema.nodes.paragraph!.create(null, content);
-      out.push({ kind: 'text', node, list });
+      out.push({ node, list, src });
     };
     const emitBlocks = (blocks: Block[]) => {
       flush(false);
       split = true;
-      out.push(...blocks);
+      // This paragraph's own images belong to it (and to its list item); a
+      // text box's paragraphs keep their own identity.
+      out.push(...blocks.map((b) => (b.src === 0 ? { ...b, list, src } : b)));
     };
-    this.inline(p, [], inline, emitBlocks);
+    const outer = this.fields;
+    this.fields = [];
+    try {
+      this.inline(p, [], inline, emitBlocks);
+    } finally {
+      this.fields = outer;
+    }
+    // A paragraph deleted under tracked changes (its mark is in w:del) and left
+    // empty is gone in the accepted document.
+    if (!split && !inline.length && child(child(pPr, 'w:rPr'), 'w:del')) {
+      this.counts.tracked++;
+      return out;
+    }
     // A paragraph that only held an image yields just the figure; any other
     // paragraph is kept even when empty (an empty heading is a real finding).
     flush(!split);
@@ -414,20 +454,20 @@ class Walker {
     // styles (rStyle) are not resolved; no rule reads them. Upgrade trigger: a
     // contrast or colour rule that needs authored colours.
 
-    const field = this.fields.at(-1);
-    const inCode = this.fields.some((f) => f.phase === 'code');
-    const href = [...this.fields].reverse().find((f) => f.phase === 'result' && f.href)?.href ?? null;
-    if (href) runMarks = withLink(runMarks, href);
-    const text = (s: string) => { if (s && !inCode) out.push(schema.text(s, runMarks)); };
-
     for (const k of kids(r)) {
       this.tick();
+      // A fldChar can change the field state mid-run, so read it per child.
+      const field = this.fields.at(-1);
+      const inCode = this.fields.some((f) => f.phase === 'code');
+      const href = [...this.fields].reverse().find((f) => f.phase === 'result' && f.href)?.href ?? null;
+      const marksHere = href ? withLink(runMarks, href) : runMarks;
+      const text = (str: string) => { if (str && !inCode) out.push(schema.text(str, marksHere)); };
       switch (k.tagName) {
         case 'w:t': text(k.textContent ?? ''); break;
         case 'w:tab': text(' '); break;
         case 'w:br': if ((val(k, 'w:type') ?? 'textWrapping') === 'textWrapping' && !inCode) out.push(schema.nodes.hard_break!.create()); break;
         case 'w:cr': if (!inCode) out.push(schema.nodes.hard_break!.create()); break;
-        case 'w:noBreakHyphen': text('‑'); break;
+        case 'w:noBreakHyphen': text('\u2011'); break;
         case 'w:softHyphen': break;
         case 'w:sym': {
           // Symbol-font glyphs sit in the private-use area (F0xx) and mean
@@ -441,8 +481,7 @@ class Walker {
           if (type === 'begin') this.fields.push({ phase: 'code', instr: '', href: null });
           else if (type === 'separate' && field) { field.phase = 'result'; field.href = hyperlinkOf(field.instr); }
           else if (type === 'end') this.fields.pop();
-          // Re-read state for the rest of this run.
-          return this.run(withoutBefore(r, k), marks, out, emitBlocks);
+          break;
         }
         case 'w:instrText': if (field?.phase === 'code') field.instr += k.textContent ?? ''; break;
         case 'w:footnoteReference': case 'w:endnoteReference': this.counts.notes++; break;
@@ -458,9 +497,10 @@ class Walker {
     }
   }
 
+  /** src 0: claimed by the paragraph that holds the image (see emitBlocks). */
   private figure(alt: string): Block {
     const n = ++this.figures;
-    return { kind: 'figure', node: schema.nodes.figure!.create({ id: `img-${n}`, alt: alt.trim().slice(0, MAX_ALT), label: `image ${n}` }) };
+    return { node: schema.nodes.figure!.create({ id: `img-${n}`, alt: alt.trim().slice(0, MAX_ALT), label: `image ${n}` }), list: null, src: 0 };
   }
 
   private isDecorative(el: Element): boolean {
@@ -472,12 +512,16 @@ class Walker {
   }
 
   private drawing(d: Element): Block[] {
+    // Text boxes are content; an image INSIDE a text box is found when the box's
+    // own paragraphs are walked, so it must not turn the whole box into a figure.
     const txbx = Array.from(d.getElementsByTagName('w:txbxContent'));
-    const picture = first(d, 'a:blip') || first(d, 'c:chart') || first(d, 'dgm:relIds') || first(d, 'pic:pic');
-    if (txbx.length && !picture) return txbx.flatMap((t) => this.blocks(t));
-    if (this.isDecorative(d)) { this.counts.decorative++; return []; }
+    const inBox = new Set(txbx.flatMap((t) => descendants(t)));
+    const picture = descendants(d).some((e) => !inBox.has(e) && PICTURE_TAGS.has(e.tagName));
+    const text = txbx.flatMap((t) => this.blocks(t));
+    if (txbx.length && !picture) return text;
+    if (this.isDecorative(d)) { this.counts.decorative++; return text; }
     const docPr = first(d, 'wp:docPr');
-    return [this.figure(docPr?.getAttribute('descr') || docPr?.getAttribute('title') || '')];
+    return [this.figure(docPr?.getAttribute('descr') || docPr?.getAttribute('title') || ''), ...text];
   }
 
   /** Legacy VML pictures and OLE objects. */
@@ -492,18 +536,7 @@ class Walker {
   }
 }
 
-/** Return a detached copy of run r holding only the children after `after` (and its rPr). */
-function withoutBefore(r: Element, after: Element): Element {
-  const copy = r.cloneNode(false) as Element;
-  const rPr = child(r, 'w:rPr');
-  if (rPr) copy.appendChild(rPr.cloneNode(true));
-  let seen = false;
-  for (const k of kids(r)) {
-    if (seen) copy.appendChild(k.cloneNode(true));
-    if (k === after) seen = true;
-  }
-  return copy;
-}
+const PICTURE_TAGS = new Set(['a:blip', 'c:chart', 'dgm:relIds', 'pic:pic']);
 
 /** `HYPERLINK "https://…"`; a `\l` bookmark link is internal and gets no href. */
 function hyperlinkOf(instr: string): string | null {
@@ -515,34 +548,38 @@ function withLink(marks: readonly Mark[], href: string): readonly Mark[] {
   return schema.marks.link!.create({ href }).addToSet(marks);
 }
 
-function bandText(root: Element): string {
-  const paras = Array.from(root.getElementsByTagName('w:p')).map((p) =>
-    Array.from(p.getElementsByTagName('w:t')).map((t) => t.textContent ?? '').join(''));
-  return paras.map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ').slice(0, MAX_BAND);
+/** Header/footer text, read by the same walk as the body (text boxes once, fields as shown). */
+function bandText(root: Element, styles: Styles, numbering: Numbering): string {
+  return new Walker(new Map(), styles, numbering).blocks(root)
+    .map((b) => b.node.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ').slice(0, MAX_BAND);
 }
 
 /* ---------- assembly ---------- */
 
-type ListBlock = Extract<Block, { kind: 'text' }> & { list: { kind: ListKind; ilvl: number } };
+/** One source list paragraph: its text plus any images it held. */
+type Entry = { list: ListInfo; nodes: PMNode[] };
 
 function assemble(blocks: Block[]): PMNode {
   const N = schema.nodes;
   const out: PMNode[] = [];
   for (let i = 0; i < blocks.length;) {
     const b = blocks[i]!;
-    if (b.kind === 'text' && b.list) {
-      let j = i;
-      while (j < blocks.length && blocks[j]!.kind === 'text' && (blocks[j] as ListBlock).list) j++;
-      const run = blocks.slice(i, j) as ListBlock[];
-      for (let k = 0; k < run.length;) {
-        const [list, next] = buildList(run, k, run[k]!.list.ilvl);
-        out.push(list);
-        k = next;
-      }
-      i = j;
-    } else {
+    if (!b.list) {
       out.push(b.node);
       i++;
+      continue;
+    }
+    const entries: Entry[] = [];
+    for (; i < blocks.length && blocks[i]!.list; i++) {
+      const cur = blocks[i]!;
+      const last = entries.at(-1);
+      if (last && blocks[i - 1]!.src === cur.src) last.nodes.push(cur.node);
+      else entries.push({ list: cur.list!, nodes: [cur.node] });
+    }
+    for (let k = 0; k < entries.length;) {
+      const [list, next] = buildList(entries, k, entries[k]!.list.ilvl);
+      out.push(list);
+      k = next;
     }
   }
   if (!out.length) out.push(N.paragraph!.create());
@@ -553,17 +590,18 @@ function assemble(blocks: Block[]): PMNode {
  * Consecutive numbered paragraphs become nested lists by ilvl. A change of
  * kind (bullet vs ordered) at the same level starts a new sibling list.
  */
-function buildList(run: ListBlock[], i: number, level: number): [PMNode, number] {
+function buildList(entries: Entry[], i: number, level: number): [PMNode, number] {
   const N = schema.nodes;
-  const kind = run[i]!.list.kind;
+  const kind = entries[i]!.list.kind;
   const items: PMNode[] = [];
-  while (i < run.length && run[i]!.list.ilvl >= level) {
-    const r = run[i]!;
-    if (r.list.kind !== kind && items.length) break;
-    const children: PMNode[] = [r.node];
+  while (i < entries.length && entries[i]!.list.ilvl >= level) {
+    const e = entries[i]!;
+    if (e.list.kind !== kind && items.length) break;
+    // A list item must open with a paragraph; an item that starts with an image gets an empty one.
+    const children: PMNode[] = e.nodes[0]!.type === N.paragraph ? [...e.nodes] : [N.paragraph!.create(), ...e.nodes];
     i++;
-    while (i < run.length && run[i]!.list.ilvl > level) {
-      const [sub, next] = buildList(run, i, run[i]!.list.ilvl);
+    while (i < entries.length && entries[i]!.list.ilvl > level) {
+      const [sub, next] = buildList(entries, i, entries[i]!.list.ilvl);
       children.push(sub);
       i = next;
     }
