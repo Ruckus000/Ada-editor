@@ -624,8 +624,9 @@ class Walker {
         case 'w:drawing': if (!hidden) emitBlocks(this.drawing(k)); break;
         case 'w:pict': case 'w:object': if (!hidden) emitBlocks(this.vml(k)); break;
         case 'mc:AlternateContent': {
+          // The inner run can't see this run's w:vanish, so hidden stops here.
           const c = child(k, 'mc:Choice');
-          if (c) this.run(c, marks, out, emitBlocks);
+          if (c && !hidden) this.run(c, marks, out, emitBlocks);
           break;
         }
         default: break; // delText, instrText outside a field, rPr, lastRenderedPageBreak…

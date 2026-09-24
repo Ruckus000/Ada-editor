@@ -1264,6 +1264,7 @@ await acheck('import: Word form fields keep their check boxes and are named in t
       P(`<w:sdt><w:sdtPr><w:dataBinding w:xpath="/ns1:coreProperties[1]/ns0:title[1]"/><w:text/></w:sdtPr><w:sdtContent>${R('Annual report')}</w:sdtContent></w:sdt>`),
       P('<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>' + R('After a hidden field end')),
       P(R('Signature:') + '<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:tab/></w:r>'),
+      P(R('Visible') + '<w:r><w:rPr><w:vanish/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:t>hidden choice</w:t></mc:Choice></mc:AlternateContent></w:r>'),
     ].join(''),
   }), 'form.docx', parseXml);
   const line = (i) => r.content.child(i).textContent;
@@ -1278,6 +1279,7 @@ await acheck('import: Word form fields keep their check boxes and are named in t
   eq(line(10), 'Annual report', 'a bound cover-page control keeps its text');
   eq(line(11), 'After a hidden field end', 'a field ending in a hidden run does not swallow what follows');
   eq(line(12), 'Signature:\t', 'an underlined tab stays a tab');
+  eq(line(13), 'Visible', 'hidden text inside AlternateContent stays hidden');
   const nameField = r.content.child(4).lastChild;
   assert(nameField.text === '\u2002'.repeat(5) && nameField.marks.some((m) => m.type.name === 'underline'), 'an empty text field imports as an underlined line');
   assert(r.notes.includes('8 Word form fields imported as plain text; they are not fillable here.'), `bound controls are not counted: ${JSON.stringify(r.notes)}`);
