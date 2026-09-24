@@ -361,6 +361,30 @@ async function triage() {
     const severity = await evaluate(send, `document.querySelector('aside [role="group"][aria-labelledby^="finding-"] [data-severity]')?.getAttribute('data-severity') ?? 'none'`);
     if (severity !== 'violation') fail(`TRIAGE  initially-active card is "${severity}", expected the most severe finding (violation)`);
     else note('the initially-active card is the most severe finding, not the first in document order');
+
+    // Contrast: the seed's Gray-on-Blue-highlight run (3.96:1). Its fix removes
+    // the colour marks, the one Apply branch that is neither text nor attributes.
+    const coloured = `[...document.querySelectorAll('#document-text mark, #document-text span[style*="color"]')].filter((el) => el.textContent.includes('light grey')).length`;
+    const findings = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
+    const beforeCount = await findings();
+    const beforeMarks = await evaluate(send, coloured);
+    const opened = await evaluate(send, `(() => {
+      const card = [...document.querySelectorAll('aside button')].find((b) => b.textContent.includes('Use default colours'));
+      card?.click();
+      return Boolean(card);
+    })()`);
+    if (!opened || beforeMarks === 0) { fail(`CONTRAST  no contrast finding on the coloured seed text (card=${opened}, coloured=${beforeMarks})`); return; }
+    await sleep(200);
+    if (!(await focusByName(send, 'aside button', 'Apply fix'))) { fail('CONTRAST  no Apply fix on the contrast finding'); return; }
+    await key(send, 'Enter');
+    await sleep(400);
+    const afterMarks = await evaluate(send, coloured);
+    const afterCount = await findings();
+    const said = await liveText(send);
+    if (afterMarks !== 0) fail(`CONTRAST  Apply fix left ${afterMarks} coloured element(s) on the text`);
+    else if (afterCount !== beforeCount - 1) fail(`CONTRAST  findings ${beforeCount} -> ${afterCount} after applying the contrast fix`);
+    else if (!/^Fix applied: Text contrast is below 4\.5:1\. \d+ open\./.test(said)) fail(`CONTRAST  fix not announced with what remains (got ${JSON.stringify(said)})`);
+    else note('the contrast fix removes the failing colours, clears the finding and says what remains');
   } finally {
     await shutdown(send, ws, proc);
   }

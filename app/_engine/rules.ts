@@ -10,9 +10,10 @@
  * table node) and `document-language` (no language field exists in the data
  * model; the spike itself flagged it as noise).
  *
- * One rule is engine-only, added after the port: `document-no-headings` closes
- * the gap `document-no-h1` leaves (a document with no headings at all). The
- * parity gate (scripts/measure-engine.mjs) pins its one corpus firing.
+ * Two rules are engine-only, added after the port: `document-no-headings`
+ * closes the gap `document-no-h1` leaves (a document with no headings at all),
+ * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
+ * `contrast-minimum` judges colour marks, which the Markdown corpus never has.
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -39,11 +40,17 @@ import {
   gradeLevel,
   sentenceSpans,
 } from './textHelpers';
+import { contrastRatio, hexOf, parseColour } from './contrast';
+import type { RGB } from './contrast';
 
 const FIGURE = schema.nodes.figure!;
 const PARAGRAPH = schema.nodes.paragraph!;
 const HEADING = schema.nodes.heading!;
 const LINK = schema.marks.link!;
+const TEXT_COLOR = schema.marks.textColor!;
+const HIGHLIGHT = schema.marks.highlight!;
+const FONT_SIZE = schema.marks.fontSize!;
+const STRONG = schema.marks.strong!;
 
 export type RuleKind = 'structural' | 'prose';
 
@@ -75,6 +82,8 @@ export const RULES: readonly RuleInfo[] = [
   // Structural, not prose-gated: it must retract the moment a heading is added
   // (prose findings are carried across structural runs until blur).
   { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  // Engine-only (the spike ran on Markdown, which carries no colours).
+  { id: 'contrast-minimum', criterion: '1.4.3 Contrast (Minimum)', level: 'AA', kind: 'structural' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
@@ -208,6 +217,69 @@ function linkRuns(node: PMNode): LinkRun[] {
     offset += child.nodeSize;
   });
   return runs;
+}
+
+/* ---------- contrast ---------- */
+
+/** What the exported page renders when a mark is absent. */
+const DEFAULT_FG: RGB = [0, 0, 0];
+const DEFAULT_BG: RGB = [255, 255, 255];
+/** Browser default font sizes (px) for headings, which the export uses; all bold. */
+const HEADING_PX: Readonly<Record<number, number>> = { 1: 32, 2: 24, 3: 18.72, 4: 16, 5: 13.28, 6: 10.72 };
+
+interface ContrastRun { key: string; text: string; from: number; to: number; fg: RGB; bg: RGB; ratio: number; need: number }
+
+/**
+ * contrast-minimum (SC 1.4.3): text whose colours fall below 4.5:1, or 3:1 for
+ * large text (24px, or 18.66px bold). Only text carrying a colour mark is
+ * judged; default text on the default page passes by definition. Consecutive
+ * text nodes with the same failing colours merge into one finding, so text
+ * split by bold or italic is flagged once.
+ */
+function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding[] {
+  const judge = (child: PMNode): Omit<ContrastRun, 'text' | 'from' | 'to'> | null => {
+    const fgMark = TEXT_COLOR.isInSet(child.marks);
+    const bgMark = HIGHLIGHT.isInSet(child.marks);
+    if (!fgMark && !bgMark) return null;
+    const fg = fgMark ? parseColour(String(fgMark.attrs.color ?? '')) : DEFAULT_FG;
+    const bg = bgMark ? parseColour(String(bgMark.attrs.color ?? '')) : DEFAULT_BG;
+    if (!fg || !bg) return null; // a colour we can't read is not judged
+    const sizeMark = FONT_SIZE.isInSet(child.marks);
+    const px = sizeMark ? Number(sizeMark.attrs.size) : headingLevel ? HEADING_PX[headingLevel] ?? 16 : 16;
+    const bold = headingLevel !== null || !!STRONG.isInSet(child.marks);
+    const need = px >= 24 || (bold && px >= 18.66) ? 3 : 4.5;
+    const ratio = contrastRatio(fg, bg);
+    if (ratio >= need) return null;
+    return { key: `${hexOf(fg)}|${hexOf(bg)}|${need}`, fg, bg, ratio, need };
+  };
+
+  const runs: ContrastRun[] = [];
+  let offset = 0;
+  let current: ContrastRun | null = null;
+  node.content.forEach((child) => {
+    const verdict = child.isText ? judge(child) : null;
+    if (verdict && current && current.key === verdict.key) {
+      current.text += child.text ?? '';
+      current.to = offset + child.nodeSize;
+    } else {
+      current = verdict ? { ...verdict, text: child.text ?? '', from: offset, to: offset + child.nodeSize } : null;
+      if (current) runs.push(current);
+    }
+    offset += child.nodeSize;
+  });
+
+  return runs.map((r) => ({
+    ruleId: 'contrast-minimum',
+    severity: 'violation',
+    criterion: crit('contrast-minimum'),
+    title: `Text contrast is below ${r.need}:1`,
+    explanation: `${hexOf(r.fg)} on ${hexOf(r.bg)} is ${r.ratio.toFixed(2)}:1. ${r.need === 3 ? 'Large text' : 'Text this size'} needs at least ${r.need}:1 to be readable for people with low vision.`,
+    snippet: collapseSpaces(r.text),
+    original: `${hexOf(r.fg)} on ${hexOf(r.bg)}`,
+    hint: 'Use default colours',
+    fix: { kind: 'defaultColours' },
+    anchor: { kind: 'blockRange', from: r.from, to: r.to },
+  }));
 }
 
 /* ---------- per-block rules ---------- */
@@ -364,6 +436,8 @@ export function summarizeBlock(node: PMNode): BlockSummary {
       });
     }
   }
+
+  findings.push(...contrastFindings(node, headingLevel));
 
   return { text, headingLevel, links, figure: null, findings };
 }

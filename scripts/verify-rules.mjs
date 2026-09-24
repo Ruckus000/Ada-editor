@@ -190,15 +190,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 12 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 12, 'rule count');
+check('RULES ports the 13 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 13, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'document-no-h1', 'document-no-headings', 'heading-empty', 'heading-skip',
+    'colour-only-reference', 'contrast-minimum', 'document-no-h1', 'document-no-headings', 'heading-empty', 'heading-skip',
     'img-alt-missing', 'img-alt-suspicious', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level',
   ], 'rule ids');
@@ -310,6 +310,53 @@ check('document-no-headings asks about sections once a document has several bloc
   eq(noHeadings(doc(heading(2, 'Only an h2'), para('One.'), para('Two.'), para('Three.'), para('Four.'), para('Five.'))).length, 0, 'any heading silences it (document-no-h1 covers that case)');
   const list = N.bullet_list.create(null, ['a', 'b', 'c'].map((t) => N.list_item.create(null, para(t))));
   eq(noHeadings(doc(para('Intro.'), list, para('End.'))).length, 1, 'list paragraphs count as blocks');
+});
+
+/* ---------- contrast ---------- */
+
+check('contrast maths: colours parse strictly, ratios match the token gate', () => {
+  const { parseColour, contrastRatio } = mod.contrast;
+  deepEq(parseColour('#5E6C84'), [94, 108, 132], 'hex 6');
+  deepEq(parseColour('#fff'), [255, 255, 255], 'hex 3');
+  deepEq(parseColour('rgb(94, 108, 132)'), [94, 108, 132], 'rgb() as browsers write pasted styles');
+  deepEq(parseColour('rgba(0,0,0,1)'), [0, 0, 0], 'opaque rgba');
+  deepEq(parseColour('Yellow'), [255, 255, 0], 'basic name (the highlight default)');
+  for (const junk of ['rgba(0,0,0,0.5)', 'transparent', 'var(--x)', 'hsl(0 0% 50%)', 'rgb(300,0,0)', 'cornflowerblue', '']) {
+    eq(parseColour(junk), null, `not judged: ${JSON.stringify(junk)}`);
+  }
+  // Reference values: the WCAG formula as scripts/verify-tokens.mjs computes it.
+  eq(contrastRatio([0, 0, 0], [255, 255, 255]), 21, 'black on white');
+  eq(contrastRatio(parseColour('#767676'), [255, 255, 255]).toFixed(2), '4.54', '#767676 just passes');
+  eq(contrastRatio(parseColour('#777777'), [255, 255, 255]).toFixed(2), '4.48', '#777777 just fails');
+});
+
+check('contrast-minimum flags failing colour combinations, large-text aware, with a one-click fix', () => {
+  const colours = (fg, bg, extra = []) => [...(fg ? [M.textColor.create({ color: fg })] : []), ...(bg ? [M.highlight.create({ color: bg })] : []), ...extra];
+  const found = (d) => mod.check.checkDocument(d, { prose: false }).filter((f) => f.id.startsWith('contrast-minimum'));
+  const GRAY = '#5E6C84';
+  const BLUE_HL = '#CCE0FF'; // the toolbar's own pair: 3.96:1
+  const one = found(doc(para(text('Deadlines are '), text('shown in light grey', colours(GRAY, BLUE_HL)), text('.'))));
+  eq(one.length, 1, 'fires');
+  eq(one[0].severity, 'violation', 'Fails AA');
+  eq(one[0].criterion, '1.4.3 Contrast (Minimum)', 'criterion');
+  eq(one[0].title, 'Text contrast is below 4.5:1', 'title');
+  assert(one[0].explanation.startsWith('#5e6c84 on #cce0ff is 3.96:1.'), one[0].explanation);
+  eq(one[0].to - one[0].from, 'shown in light grey'.length, 'range covers the coloured run');
+  deepEq(one[0].fix, { kind: 'defaultColours' }, 'fix');
+  eq(one[0].original, '#5e6c84 on #cce0ff', 'diff: before');
+  eq(one[0].suggestion, 'default colours', 'diff: after');
+  eq(found(doc(para(text('fine', colours(GRAY, null))))).length, 0, 'Gray on the white page passes (5.31:1)');
+  eq(found(doc(para(text('big', colours(GRAY, BLUE_HL, [M.fontSize.create({ size: 24 })]))))).length, 0, '24px is large text: 3:1');
+  eq(found(doc(para(text('bold', colours(GRAY, BLUE_HL, [M.fontSize.create({ size: 19 }), M.strong.create()]))))).length, 0, '19px bold is large');
+  eq(found(doc(para(text('bold', colours(GRAY, BLUE_HL, [M.fontSize.create({ size: 18 }), M.strong.create()]))))).length, 1, '18px bold is not');
+  eq(found(doc(N.heading.create({ level: 2 }, text('Heading', colours(GRAY, BLUE_HL))))).length, 0, 'an h2 renders as large text');
+  eq(found(doc(N.heading.create({ level: 4 }, text('Heading', colours(GRAY, BLUE_HL))))).length, 1, 'an h4 does not');
+  eq(found(doc(para(text('odd', colours('var(--brand)', BLUE_HL))))).length, 0, 'a colour that cannot be read is not judged');
+  const split = found(doc(para(text('light ', colours(GRAY, BLUE_HL)), text('grey', colours(GRAY, BLUE_HL, [M.strong.create()])))));
+  eq(split.length, 1, 'a failing run split by bold is one finding');
+  eq(split[0].snippet ?? split[0].excerpt, 'light grey', 'its text');
+  eq(found(doc(para(text('shown in light grey')))).length, 0, 'after the fix (marks removed) it passes');
+  eq(found(doc(para(text('dark on dark', colours(null, '#000080'))))).length, 1, 'default text on a dark highlight fails too');
 });
 
 /* ---------- image rules ---------- */
@@ -631,7 +678,8 @@ check('seed docs produce real engine findings across all four severities', () =>
   const expect = (id, counts) => eq(canon(byId[id]), canon(counts), id);
   expect('hearing-notice', { blocker: 1, violation: 2, advisory: 3, manual: 2 });
   expect('shelter-faq', { blocker: 1, violation: 1, advisory: 1 });
-  expect('benefits-guide', { violation: 1, advisory: 1 });
+  // violation 2: the generic "learn more" link and the Gray-on-Blue-highlight contrast run.
+  expect('benefits-guide', { violation: 2, advisory: 1 });
   expect('health-advisory', { violation: 1, manual: 2 });
   expect('transit-notice', { blocker: 1, advisory: 2 });
   expect('zoning-variance', { blocker: 1, manual: 1 });
@@ -780,11 +828,13 @@ check('loadDashboardData derives the side cards from real findings', () => {
   }
   // Failures only (blocker + violation). 1.1.1 used to lead with 6, but three of
   // those were alt-text questions and advisories; 3.1.5 (advisory, AAA) and
-  // 1.4.1 (questions only) no longer appear at all.
+  // 1.4.1 (questions only) no longer appear at all. 1.4.3 is benefits-guide's
+  // one contrast violation.
   deepEq(criteria, [
     { id: '2.4.4', name: 'Link Purpose (In Context)', count: 4 },
     { id: '1.1.1', name: 'Non-text Content', count: 3 },
     { id: '1.3.1', name: 'Info and Relationships', count: 2 },
+    { id: '1.4.3', name: 'Contrast (Minimum)', count: 1 },
   ], 'criteria pinned from the seeds');
   assert(manualItems.length > 0, 'manual items exist');
   const docIds = new Set(docs.map((d) => d.id));
@@ -1085,6 +1135,31 @@ await acheck('import: an empty body still yields a valid document', async () => 
   const r = await importDocx(docx({ body: '' }), 'Empty.docx', parseXml);
   deepEq(shape(r.content), ['paragraph'], 'one empty paragraph');
   eq(r.content.type.name, 'doc', 'a doc node');
+});
+
+await acheck('import: Word colours and sizes arrive as marks, so contrast is checked on imported files', async () => {
+  const r = await importDocx(docx({
+    body: [
+      P(R('grey on white', '<w:color w:val="999999"/>')),
+      P(R('on light gray highlight', '<w:color w:val="767676"/><w:highlight w:val="lightGray"/>')),
+      P(R('shaded', '<w:shd w:val="clear" w:color="auto" w:fill="CCE0FF"/><w:color w:val="5E6C84"/>')),
+      P(R('big grey', '<w:color w:val="888888"/><w:sz w:val="48"/>')),
+      P(R('small grey', '<w:color w:val="888888"/><w:sz w:val="22"/>')),
+      P(R('automatic', '<w:color w:val="auto"/><w:highlight w:val="none"/>')),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  const marksOf = (i) => r.content.child(i).firstChild.marks.map((m) => `${m.type.name}${m.attrs.color ? `=${m.attrs.color}` : ''}${m.attrs.size ? `=${m.attrs.size}` : ''}`).sort();
+  deepEq(marksOf(0), ['textColor=#999999'], 'w:color');
+  deepEq(marksOf(1), ['highlight=#c0c0c0', 'textColor=#767676'], 'w:highlight via Word\'s palette');
+  deepEq(marksOf(2), ['highlight=#cce0ff', 'textColor=#5e6c84'], 'w:shd fill as background');
+  deepEq(marksOf(3), ['fontSize=32', 'textColor=#888888'], 'w:sz half-points to px (24pt = 32px)');
+  deepEq(marksOf(4), ['fontSize=14.67', 'textColor=#888888'], '11pt = 14.67px');
+  deepEq(marksOf(5), [], '"auto" and "none" add nothing');
+  const flagged = mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.id.startsWith('contrast-minimum')).map((f) => f.id);
+  // #999999 is 2.85:1; #767676 on Word's lightGray 2.50:1; the shaded pair 3.96:1.
+  // #888888 is 3.54:1: it passes at 24pt (large text, 3:1) and fails at 11pt.
+  deepEq(flagged, ['contrast-minimum:grey on white', 'contrast-minimum:on light gray highlight', 'contrast-minimum:shaded', 'contrast-minimum:small grey'],
+    'size decides for #888888');
 });
 
 await acheck('import (review regressions): nothing is silently lost', async () => {
