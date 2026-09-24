@@ -57,6 +57,9 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'colour-only-reference', criterion: '1.4.1 Use of Color', kind: 'prose' },
   { id: 'reading-level', criterion: '3.1.5 Reading Level', kind: 'prose' },
   { id: 'long-sentence', criterion: '3.1.5 Reading Level', kind: 'prose' },
+  // Prose-gated: it depends on how much has been written, so it must not
+  // appear while a new document is still being drafted.
+  { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', kind: 'prose' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
@@ -397,6 +400,28 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
       explanation: 'There is no h1, so the document has no stated title in its structure.',
       snippet: '',
       hint: 'Add a top-level heading',
+      anchor: { kind: 'document' },
+    });
+  }
+
+  // document-no-headings: the gap document-no-h1 leaves (it needs at least one
+  // heading). No headings is not itself an AA failure (1.3.1 fails only when
+  // visual headings are not marked up; requiring headings is 2.4.10, AAA), so
+  // a person decides whether the document has sections.
+  // ponytail: "several blocks" is a fixed count of non-empty text blocks.
+  // Upgrade trigger: false positives on real letters — weigh length in words,
+  // or pair it with detecting bold lines that act as headings.
+  const NO_HEADINGS_MIN_BLOCKS = 5;
+  const textBlocks = entries.filter((e) => e.summary.figure === null && e.summary.text !== '').length;
+  if (headings === 0 && textBlocks >= NO_HEADINGS_MIN_BLOCKS) {
+    out.push({
+      ruleId: 'document-no-headings',
+      severity: 'manual',
+      criterion: crit('document-no-headings'),
+      title: 'Document has no headings',
+      explanation: 'Screen reader users move through a document by its headings; with none, they can only read it from top to bottom. If it has sections, or lines that work as headings (such as short bold lines that introduce a section), mark them as headings.',
+      snippet: '',
+      hint: 'Mark section headings',
       anchor: { kind: 'document' },
     });
   }

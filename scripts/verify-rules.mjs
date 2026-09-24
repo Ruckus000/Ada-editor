@@ -190,15 +190,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 11 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 11, 'rule count');
-  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
+check('RULES ports the 12 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 12, 'rule count');
+  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-no-headings', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'document-no-h1', 'heading-empty', 'heading-skip',
+    'colour-only-reference', 'document-no-h1', 'document-no-headings', 'heading-empty', 'heading-skip',
     'img-alt-missing', 'img-alt-suspicious', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level',
   ], 'rule ids');
@@ -289,6 +289,22 @@ check('document-no-h1 fires only when headings exist but none is h1', () => {
   deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored (§6)');
   eq(crossFindings(doc(heading(1, 'T'), heading(2, 'S')), 'document-no-h1').length, 0, 'h1 present is quiet');
   eq(crossFindings(doc(para('no headings at all')), 'document-no-h1').length, 0, 'no headings is quiet');
+});
+
+check('document-no-headings asks about sections once a document has several blocks and no headings', () => {
+  const noHeadings = (d, prose = true) => mod.check.checkDocument(d, { prose }).filter((f) => f.id === 'document-no-headings');
+  const five = doc(para('One.'), para('Two.'), para('Three.'), para('Four.'), para('Five.'));
+  const found = noHeadings(five);
+  eq(found.length, 1, 'fires on five blocks without a heading');
+  eq(found[0].severity, 'manual', 'needs a person: only they know whether there are sections');
+  eq(found[0].criterion, '1.3.1 Info and Relationships', 'criterion');
+  deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored');
+  eq(noHeadings(five, false).length, 0, 'prose-gated: never while typing');
+  eq(noHeadings(doc(para('One.'), para('Two.'), para('Three.'), para('Four.'))).length, 0, 'four blocks is a short note');
+  eq(noHeadings(doc(para('One.'), para(), para(), figure('img-1', ''), para('Two.'), para('Three.'), para('Four.'))).length, 0, 'empty paragraphs and figures do not count');
+  eq(noHeadings(doc(heading(2, 'Only an h2'), para('One.'), para('Two.'), para('Three.'), para('Four.'), para('Five.'))).length, 0, 'any heading silences it (document-no-h1 covers that case)');
+  const list = N.bullet_list.create(null, ['a', 'b', 'c'].map((t) => N.list_item.create(null, para(t))));
+  eq(noHeadings(doc(para('Intro.'), list, para('End.'))).length, 1, 'list paragraphs count as blocks');
 });
 
 /* ---------- image rules ---------- */
@@ -964,6 +980,7 @@ await acheck('import: a TextEdit .docx with fake headings and typed bullets stay
   eq(r.title, 'library-hours.textedit', 'no docProps title: the file name');
   assert(shape(r.content).every((t) => t === 'paragraph'), `no invented structure: ${shape(r.content)}`);
   eq(r.content.child(3).textContent, ' • Weekdays: 9 to 6', 'a typed bullet stays text');
+  assert(findingIds(r.content).includes('document-no-headings'), 'a document with no headings is flagged for review');
 });
 
 await acheck('import: styles, numbering and fields resolve the way Word renders them', async () => {

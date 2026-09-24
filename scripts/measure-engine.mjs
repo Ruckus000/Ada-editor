@@ -49,6 +49,7 @@ const DEFERRED = new Set(['table-no-header', 'document-language']);
 const RL_LIST_ITEMS = { holds: 'superset', text: 'Engine grades tight-list-item text; the spike\'s reading-level selector was \'p\' only and never matched text directly inside <li>. Same validated formula over more of the document\'s real prose — a coverage improvement, not a drift. Verified per doc: every spike finding appears in the engine\'s set.' };
 const LS_DUPLICATE = { holds: 'subset', text: 'The spike\'s \'p,li\' long-sentence selector matched both the inner <p> of a loose list item and its <li> (identical textContent), double-counting the same sentence. The engine flags each paragraph once; the spike extras are duplicates, verified side by side.' };
 const LS_CONCAT = { holds: 'subset', text: 'The spike measured <li> textContent, which concatenates nested list items and fenced-code blocks inside the item into cross-block "sentences" that exist in no reader\'s experience. The engine evaluates each paragraph; the spike extras are concatenation artifacts, verified against the source.' };
+const NH_ENGINE_ONLY = { holds: 'superset', text: 'document-no-headings is an engine-only rule, added after the spike to close the gap document-no-h1 leaves (it needs at least one heading), so the spike has nothing to agree with. .rst is ingested as plain text by design, so this README really is a many-paragraph document with no headings as checked. Pinned per document: the rule firing anywhere else in the corpus is still a divergence.' };
 const HE_LOGO = { holds: 'subset', text: 'Logo-only heading (`# ![WICG Logo](...)`): DOM textContent cannot see alt attributes, so the spike called the h1 empty. A heading whose image carries alt text IS announced by screen readers — the spike finding was a false positive; the engine is right to stay silent.' };
 
 const ALLOWLIST = [
@@ -65,6 +66,7 @@ const ALLOWLIST = [
   { doc: 'superset-code-of-conduct.md', rule: 'long-sentence', spike: 9, engine: 7, reason: LS_DUPLICATE },
   { doc: 'bootstrap-readme.md', rule: 'reading-level', spike: 1, engine: 2, reason: RL_LIST_ITEMS },
   { doc: 'eslint-readme.md', rule: 'reading-level', spike: 9, engine: 11, reason: RL_LIST_ITEMS },
+  { doc: 'django-readme.rst', rule: 'document-no-headings', spike: 0, engine: 1, reason: NH_ENGINE_ONLY },
 ];
 
 /* ---------- bundle the TS engine ---------- */
