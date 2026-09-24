@@ -40,7 +40,7 @@ import {
   gradeLevel,
   sentenceSpans,
 } from './textHelpers';
-import { contrastRatio, hexOf, parseColour } from './contrast';
+import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_BACKGROUND, PAGE_TEXT, contrastRatio, hexOf, parseColour } from './contrast';
 import type { RGB } from './contrast';
 
 const FIGURE = schema.nodes.figure!;
@@ -221,11 +221,12 @@ function linkRuns(node: PMNode): LinkRun[] {
 
 /* ---------- contrast ---------- */
 
-/** What the exported page renders when a mark is absent. */
-const DEFAULT_FG: RGB = [0, 0, 0];
-const DEFAULT_BG: RGB = [255, 255, 255];
-/** Browser default font sizes (px) for headings, which the export uses; all bold. */
-const HEADING_PX: Readonly<Record<number, number>> = { 1: 32, 2: 24, 3: 18.72, 4: 16, 5: 13.28, 6: 10.72 };
+/** What the exported page renders when a mark is absent (pinned by its stylesheet). */
+const DEFAULT_FG = parseColour(PAGE_TEXT)!;
+const DEFAULT_BG = parseColour(PAGE_BACKGROUND)!;
+const DEFAULT_LINK = parseColour(LINK_TEXT)!;
+/** Two decimals, rounded DOWN: 4.497 must not read as "4.50:1" on a card that says it fails 4.5:1. */
+const floor2 = (n: number) => (Math.floor(n * 100) / 100).toFixed(2);
 
 interface ContrastRun { key: string; text: string; from: number; to: number; fg: RGB; bg: RGB; ratio: number; need: number }
 
@@ -241,11 +242,11 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
     const fgMark = TEXT_COLOR.isInSet(child.marks);
     const bgMark = HIGHLIGHT.isInSet(child.marks);
     if (!fgMark && !bgMark) return null;
-    const fg = fgMark ? parseColour(String(fgMark.attrs.color ?? '')) : DEFAULT_FG;
+    const fg = fgMark ? parseColour(String(fgMark.attrs.color ?? '')) : LINK.isInSet(child.marks) ? DEFAULT_LINK : DEFAULT_FG;
     const bg = bgMark ? parseColour(String(bgMark.attrs.color ?? '')) : DEFAULT_BG;
     if (!fg || !bg) return null; // a colour we can't read is not judged
     const sizeMark = FONT_SIZE.isInSet(child.marks);
-    const px = sizeMark ? Number(sizeMark.attrs.size) : headingLevel ? HEADING_PX[headingLevel] ?? 16 : 16;
+    const px = sizeMark ? Number(sizeMark.attrs.size) : headingLevel ? HEADING_PX[headingLevel] ?? BODY_PX : BODY_PX;
     const bold = headingLevel !== null || !!STRONG.isInSet(child.marks);
     const need = px >= 24 || (bold && px >= 18.66) ? 3 : 4.5;
     const ratio = contrastRatio(fg, bg);
@@ -268,12 +269,13 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
     offset += child.nodeSize;
   });
 
-  return runs.map((r) => ({
+  // A coloured space or tab has nothing to read: SC 1.4.3 is about text.
+  return runs.filter((r) => r.text.trim() !== '').map((r) => ({
     ruleId: 'contrast-minimum',
     severity: 'violation',
     criterion: crit('contrast-minimum'),
     title: `Text contrast is below ${r.need}:1`,
-    explanation: `${hexOf(r.fg)} on ${hexOf(r.bg)} is ${r.ratio.toFixed(2)}:1. ${r.need === 3 ? 'Large text' : 'Text this size'} needs at least ${r.need}:1 to be readable for people with low vision.`,
+    explanation: `${hexOf(r.fg)} on ${hexOf(r.bg)} is ${floor2(r.ratio)}:1. ${r.need === 3 ? 'Large text' : 'Text this size'} needs at least ${r.need}:1 to be readable for people with low vision.`,
     snippet: collapseSpaces(r.text),
     original: `${hexOf(r.fg)} on ${hexOf(r.bg)}`,
     hint: 'Use default colours',

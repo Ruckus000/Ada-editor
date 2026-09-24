@@ -8,6 +8,18 @@
 
 export type RGB = readonly [number, number, number];
 
+/**
+ * What the exported page renders where the document sets nothing. The export
+ * stylesheet (app/_editor/exportHtml.ts) pins exactly these, so the rule never
+ * depends on a browser's defaults.
+ */
+export const PAGE_TEXT = '#000000';
+export const PAGE_BACKGROUND = '#ffffff';
+export const LINK_TEXT = '#0000ee';
+/** Heading sizes in px; headings are bold. */
+export const HEADING_PX: Readonly<Record<number, number>> = { 1: 32, 2: 24, 3: 18.72, 4: 16, 5: 13.28, 6: 10.72 };
+export const BODY_PX = 16;
+
 // The 16 basic CSS colour names, plus nothing else: `yellow` is the highlight
 // mark's own default, and anything a browser pastes arrives as rgb() or hex.
 const NAMED: Readonly<Record<string, string>> = {
@@ -27,7 +39,7 @@ const NAMED: Readonly<Record<string, string>> = {
  */
 export function parseColour(css: string): RGB | null {
   const value = css.trim().toLowerCase();
-  const hex = NAMED[value] ?? value;
+  const hex = Object.hasOwn(NAMED, value) ? NAMED[value]! : value;
   let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(hex);
   if (m) {
     const h = m[1]!.length === 3 ? m[1]!.split('').map((c) => c + c).join('') : m[1]!;

@@ -316,6 +316,11 @@ check('document-no-headings asks about sections once a document has several bloc
 
 check('contrast maths: colours parse strictly, ratios match the token gate', () => {
   const { parseColour, contrastRatio } = mod.contrast;
+  eq(parseColour('constructor'), null, 'an inherited property name is not a colour');
+  const { DOMParser: PMDOMParser } = mod.pm;
+  const { document: htmlDoc } = parseHTML('<!doctype html><html><body><p><span style="font-size: 18.67px">x</span></p></body></html>');
+  const pasted = PMDOMParser.fromSchema(schema).parse(htmlDoc.body);
+  eq(pasted.firstChild.firstChild.marks.find((m) => m.type.name === 'fontSize')?.attrs.size, 18.67, 'a pasted fractional size keeps its fraction');
   deepEq(parseColour('#5E6C84'), [94, 108, 132], 'hex 6');
   deepEq(parseColour('#fff'), [255, 255, 255], 'hex 3');
   deepEq(parseColour('rgb(94, 108, 132)'), [94, 108, 132], 'rgb() as browsers write pasted styles');
@@ -357,6 +362,15 @@ check('contrast-minimum flags failing colour combinations, large-text aware, wit
   eq(split[0].snippet ?? split[0].excerpt, 'light grey', 'its text');
   eq(found(doc(para(text('shown in light grey')))).length, 0, 'after the fix (marks removed) it passes');
   eq(found(doc(para(text('dark on dark', colours(null, '#000080'))))).length, 1, 'default text on a dark highlight fails too');
+  // Review regressions.
+  const link = found(doc(para(text('a link', [M.link.create({ href: 'https://x.org' }), M.highlight.create({ color: '#808080' })]))));
+  eq(link.length, 1, 'an uncoloured link is judged as link blue (2.38:1 on grey), not black (5.32:1)');
+  assert(link[0].explanation.startsWith('#0000ee on #808080 is 2.37:1.'), link[0].explanation);
+  const edge = found(doc(para(text('edge', colours('#008676', null)))));
+  assert(edge[0].explanation.startsWith('#008676 on #ffffff is 4.49:1.'), `4.495 fails and must not read "4.50": ${edge[0].explanation}`);
+  eq(found(doc(para(text('Word '), text(' \t ', colours(GRAY, BLUE_HL)), text('spacing')))).length, 0, 'a coloured space is not text to read');
+  const recoloured = found(doc(para(text('shown in light grey', colours('#eeeeee', null)))));
+  assert(recoloured[0].id !== one[0].id, 'recolouring the same text gives a new id, so an old dismissal cannot hide it');
 });
 
 /* ---------- image rules ---------- */
@@ -786,6 +800,10 @@ check('exportHtml builds an accessible standalone page', () => {
   eq(page.querySelector('header').textContent, 'CITY OF X', 'header text exported');
   eq(page.querySelector('footer'), null, 'empty footer omitted');
   eq(exportHtml(doc(para('x')), { title: '  ', header: '', footer: '' }, empty()).match(/<title>(.*)<\/title>/)[1], 'Untitled document', 'blank title falls back');
+  // The page pins what the contrast rule judges against, rather than trusting browser defaults.
+  for (const rule of ['color: #000000', 'background: #ffffff', 'a, a:visited { color: #0000ee; }', 'h2 { font-size: 24px; font-weight: bold; }']) {
+    assert(html.includes(rule), `export stylesheet pins ${rule}`);
+  }
 });
 
 /* ---------- store mocks (shared by the sections below) ---------- */
@@ -1158,8 +1176,30 @@ await acheck('import: Word colours and sizes arrive as marks, so contrast is che
   const flagged = mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.id.startsWith('contrast-minimum')).map((f) => f.id);
   // #999999 is 2.85:1; #767676 on Word's lightGray 2.50:1; the shaded pair 3.96:1.
   // #888888 is 3.54:1: it passes at 24pt (large text, 3:1) and fails at 11pt.
-  deepEq(flagged, ['contrast-minimum:grey on white', 'contrast-minimum:on light gray highlight', 'contrast-minimum:shaded', 'contrast-minimum:small grey'],
-    'size decides for #888888');
+  deepEq(flagged, ['contrast-minimum:grey on white|#999999 on #ffffff', 'contrast-minimum:on light gray highlight|#767676 on #c0c0c0',
+    'contrast-minimum:shaded|#5e6c84 on #cce0ff', 'contrast-minimum:small grey|#888888 on #ffffff'], 'size decides for #888888');
+});
+
+await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {
+  const cell = (fill, runs) => `<w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="${fill}"/></w:tcPr>${P(runs)}</w:tc>`;
+  const r = await importDocx(docx({
+    body: [
+      // White text in a dark table header cell: readable in Word, must stay readable.
+      `<w:tbl><w:tr>${cell('1F3864', R('Header', '<w:color w:val="FFFFFF"/>'))}</w:tr></w:tbl>`,
+      // Automatic colour on dark paragraph shading is drawn white by Word.
+      P(R('auto on dark'), '<w:shd w:val="clear" w:color="auto" w:fill="1F3864"/>'),
+      // A solid pattern shows its pattern colour, not its fill.
+      P(R('solid', '<w:color w:val="FFFFFF"/><w:shd w:val="solid" w:color="000000" w:fill="FFFFFF"/>')),
+      // A blended pattern can't be resolved: no colours at all rather than white on white.
+      P(R('pattern', '<w:color w:val="FFFFFF"/><w:shd w:val="pct25" w:color="000000" w:fill="1F3864"/>')),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  const marks = (i) => r.content.child(i).firstChild.marks.map((m) => `${m.type.name}=${m.attrs.color}`).sort();
+  deepEq(marks(0), ['highlight=#1f3864', 'textColor=#ffffff'], 'cell fill kept behind the white text');
+  deepEq(marks(1), ['highlight=#1f3864', 'textColor=#ffffff'], 'automatic text resolved to white on dark');
+  deepEq(marks(2), ['highlight=#000000', 'textColor=#ffffff'], 'solid shading shows its pattern colour');
+  deepEq(marks(3), [], 'an unresolvable pattern imports no colours');
+  eq(mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.id.startsWith('contrast-minimum')).length, 0, 'nothing readable in Word is flagged');
 });
 
 await acheck('import (review regressions): nothing is silently lost', async () => {
