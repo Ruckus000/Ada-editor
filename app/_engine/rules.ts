@@ -203,27 +203,35 @@ function blockChars(node: PMNode): { text: string; offsets: number[] } {
 
 /* ---------- link runs ---------- */
 
-function linkRuns(node: PMNode): LinkRun[] {
-  const runs: LinkRun[] = [];
+/**
+ * Consecutive inline children whose keys are `same` merge into one run, with
+ * block-relative offsets; a child keyed null ends the current run. Shared by
+ * link runs (by href), contrast runs (by failing colours) and underlined
+ * blanks, which all need "text split by other formatting is still one thing".
+ */
+function runsBy<T>(node: PMNode, keyOf: (child: PMNode) => T | null, same: (a: T, b: T) => boolean): { key: T; text: string; from: number; to: number }[] {
+  const runs: { key: T; text: string; from: number; to: number }[] = [];
   let offset = 0;
-  let current: LinkRun | null = null;
+  let current: { key: T; text: string; from: number; to: number } | null = null;
   node.content.forEach((child) => {
-    const mark = LINK.isInSet(child.marks);
-    const href = mark ? String(mark.attrs.href ?? '') : null;
-    if (href !== null) {
-      if (current && current.href === href) {
-        current.text += child.text ?? '';
-        current.to = offset + child.nodeSize;
-      } else {
-        current = { text: child.text ?? '', href, from: offset, to: offset + child.nodeSize };
-        runs.push(current);
-      }
+    const key = keyOf(child);
+    if (key !== null && current && same(current.key, key)) {
+      current.text += child.text ?? '';
+      current.to = offset + child.nodeSize;
     } else {
-      current = null;
+      current = key !== null ? { key, text: child.text ?? '', from: offset, to: offset + child.nodeSize } : null;
+      if (current) runs.push(current);
     }
     offset += child.nodeSize;
   });
   return runs;
+}
+
+function linkRuns(node: PMNode): LinkRun[] {
+  return runsBy(node, (child) => {
+    const mark = LINK.isInSet(child.marks);
+    return mark ? String(mark.attrs.href ?? '') : null;
+  }, (a, b) => a === b).map((r) => ({ text: r.text, href: r.key, from: r.from, to: r.to }));
 }
 
 /* ---------- contrast ---------- */
@@ -261,20 +269,8 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
     return { key: `${hexOf(fg)}|${hexOf(bg)}|${need}`, fg, bg, ratio, need };
   };
 
-  const runs: ContrastRun[] = [];
-  let offset = 0;
-  let current: ContrastRun | null = null;
-  node.content.forEach((child) => {
-    const verdict = child.isText ? judge(child) : null;
-    if (verdict && current && current.key === verdict.key) {
-      current.text += child.text ?? '';
-      current.to = offset + child.nodeSize;
-    } else {
-      current = verdict ? { ...verdict, text: child.text ?? '', from: offset, to: offset + child.nodeSize } : null;
-      if (current) runs.push(current);
-    }
-    offset += child.nodeSize;
-  });
+  const runs: ContrastRun[] = runsBy(node, (child) => (child.isText ? judge(child) : null), (a, b) => a.key === b.key)
+    .map((r) => ({ ...r.key, text: r.text, from: r.from, to: r.to }));
 
   // A coloured space or tab has nothing to read: SC 1.4.3 is about text.
   return runs.filter((r) => r.text.trim() !== '').map((r) => ({
@@ -306,35 +302,36 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
 const BLANK_TEXT = /[_\uFF3F]{3,}|[\u2610\u2751\u25A1\u25FB]|\[ {1,3}\]/g;
 
 function formBlanks(node: PMNode, text: string, offsets: number[]): { from: number; to: number }[] {
-  const blanks: { from: number; to: number }[] = [];
+  const found: { from: number; to: number }[] = [];
   for (const m of text.matchAll(BLANK_TEXT)) {
     const start = m.index ?? 0;
+    // Underscores with a letter or digit on BOTH sides are an identifier
+    // (MAX___RETRIES), not a blank; "Name____" still counts.
+    const before = text[start - 1] ?? '';
+    const after = text[start + m[0].length] ?? '';
+    if (/[_\uFF3F]/.test(m[0][0]!) && /[A-Za-z0-9]/.test(before) && /[A-Za-z0-9]/.test(after)) continue;
     const from = offsets[start];
     const last = offsets[start + m[0].length - 1];
-    if (from !== undefined && last !== undefined) blanks.push({ from, to: last + 1 });
+    if (from !== undefined && last !== undefined) found.push({ from, to: last + 1 });
   }
-  // An underlined stretch with nothing in it: Word's underlined-tab blank, or
-  // underlined spaces. Consecutive underlined text merges first, so the space
-  // in an underlined "**foo** _bar_" is part of a run that has words.
-  let offset = 0;
-  let run: { from: number; to: number; text: string } | null = null;
-  const runs: { from: number; to: number; text: string }[] = [];
-  node.content.forEach((child) => {
-    if (child.isText && UNDERLINE.isInSet(child.marks)) {
-      if (run) {
-        run.text += child.text ?? '';
-        run.to = offset + child.nodeSize;
-      } else {
-        run = { from: offset, to: offset + child.nodeSize, text: child.text ?? '' };
-        runs.push(run);
-      }
-    } else {
-      run = null;
-    }
-    offset += child.nodeSize;
-  });
-  for (const r of runs) if (r.text.trim() === '') blanks.push({ from: r.from, to: r.to });
-  return blanks.sort((a, b) => a.from - b.from);
+  // An underlined stretch with nothing in it: Word's underlined-tab blank (the
+  // importer keeps that tab), an underlined empty text field, or typed
+  // underlined spaces. Consecutive underlined text merges first, so the space in
+  // an all-underlined "**foo** _bar_" belongs to a run that has words; and one
+  // stray underlined space is not a blank.
+  for (const r of runsBy(node, (child) => (child.isText && UNDERLINE.isInSet(child.marks) ? true : null), () => true)) {
+    if (r.text.trim() === '' && (r.text.includes('\t') || r.text.length >= 3)) found.push({ from: r.from, to: r.to });
+  }
+  // One blank to the eye is one blank: touching or overlapping ranges merge
+  // ("Name: ____" followed by underlined spaces).
+  found.sort((a, b) => a.from - b.from);
+  const blanks: { from: number; to: number }[] = [];
+  for (const b of found) {
+    const prev = blanks.at(-1);
+    if (prev && b.from <= prev.to) prev.to = Math.max(prev.to, b.to);
+    else blanks.push({ ...b });
+  }
+  return blanks;
 }
 
 /* ---------- per-block rules ---------- */

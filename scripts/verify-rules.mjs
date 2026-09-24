@@ -380,7 +380,7 @@ check('form-blank asks once per document how its fill-in blanks will be complete
   const U = [M.underline.create()];
   const form = doc(
     para('Use the form below: Name ____ Address ____'),
-    para(text('Date: '), text(' ', U)),
+    para(text('Date: '), text('\t', U)),
     para('\u2610 Yes \u2751 \u25A1 \u25FB [ ] \uFF3F\uFF3F\uFF3F'),
     para(text('Reference: '), text('\u2002'.repeat(5), U)),
   );
@@ -389,7 +389,7 @@ check('form-blank asks once per document how its fill-in blanks will be complete
   eq(found[0].id, 'form-blank', 'id does not follow the text, so a dismissal survives edits');
   eq(found[0].severity, 'manual', 'Needs your call: only the author knows if it must be filled in digitally');
   eq(found[0].criterion, '1.3.1 Info and Relationships', 'criterion');
-  eq(found[0].title, 'Document has 10 fill-in blanks', '2 underscore lines + an underlined space + 6 in the glyph line + underlined en-spaces');
+  eq(found[0].title, 'Document has 10 fill-in blanks', '2 underscore lines + an underlined tab + 6 in the glyph line + underlined en-spaces');
   eq(found[0].from, 1 + 'Use the form below: Name '.length, 'anchored at the first blank');
   eq(found[0].to - found[0].from, 4, 'covering it');
   eq(blanks(doc(para('Sign here: ______')))[0].title, 'Document has 1 fill-in blank', 'singular');
@@ -400,7 +400,11 @@ check('form-blank asks once per document how its fill-in blanks will be complete
     ['a dotted leader', doc(para('Loading..... please wait'))],
     ['an underlined phrase split by other marks', doc(para(text('foo', [M.strong.create(), ...U]), text(' ', U), text('bar', [M.em.create(), ...U])))],
     ['an underlined word', doc(para(text('important', U)))],
+    ['one stray underlined space', doc(para(text('a'), text(' ', U), text('b')))],
+    ['underscores inside an identifier', doc(para('Set MAX___RETRIES to 3.'))],
   ]) eq(blanks(d).length, 0, `quiet on ${what}`);
+  eq(blanks(doc(para('Name____')))[0].title, 'Document has 1 fill-in blank', 'a label right before the line still counts');
+  eq(blanks(doc(para(text('Name: ____'), text('   ', U))))[0].title, 'Document has 1 fill-in blank', 'underscores and underlined spaces that touch are one blank');
   // Structural: deleting the last blank retracts it at once.
   const full = mod.check.checkDocument(doc(para('Name ____')), { prose: true });
   const after = mod.check.reconcile(full, mod.check.checkDocument(doc(para('Name Jo')), { prose: false }), new Set(), { keepProse: true });
@@ -1254,6 +1258,12 @@ await acheck('import: Word form fields keep their check boxes and are named in t
       P('<w:r><w:sym w:font="Wingdings" w:char="F06F"/><w:t xml:space="preserve"> Typed Wingdings box</w:t></w:r>'),
       P(`<w:sdt ${W14}><w:sdtPr><w14:checkbox><w14:checked w14:val="0"/></w14:checkbox></w:sdtPr><w:sdtContent>${R('\u2610')}</w:sdtContent></w:sdt>` + R(' Content-control box')),
       P(`<w:sdt><w:sdtPr><w:text/><w:showingPlcHdr/></w:sdtPr><w:sdtContent>${R('Click or tap here to enter text.')}</w:sdtContent></w:sdt>`),
+      // Review regressions: exact symbol fonts, both w:char spellings; a cover-page
+      // property control; a field ending in a hidden run; an underlined tab.
+      P('<w:r><w:sym w:font="Wingdings" w:char="F071"/><w:sym w:font="Wingdings" w:char="6F"/><w:sym w:font="Wingdings 2" w:char="52"/><w:sym w:font="Wingdings 3" w:char="F0FE"/><w:t>!</w:t></w:r>'),
+      P(`<w:sdt><w:sdtPr><w:dataBinding w:xpath="/ns1:coreProperties[1]/ns0:title[1]"/><w:text/></w:sdtPr><w:sdtContent>${R('Annual report')}</w:sdtContent></w:sdt>`),
+      P('<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>' + R('After a hidden field end')),
+      P(R('Signature:') + '<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:tab/></w:r>'),
     ].join(''),
   }), 'form.docx', parseXml);
   const line = (i) => r.content.child(i).textContent;
@@ -1264,10 +1274,18 @@ await acheck('import: Word form fields keep their check boxes and are named in t
   eq(line(6), '\u2610 Typed Wingdings box', 'a Wingdings box survives the private-use filter');
   eq(line(7), '\u2610 Content-control box', 'a content-control box keeps its glyph');
   eq(line(8), 'Click or tap here to enter text.', 'placeholder text is what a screen reader announces, so it is kept');
-  assert(r.notes.includes('8 Word form fields imported as plain text; they are not fillable here.'), `notes: ${JSON.stringify(r.notes)}`);
+  eq(line(9), '\u2751\u2610\u2611!', 'Wingdings q and o (with or without F0), Wingdings 2 R; a Wingdings 3 arrow is not a box');
+  eq(line(10), 'Annual report', 'a bound cover-page control keeps its text');
+  eq(line(11), 'After a hidden field end', 'a field ending in a hidden run does not swallow what follows');
+  eq(line(12), 'Signature:\t', 'an underlined tab stays a tab');
+  const nameField = r.content.child(4).lastChild;
+  assert(nameField.text === '\u2002'.repeat(5) && nameField.marks.some((m) => m.type.name === 'underline'), 'an empty text field imports as an underlined line');
+  assert(r.notes.includes('8 Word form fields imported as plain text; they are not fillable here.'), `bound controls are not counted: ${JSON.stringify(r.notes)}`);
   const found = mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.id.startsWith('form-blank'));
   eq(found.length, 1, 'one question for the form');
-  eq(found[0].title, 'Document has 3 fill-in blanks', 'the three empty boxes; checked boxes and blank en-spaces are not flagged');
+  // ☐ (legacy box), the empty text field, ☐ (Wingdings), ☐ (content control),
+  // ❑ and ☐ (typed Wingdings, adjacent: one blank), the signature tab. Checked boxes don't count.
+  eq(found[0].title, 'Document has 6 fill-in blanks', 'every empty box and line, checked boxes excluded');
 });
 
 await acheck('import (review regressions): nothing is silently lost', async () => {
