@@ -324,13 +324,37 @@ function automaticText(background: string): string {
 
 /* ---------- the body walk ---------- */
 
-interface Field { phase: 'code' | 'result'; instr: string; href: string | null }
+interface Field {
+  phase: 'code' | 'result';
+  instr: string;
+  href: string | null;
+  /** A legacy check-box form field (FORMCHECKBOX): its state, shown as a glyph at the field's end. */
+  check: boolean | null;
+  /** The field wrote result text itself, so no glyph is added. */
+  emitted: boolean;
+  /** A legacy text form field (FORMTEXT): a blank result imports underlined, as the line it is. */
+  textInput: boolean;
+}
+
+/** Content-control types that make a w:sdt a form field (a check box's tag is w14:checkbox). */
+const FORM_SDT = new Set(['w:text', 'w:dropDownList', 'w:comboBox', 'w:date']);
+
+// ponytail: the box glyphs Word users type as check boxes, per exact font
+// (Wingdings 3 and Webdings put arrows and pictures at the same codes). Every
+// other symbol-font character stays dropped. Upgrade trigger: a file with other
+// meaningful symbol-font characters.
+const SYMBOL_BOXES = new Map<string, Map<number, string>>([
+  ['wingdings', new Map([[0x6f, '\u2610'], [0xa8, '\u2610'], [0x71, '\u2751'], [0xfd, '\u2612'], [0xfe, '\u2611']])],
+  ['wingdings 2', new Map([[0xa3, '\u2610'], [0x52, '\u2611'], [0x54, '\u2612']])],
+]);
+/** Fonts whose characters are pictures, not text, whichever way w:char is written. */
+const SYMBOL_FONTS = new Set(['symbol', 'wingdings', 'wingdings 2', 'wingdings 3', 'webdings']);
 
 class Walker {
   private visited = 0;
   private figures = 0;
   private paragraphs = 0;
-  private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0 };
+  private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0, fields: 0 };
   /** Shading behind the current paragraph and table cell: what a run sits on when it has none of its own. */
   private paragraphFill: Fill = null;
   private cellFill: Fill = null;
@@ -352,7 +376,17 @@ class Walker {
     if (c.notes) out.push(`${plural(c.notes, 'footnote or endnote', 'footnotes or endnotes')} not imported.`);
     if (c.chunks) out.push(`${plural(c.chunks, 'embedded document part')} not imported.`);
     if (c.tracked) out.push('Tracked changes were imported as if accepted.');
+    if (c.fields) out.push(`${plural(c.fields, 'Word form field')} imported as plain text; ${c.fields === 1 ? 'it is' : 'they are'} not fillable here.`);
     return out;
+  }
+
+  /** A content control that is a form field (text box, check box, list, date) is counted for the import note. */
+  private countFormSdt(sdt: Element) {
+    const pr = child(sdt, 'w:sdtPr');
+    // A control bound to a document property (the Title, Author and Date on
+    // Word's built-in cover pages) is not a form someone fills in.
+    if (!pr || child(pr, 'w:dataBinding')) return;
+    if (kids(pr).some((k) => FORM_SDT.has(k.tagName) || k.tagName.endsWith(':checkbox'))) this.counts.fields++;
   }
 
   private tick() {
@@ -367,7 +401,7 @@ class Walker {
       switch (el.tagName) {
         case 'w:p': out.push(...this.paragraph(el)); break;
         case 'w:tbl': this.counts.tables++; out.push(...this.table(el)); break;
-        case 'w:sdt': { const c = child(el, 'w:sdtContent'); if (c) out.push(...this.blocks(c)); break; }
+        case 'w:sdt': { this.countFormSdt(el); const c = child(el, 'w:sdtContent'); if (c) out.push(...this.blocks(c)); break; }
         case 'w:customXml': out.push(...this.blocks(el)); break;
         case 'w:ins': case 'w:moveTo': this.counts.tracked++; out.push(...this.blocks(el)); break;
         case 'mc:AlternateContent': { const c = child(el, 'mc:Choice'); if (c) out.push(...this.blocks(c)); break; }
@@ -394,7 +428,7 @@ class Walker {
         }
       }
       else if (k.tagName === 'w:tr' || k.tagName === 'w:customXml') out.push(...this.table(k));
-      else if (k.tagName === 'w:sdt') { const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
+      else if (k.tagName === 'w:sdt') { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
     }
     return out;
   }
@@ -479,7 +513,7 @@ class Walker {
         case 'w:ins': case 'w:moveTo': this.counts.tracked++; this.inline(k, marks, out, emitBlocks); break;
         case 'w:del': case 'w:moveFrom': this.counts.tracked++; break;
         case 'w:smartTag': case 'w:customXml': case 'w:dir': case 'w:bdo': this.inline(k, marks, out, emitBlocks); break;
-        case 'w:sdt': { const c = child(k, 'w:sdtContent'); if (c) this.inline(c, marks, out, emitBlocks); break; }
+        case 'w:sdt': { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) this.inline(c, marks, out, emitBlocks); break; }
         case 'mc:AlternateContent': { const c = child(k, 'mc:Choice'); if (c) this.inline(c, marks, out, emitBlocks); break; }
         default: break;
       }
@@ -489,7 +523,9 @@ class Walker {
   private run(r: Element, marks: readonly Mark[], out: PMNode[], emitBlocks: (b: Block[]) => void): void {
     const rPr = child(r, 'w:rPr');
     // Hidden text is not read by assistive technology in the delivered file.
-    if (on(child(rPr, 'w:vanish'))) return;
+    // It still walks the run, because a hidden run can hold a field's begin or
+    // end: skipping it would leave the field stack unbalanced.
+    const hidden = on(child(rPr, 'w:vanish'));
     let runMarks = marks;
     const M = schema.marks;
     if (on(child(rPr, 'w:b'))) runMarks = M.strong!.create().addToSet(runMarks);
@@ -531,35 +567,66 @@ class Walker {
       const inCode = this.fields.some((f) => f.phase === 'code');
       const href = [...this.fields].reverse().find((f) => f.phase === 'result' && f.href)?.href ?? null;
       const marksHere = href ? withLink(runMarks, href) : runMarks;
-      const text = (str: string) => { if (str && !inCode) out.push(schema.text(str, marksHere)); };
+      const text = (str: string) => {
+        if (!str || inCode || hidden) return;
+        // An empty text field's result (usually five en-spaces) is the line to
+        // write on: underlined, so it stays visible and form-blank sees it.
+        const blankField = field?.phase === 'result' && field.textInput && str.trim() === '';
+        out.push(schema.text(str, blankField ? schema.marks.underline!.create().addToSet(marksHere) : marksHere));
+        if (field?.phase === 'result') field.emitted = true;
+      };
       switch (k.tagName) {
         case 'w:t': text(k.textContent ?? ''); break;
-        case 'w:tab': text(' '); break;
-        case 'w:br': if ((val(k, 'w:type') ?? 'textWrapping') === 'textWrapping' && !inCode) out.push(schema.nodes.hard_break!.create()); break;
-        case 'w:cr': if (!inCode) out.push(schema.nodes.hard_break!.create()); break;
+        // An underlined tab is Word's fill-in line; keeping it a tab lets
+        // form-blank tell it from a stray underlined space.
+        case 'w:tab': text(M.underline!.isInSet(runMarks) ? '\t' : ' '); break;
+        case 'w:br': if ((val(k, 'w:type') ?? 'textWrapping') === 'textWrapping' && !inCode && !hidden) out.push(schema.nodes.hard_break!.create()); break;
+        case 'w:cr': if (!inCode && !hidden) out.push(schema.nodes.hard_break!.create()); break;
         case 'w:noBreakHyphen': text('\u2011'); break;
         case 'w:softHyphen': break;
         case 'w:sym': {
           // Symbol-font glyphs sit in the private-use area (F0xx) and mean
           // nothing as text; anything else is a real character.
           const code = parseInt(val(k, 'w:char') ?? '', 16);
-          if (Number.isFinite(code) && code > 0 && (code < 0xe000 || code > 0xf8ff) && code <= 0x10ffff) text(String.fromCodePoint(code));
+          const font = (val(k, 'w:font') ?? '').trim().toLowerCase();
+          // w:char may be written with or without the F0xx private-use offset.
+          const glyph = code >= 0xf000 && code <= 0xf0ff ? code - 0xf000 : code;
+          const box = SYMBOL_BOXES.get(font)?.get(glyph);
+          if (box) text(box);
+          else if (SYMBOL_FONTS.has(font)) break;
+          else if (Number.isFinite(code) && code > 0 && (code < 0xe000 || code > 0xf8ff) && code <= 0x10ffff) text(String.fromCodePoint(code));
           break;
         }
         case 'w:fldChar': {
           const type = val(k, 'w:fldCharType');
-          if (type === 'begin') this.fields.push({ phase: 'code', instr: '', href: null });
-          else if (type === 'separate' && field) { field.phase = 'result'; field.href = hyperlinkOf(field.instr); }
-          else if (type === 'end') this.fields.pop();
+          if (type === 'begin') {
+            // A legacy form field keeps its settings in w:ffData, inside the begin fldChar.
+            const ffData = child(k, 'w:ffData');
+            const checkBox = child(ffData, 'w:checkBox');
+            if (ffData) this.counts.fields++;
+            const check = checkBox ? (child(checkBox, 'w:checked') ? on(child(checkBox, 'w:checked')) : on(child(checkBox, 'w:default'))) : null;
+            this.fields.push({ phase: 'code', instr: '', href: null, check, emitted: false, textInput: !!child(ffData, 'w:textInput') });
+          } else if (type === 'separate' && field) {
+            field.phase = 'result';
+            field.href = hyperlinkOf(field.instr);
+          } else if (type === 'end') {
+            // A check box has no result text: Word draws the box. Pushed directly,
+            // not through text(), which stays silent while a field code is open.
+            const done = this.fields.pop();
+            if (done?.check != null && !done.emitted && !hidden && !this.fields.some((f) => f.phase === 'code')) {
+              out.push(schema.text(done.check ? '\u2612' : '\u2610', marksHere));
+            }
+          }
           break;
         }
         case 'w:instrText': if (field?.phase === 'code') field.instr += k.textContent ?? ''; break;
         case 'w:footnoteReference': case 'w:endnoteReference': this.counts.notes++; break;
-        case 'w:drawing': emitBlocks(this.drawing(k)); break;
-        case 'w:pict': case 'w:object': emitBlocks(this.vml(k)); break;
+        case 'w:drawing': if (!hidden) emitBlocks(this.drawing(k)); break;
+        case 'w:pict': case 'w:object': if (!hidden) emitBlocks(this.vml(k)); break;
         case 'mc:AlternateContent': {
+          // The inner run can't see this run's w:vanish, so hidden stops here.
           const c = child(k, 'mc:Choice');
-          if (c) this.run(c, marks, out, emitBlocks);
+          if (c && !hidden) this.run(c, marks, out, emitBlocks);
           break;
         }
         default: break; // delText, instrText outside a field, rPr, lastRenderedPageBreak…

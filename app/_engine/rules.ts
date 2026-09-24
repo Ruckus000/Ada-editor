@@ -10,10 +10,11 @@
  * table node) and `document-language` (no language field exists in the data
  * model; the spike itself flagged it as noise).
  *
- * Two rules are engine-only, added after the port: `document-no-headings`
+ * Three rules are engine-only, added after the port: `document-no-headings`
  * closes the gap `document-no-h1` leaves (a document with no headings at all),
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
- * `contrast-minimum` judges colour marks, which the Markdown corpus never has.
+ * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
+ * `form-blank` finds fill-in blanks, of which the corpus has none.
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -51,6 +52,7 @@ const TEXT_COLOR = schema.marks.textColor!;
 const HIGHLIGHT = schema.marks.highlight!;
 const FONT_SIZE = schema.marks.fontSize!;
 const STRONG = schema.marks.strong!;
+const UNDERLINE = schema.marks.underline!;
 
 export type RuleKind = 'structural' | 'prose';
 
@@ -84,6 +86,9 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
   // Engine-only (the spike ran on Markdown, which carries no colours).
   { id: 'contrast-minimum', criterion: '1.4.3 Contrast (Minimum)', level: 'AA', kind: 'structural' },
+  // Engine-only. Manual: a blank only fails if the document must be filled in
+  // digitally, which only its author knows.
+  { id: 'form-blank', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
@@ -143,6 +148,8 @@ export interface BlockSummary {
   headingLevel: number | null;
   links: LinkRun[];
   figure: { id: string; alt: string; label: string } | null;
+  /** Fill-in blanks (form-blank), block-relative, in order. */
+  blanks: { from: number; to: number }[];
   /** Per-block rule results, with blockRange/figure anchors. */
   findings: RawFinding[];
 }
@@ -196,27 +203,35 @@ function blockChars(node: PMNode): { text: string; offsets: number[] } {
 
 /* ---------- link runs ---------- */
 
-function linkRuns(node: PMNode): LinkRun[] {
-  const runs: LinkRun[] = [];
+/**
+ * Consecutive inline children whose keys are `same` merge into one run, with
+ * block-relative offsets; a child keyed null ends the current run. Shared by
+ * link runs (by href), contrast runs (by failing colours) and underlined
+ * blanks, which all need "text split by other formatting is still one thing".
+ */
+function runsBy<T>(node: PMNode, keyOf: (child: PMNode) => T | null, same: (a: T, b: T) => boolean): { key: T; text: string; from: number; to: number }[] {
+  const runs: { key: T; text: string; from: number; to: number }[] = [];
   let offset = 0;
-  let current: LinkRun | null = null;
+  let current: { key: T; text: string; from: number; to: number } | null = null;
   node.content.forEach((child) => {
-    const mark = LINK.isInSet(child.marks);
-    const href = mark ? String(mark.attrs.href ?? '') : null;
-    if (href !== null) {
-      if (current && current.href === href) {
-        current.text += child.text ?? '';
-        current.to = offset + child.nodeSize;
-      } else {
-        current = { text: child.text ?? '', href, from: offset, to: offset + child.nodeSize };
-        runs.push(current);
-      }
+    const key = keyOf(child);
+    if (key !== null && current && same(current.key, key)) {
+      current.text += child.text ?? '';
+      current.to = offset + child.nodeSize;
     } else {
-      current = null;
+      current = key !== null ? { key, text: child.text ?? '', from: offset, to: offset + child.nodeSize } : null;
+      if (current) runs.push(current);
     }
     offset += child.nodeSize;
   });
   return runs;
+}
+
+function linkRuns(node: PMNode): LinkRun[] {
+  return runsBy(node, (child) => {
+    const mark = LINK.isInSet(child.marks);
+    return mark ? String(mark.attrs.href ?? '') : null;
+  }, (a, b) => a === b).map((r) => ({ text: r.text, href: r.key, from: r.from, to: r.to }));
 }
 
 /* ---------- contrast ---------- */
@@ -254,20 +269,8 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
     return { key: `${hexOf(fg)}|${hexOf(bg)}|${need}`, fg, bg, ratio, need };
   };
 
-  const runs: ContrastRun[] = [];
-  let offset = 0;
-  let current: ContrastRun | null = null;
-  node.content.forEach((child) => {
-    const verdict = child.isText ? judge(child) : null;
-    if (verdict && current && current.key === verdict.key) {
-      current.text += child.text ?? '';
-      current.to = offset + child.nodeSize;
-    } else {
-      current = verdict ? { ...verdict, text: child.text ?? '', from: offset, to: offset + child.nodeSize } : null;
-      if (current) runs.push(current);
-    }
-    offset += child.nodeSize;
-  });
+  const runs: ContrastRun[] = runsBy(node, (child) => (child.isText ? judge(child) : null), (a, b) => a.key === b.key)
+    .map((r) => ({ ...r.key, text: r.text, from: r.from, to: r.to }));
 
   // A coloured space or tab has nothing to read: SC 1.4.3 is about text.
   return runs.filter((r) => r.text.trim() !== '').map((r) => ({
@@ -282,6 +285,53 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
     fix: { kind: 'defaultColours' },
     anchor: { kind: 'blockRange', from: r.from, to: r.to },
   }));
+}
+
+/* ---------- fill-in blanks ---------- */
+
+/**
+ * Typed blanks: underscore lines (also signature lines and __/__/____ dates),
+ * empty-box glyphs, and "[ ]" (a space required: the corpus has bare "[]" in
+ * link references and type names).
+ *
+ * ponytail: not flagged — checked boxes (answered, or decorative), dotted
+ * leaders (they collide with ellipses and table-of-contents text), "( )", and
+ * Word's placeholder phrases (kept language-neutral). Upgrade trigger: a real
+ * form whose blanks use one of these.
+ */
+const BLANK_TEXT = /[_\uFF3F]{3,}|[\u2610\u2751\u25A1\u25FB]|\[ {1,3}\]/g;
+
+function formBlanks(node: PMNode, text: string, offsets: number[]): { from: number; to: number }[] {
+  const found: { from: number; to: number }[] = [];
+  for (const m of text.matchAll(BLANK_TEXT)) {
+    const start = m.index ?? 0;
+    // Underscores with a letter or digit on BOTH sides are an identifier
+    // (MAX___RETRIES), not a blank; "Name____" still counts.
+    const before = text[start - 1] ?? '';
+    const after = text[start + m[0].length] ?? '';
+    if (/[_\uFF3F]/.test(m[0][0]!) && /[A-Za-z0-9]/.test(before) && /[A-Za-z0-9]/.test(after)) continue;
+    const from = offsets[start];
+    const last = offsets[start + m[0].length - 1];
+    if (from !== undefined && last !== undefined) found.push({ from, to: last + 1 });
+  }
+  // An underlined stretch with nothing in it: Word's underlined-tab blank (the
+  // importer keeps that tab), an underlined empty text field, or typed
+  // underlined spaces. Consecutive underlined text merges first, so the space in
+  // an all-underlined "**foo** _bar_" belongs to a run that has words; and one
+  // stray underlined space is not a blank.
+  for (const r of runsBy(node, (child) => (child.isText && UNDERLINE.isInSet(child.marks) ? true : null), () => true)) {
+    if (r.text.trim() === '' && (r.text.includes('\t') || r.text.length >= 3)) found.push({ from: r.from, to: r.to });
+  }
+  // One blank to the eye is one blank: touching or overlapping ranges merge
+  // ("Name: ____" followed by underlined spaces).
+  found.sort((a, b) => a.from - b.from);
+  const blanks: { from: number; to: number }[] = [];
+  for (const b of found) {
+    const prev = blanks.at(-1);
+    if (prev && b.from <= prev.to) prev.to = Math.max(prev.to, b.to);
+    else blanks.push({ ...b });
+  }
+  return blanks;
 }
 
 /* ---------- per-block rules ---------- */
@@ -340,7 +390,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
         }
       }
     }
-    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, findings };
+    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, blanks: [], findings };
   }
 
   const { text, offsets } = blockChars(node);
@@ -441,7 +491,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
 
   findings.push(...contrastFindings(node, headingLevel));
 
-  return { text, headingLevel, links, figure: null, findings };
+  return { text, headingLevel, links, figure: null, blanks: formBlanks(node, text, offsets), findings };
 }
 
 /* ---------- cross-block rules ---------- */
@@ -518,6 +568,30 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
       snippet: '',
       hint: 'Mark section headings',
       anchor: { kind: 'document' },
+    });
+  }
+
+  // form-blank: one question per document, not one card per blank — how the
+  // document will be filled in is a single decision. Anchored at the first blank.
+  // ponytail: only the first blank is decorated. Upgrade trigger: users asking
+  // to step through every blank.
+  let blankCount = 0;
+  let firstBlank: { entry: BlockEntry; from: number; to: number } | null = null;
+  for (const e of entries) {
+    if (!e.summary.blanks.length) continue;
+    blankCount += e.summary.blanks.length;
+    firstBlank ??= { entry: e, ...e.summary.blanks[0]! };
+  }
+  if (firstBlank) {
+    out.push({
+      ruleId: 'form-blank',
+      severity: 'manual',
+      criterion: crit('form-blank'),
+      title: `Document has ${blankCount} fill-in blank${blankCount === 1 ? '' : 's'}`,
+      explanation: 'Screen readers announce a blank as a run of underscores, or not at all, and it cannot be filled in on screen. If people must complete this digitally, it needs real labelled form fields in the final file. If it is for printing, say so near the form and offer an accessible way to respond, such as a phone number or email address.',
+      snippet: '',
+      hint: 'Decide how it will be filled in',
+      anchor: { kind: 'docRange', from: firstBlank.entry.pos + 1 + firstBlank.from, to: firstBlank.entry.pos + 1 + firstBlank.to },
     });
   }
 

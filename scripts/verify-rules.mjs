@@ -190,15 +190,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 13 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 13, 'rule count');
+check('RULES ports the 14 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 14, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'contrast-minimum', 'document-no-h1', 'document-no-headings', 'heading-empty', 'heading-skip',
+    'colour-only-reference', 'contrast-minimum', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
     'img-alt-missing', 'img-alt-suspicious', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level',
   ], 'rule ids');
@@ -371,6 +371,44 @@ check('contrast-minimum flags failing colour combinations, large-text aware, wit
   eq(found(doc(para(text('Word '), text(' \t ', colours(GRAY, BLUE_HL)), text('spacing')))).length, 0, 'a coloured space is not text to read');
   const recoloured = found(doc(para(text('shown in light grey', colours('#eeeeee', null)))));
   assert(recoloured[0].id !== one[0].id, 'recolouring the same text gives a new id, so an old dismissal cannot hide it');
+});
+
+/* ---------- fill-in blanks ---------- */
+
+check('form-blank asks once per document how its fill-in blanks will be completed', () => {
+  const blanks = (d, prose = false) => mod.check.checkDocument(d, { prose }).filter((f) => f.id.startsWith('form-blank'));
+  const U = [M.underline.create()];
+  const form = doc(
+    para('Use the form below: Name ____ Address ____'),
+    para(text('Date: '), text('\t', U)),
+    para('\u2610 Yes \u2751 \u25A1 \u25FB [ ] \uFF3F\uFF3F\uFF3F'),
+    para(text('Reference: '), text('\u2002'.repeat(5), U)),
+  );
+  const found = blanks(form);
+  eq(found.length, 1, 'one finding for the whole document, not one per blank');
+  eq(found[0].id, 'form-blank', 'id does not follow the text, so a dismissal survives edits');
+  eq(found[0].severity, 'manual', 'Needs your call: only the author knows if it must be filled in digitally');
+  eq(found[0].criterion, '1.3.1 Info and Relationships', 'criterion');
+  eq(found[0].title, 'Document has 10 fill-in blanks', '2 underscore lines + an underlined tab + 6 in the glyph line + underlined en-spaces');
+  eq(found[0].from, 1 + 'Use the form below: Name '.length, 'anchored at the first blank');
+  eq(found[0].to - found[0].from, 4, 'covering it');
+  eq(blanks(doc(para('Sign here: ______')))[0].title, 'Document has 1 fill-in blank', 'singular');
+  for (const [what, d] of [
+    ['bare []', doc(para('See [Node.js website][] and string[] and [x].'))],
+    ['a dunder name', doc(para('Call __init__ first.'))],
+    ['checked boxes', doc(para('\u2611 done \u2612 also done'))],
+    ['a dotted leader', doc(para('Loading..... please wait'))],
+    ['an underlined phrase split by other marks', doc(para(text('foo', [M.strong.create(), ...U]), text(' ', U), text('bar', [M.em.create(), ...U])))],
+    ['an underlined word', doc(para(text('important', U)))],
+    ['one stray underlined space', doc(para(text('a'), text(' ', U), text('b')))],
+    ['underscores inside an identifier', doc(para('Set MAX___RETRIES to 3.'))],
+  ]) eq(blanks(d).length, 0, `quiet on ${what}`);
+  eq(blanks(doc(para('Name____')))[0].title, 'Document has 1 fill-in blank', 'a label right before the line still counts');
+  eq(blanks(doc(para(text('Name: ____'), text('   ', U))))[0].title, 'Document has 1 fill-in blank', 'underscores and underlined spaces that touch are one blank');
+  // Structural: deleting the last blank retracts it at once.
+  const full = mod.check.checkDocument(doc(para('Name ____')), { prose: true });
+  const after = mod.check.reconcile(full, mod.check.checkDocument(doc(para('Name Jo')), { prose: false }), new Set(), { keepProse: true });
+  eq(after.filter((f) => f.id.startsWith('form-blank')).length, 0, 'retracted live');
 });
 
 /* ---------- image rules ---------- */
@@ -693,7 +731,8 @@ check('seed docs produce real engine findings across all four severities', () =>
   expect('hearing-notice', { blocker: 1, violation: 2, advisory: 3, manual: 2 });
   expect('shelter-faq', { blocker: 1, violation: 1, advisory: 1 });
   // violation 2: the generic "learn more" link and the Gray-on-Blue-highlight contrast run.
-  expect('benefits-guide', { violation: 2, advisory: 1 });
+  // manual 1: the form's two typed blanks, asked about once (form-blank).
+  expect('benefits-guide', { violation: 2, advisory: 1, manual: 1 });
   expect('health-advisory', { violation: 1, manual: 2 });
   expect('transit-notice', { blocker: 1, advisory: 2 });
   expect('zoning-variance', { blocker: 1, manual: 1 });
@@ -1200,6 +1239,55 @@ await acheck('import (review regressions): colours arrive with the background th
   deepEq(marks(2), ['highlight=#000000', 'textColor=#ffffff'], 'solid shading shows its pattern colour');
   deepEq(marks(3), [], 'an unresolvable pattern imports no colours');
   eq(mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.id.startsWith('contrast-minimum')).length, 0, 'nothing readable in Word is flagged');
+});
+
+await acheck('import: Word form fields keep their check boxes and are named in the notes', async () => {
+  const W14 = 'xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"';
+  const field = (ffData, instr, result = '') => `<w:r><w:fldChar w:fldCharType="begin"><w:ffData>${ffData}</w:ffData></w:fldChar></w:r>`
+    + `<w:r><w:instrText xml:space="preserve"> ${instr} </w:instrText></w:r>`
+    + (result ? `<w:r><w:fldChar w:fldCharType="separate"/></w:r>${result}` : '') + '<w:r><w:fldChar w:fldCharType="end"/></w:r>';
+  const box = (inner) => field(`<w:name w:val="Check"/><w:checkBox><w:sizeAuto/>${inner}</w:checkBox>`, 'FORMCHECKBOX');
+  const r = await importDocx(docx({
+    body: [
+      P(box('<w:default w:val="0"/>') + R(' Unchecked')),
+      P(box('<w:default w:val="0"/><w:checked/>') + R(' Checked by w:checked')),
+      P(box('<w:default w:val="1"/>') + R(' Checked by default')),
+      P(field('<w:checkBox><w:default w:val="0"/></w:checkBox>', 'FORMCHECKBOX', R('X')) + R(' Result written by the producer')),
+      P(R('Name: ') + field('<w:textInput/>', 'FORMTEXT', R('\u2002'.repeat(5)))),
+      P(field('<w:ddList><w:listEntry w:val="Red"/></w:ddList>', 'FORMDROPDOWN', R('Red'))),
+      P('<w:r><w:sym w:font="Wingdings" w:char="F06F"/><w:t xml:space="preserve"> Typed Wingdings box</w:t></w:r>'),
+      P(`<w:sdt ${W14}><w:sdtPr><w14:checkbox><w14:checked w14:val="0"/></w14:checkbox></w:sdtPr><w:sdtContent>${R('\u2610')}</w:sdtContent></w:sdt>` + R(' Content-control box')),
+      P(`<w:sdt><w:sdtPr><w:text/><w:showingPlcHdr/></w:sdtPr><w:sdtContent>${R('Click or tap here to enter text.')}</w:sdtContent></w:sdt>`),
+      // Review regressions: exact symbol fonts, both w:char spellings; a cover-page
+      // property control; a field ending in a hidden run; an underlined tab.
+      P('<w:r><w:sym w:font="Wingdings" w:char="F071"/><w:sym w:font="Wingdings" w:char="6F"/><w:sym w:font="Wingdings 2" w:char="52"/><w:sym w:font="Wingdings 3" w:char="F0FE"/><w:t>!</w:t></w:r>'),
+      P(`<w:sdt><w:sdtPr><w:dataBinding w:xpath="/ns1:coreProperties[1]/ns0:title[1]"/><w:text/></w:sdtPr><w:sdtContent>${R('Annual report')}</w:sdtContent></w:sdt>`),
+      P('<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGE </w:instrText></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>' + R('After a hidden field end')),
+      P(R('Signature:') + '<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:tab/></w:r>'),
+      P(R('Visible') + '<w:r><w:rPr><w:vanish/></w:rPr><mc:AlternateContent><mc:Choice Requires="wps"><w:t>hidden choice</w:t></mc:Choice></mc:AlternateContent></w:r>'),
+    ].join(''),
+  }), 'form.docx', parseXml);
+  const line = (i) => r.content.child(i).textContent;
+  eq(line(0), '\u2610 Unchecked', 'an unchecked legacy check box no longer vanishes');
+  eq(line(1), '\u2612 Checked by w:checked', 'w:checked wins');
+  eq(line(2), '\u2612 Checked by default', 'w:default when never changed');
+  eq(line(3), 'X Result written by the producer', 'no second glyph when the field wrote its own result');
+  eq(line(6), '\u2610 Typed Wingdings box', 'a Wingdings box survives the private-use filter');
+  eq(line(7), '\u2610 Content-control box', 'a content-control box keeps its glyph');
+  eq(line(8), 'Click or tap here to enter text.', 'placeholder text is what a screen reader announces, so it is kept');
+  eq(line(9), '\u2751\u2610\u2611!', 'Wingdings q and o (with or without F0), Wingdings 2 R; a Wingdings 3 arrow is not a box');
+  eq(line(10), 'Annual report', 'a bound cover-page control keeps its text');
+  eq(line(11), 'After a hidden field end', 'a field ending in a hidden run does not swallow what follows');
+  eq(line(12), 'Signature:\t', 'an underlined tab stays a tab');
+  eq(line(13), 'Visible', 'hidden text inside AlternateContent stays hidden');
+  const nameField = r.content.child(4).lastChild;
+  assert(nameField.text === '\u2002'.repeat(5) && nameField.marks.some((m) => m.type.name === 'underline'), 'an empty text field imports as an underlined line');
+  assert(r.notes.includes('8 Word form fields imported as plain text; they are not fillable here.'), `bound controls are not counted: ${JSON.stringify(r.notes)}`);
+  const found = mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.id.startsWith('form-blank'));
+  eq(found.length, 1, 'one question for the form');
+  // ☐ (legacy box), the empty text field, ☐ (Wingdings), ☐ (content control),
+  // ❑ and ☐ (typed Wingdings, adjacent: one blank), the signature tab. Checked boxes don't count.
+  eq(found[0].title, 'Document has 6 fill-in blanks', 'every empty box and line, checked boxes excluded');
 });
 
 await acheck('import (review regressions): nothing is silently lost', async () => {
