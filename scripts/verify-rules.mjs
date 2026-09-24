@@ -190,8 +190,8 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 14 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 14, 'rule count');
+check('RULES ports the 15 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 15, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
@@ -199,7 +199,7 @@ check('RULES ports the 14 rules with the §8.1 structural/prose split', () => {
   }
   deepEq(RULES.map((r) => r.id).sort(), [
     'colour-only-reference', 'contrast-minimum', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
-    'img-alt-missing', 'img-alt-suspicious', 'link-text-ambiguous', 'link-text-generic',
+    'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level',
   ], 'rule ids');
 });
@@ -438,6 +438,38 @@ check('img-alt-suspicious: redundant prefix gets a figureAlt fix, terse/filename
   eq(good.length, 0, 'descriptive alt is quiet');
   const empty = blockFindings(doc(figure('img-5', '')), 'img-alt-suspicious');
   eq(empty.length, 0, 'empty alt belongs to img-alt-missing only');
+});
+
+check('img-long-description asks about charts, maps and diagrams, one alt question at a time', () => {
+  const ask = (alt) => blockFindings(doc(figure('img-1', alt, 'site map')), 'img-long-description');
+  for (const alt of [
+    'Bar chart of shelter beds by month', 'Traffic graph', 'Wiring diagram for the pump house',
+    'Map of the affected area', 'Infographic on water safety', 'Intake flowchart',
+    'Schematic of the new entrance', 'Two maps of the flood zone', 'Pie charts comparing 2025 and 2026',
+  ]) eq(ask(alt).length, 1, `fires on "${alt}"`);
+  const [f] = ask('Map of the affected area');
+  eq(f.severity, 'manual', 'only the author knows what readers need');
+  eq(f.title, 'Does this site map need a long description?', 'title names the image');
+  eq(f.snippet, 'Map of the affected area', 'excerpt shows the alt');
+  eq(f.fix, undefined, 'no machine fix');
+  deepEq(f.anchor, { kind: 'figure', figureId: 'img-1' }, 'figure-anchored');
+  for (const alt of [
+    'A graphic of the shelter logo', 'Photograph of the library entrance', 'The 2026 roadmap cover page',
+    'Mapping volunteers at the fair', '',
+  ]) eq(ask(alt).length, 0, `quiet on "${alt}"`);
+  // One alt-text question per image: fix the alt first, then decide on detail.
+  eq(ask('map').length, 0, 'terse alt asks "does this describe it?" first');
+  eq(ask('Image of a map of the flood zone').length, 0, 'the redundant prefix is fixed first');
+  eq(ask('a map of the flood zone').length, 1, 'then the long-description question');
+  // Pointing to a description nearby, as the finding advises, answers it.
+  eq(ask('Map of the affected area; details below').length, 0, '"below" answers it');
+  eq(ask('Flowchart of the intake steps, described in the text').length, 0, '"described" answers it');
+  eq(ask('Map of the parcels below the dam').length, 1, 'a bare "below" is geography, not a pointer');
+  // Keyed on the image, so any other alt edit keeps a dismissal.
+  const idOf = (alt) => mod.check.checkDocument(doc(figure('img-7', alt)), { prose: false })
+    .find((x) => x.id.startsWith('img-long-description')).id;
+  eq(idOf('Map of the affected area'), 'img-long-description:img-7', 'keyed on the image');
+  eq(idOf('Map of the affected areas'), 'img-long-description:img-7', 'stable across alt edits');
 });
 
 /* ---------- prose rules (gated kind, per-block) ---------- */
@@ -682,8 +714,9 @@ check('a genuinely clean document produces zero findings', () => {
       text('parks and recreation portal', link('https://city.example.gov/gardens')),
       '. Registration takes about ten minutes, and you will get a confirmation email within two business days.',
     ),
-    figure('img-1', 'A map of the garden plots, with the entrance on Elm Street', 'garden map'),
-    para('Bring your own gloves. Water and compost are provided at the shed near the entrance.'),
+    // A map done the G74 way: short alt that points to the details beside it.
+    figure('img-1', 'A map of the garden plots, described below', 'garden map'),
+    para('The entrance is on Elm Street. Bring your own gloves. Water and compost are provided at the shed near the entrance.'),
   );
   deepEq(checkDocument(clean, { prose: true }).map((f) => f.id), [], 'accessible content stays quiet');
 });
@@ -755,6 +788,14 @@ check('the hearing-notice seed exercises the gate-critical paths', () => {
   deepEq([...severities].sort(), ['advisory', 'blocker', 'manual', 'violation'], 'all four severities present');
 });
 
+check('the health-advisory seed asks about its map, not its alt wording', () => {
+  // Its manual count is the same as when the alt was a terse "map", so pin which question it is.
+  const stored = mod.store.loadDoc('health-advisory');
+  const ids = checkDocument(mod.store.docFromJSON(stored.content), { prose: true }).map((f) => f.id);
+  assert(ids.includes('img-long-description:img-1'), 'long-description question fires');
+  assert(!ids.some((id) => id.startsWith('img-alt-suspicious')), 'the alt itself is not questioned');
+});
+
 /* ---------- carryPositions: identity-preserving position carry (§9.4) ---------- */
 
 const { carryPositions } = mod.editorFindings;
@@ -799,6 +840,7 @@ check('imageIdFloor never reissues an id whose dismissal persists', () => {
   eq(imageIdFloor(doc(para('x'), figure('img-2', ''))), 2, 'floor from live figures');
   eq(imageIdFloor(doc(para('x'), figure('img-2', '')), ['img-alt-img-5', 'link-text-generic:here']), 5, 'persisted dismissals raise the floor');
   eq(imageIdFloor(doc(para('no figures')), ['img-alt-img-1']), 1, 'floor survives the dismissed figure being deleted');
+  eq(imageIdFloor(doc(para('x')), ['img-long-description:img-9']), 9, 'a dismissed long-description question raises it too');
   eq(imageIdFloor(doc(para('x')), []), 0, 'empty doc, no dismissals');
 });
 

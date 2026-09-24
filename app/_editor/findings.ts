@@ -112,7 +112,8 @@ export function summaryLine(list: EditorFinding[]): string {
 
 /**
  * Floor for the editor's image-id counter: above every `img-N` in the
- * document AND every N referenced by a persisted `img-alt-*` dismissal.
+ * document AND every N referenced by a persisted `img-alt-*` or
+ * `img-long-description:*` dismissal (both are keyed on the figure id).
  * Dismissals outlive the figure they were made against; without the second
  * term, deleting a dismissed image and inserting a new one would reissue the
  * id, and the stale dismissal would silently swallow the NEW image's
@@ -126,7 +127,7 @@ export function imageIdFloor(doc: PMNode, dismissed: Iterable<string> = []): num
     return true;
   });
   for (const id of dismissed) {
-    const m = /^img-alt-(?:header-|footer-)?img-(\d+)$/.exec(id);
+    const m = /^(?:img-alt-|img-long-description:)(?:header-|footer-)?img-(\d+)(?:~\d+)?$/.exec(id);
     if (m) max = Math.max(max, Number(m[1]));
   }
   return max;

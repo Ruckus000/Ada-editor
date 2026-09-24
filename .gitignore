@@ -1,4 +1,5 @@
-node_modules/
+# No trailing slash: worktrees symlink node_modules, and a symlink is not a directory.
+node_modules
 design-system/preview/
 scripts/spike/results.json
 .DS_Store
