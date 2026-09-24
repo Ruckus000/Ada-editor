@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FocusEvent, KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import type { Command } from 'prosemirror-state';
 import type { FormatState } from './editorCommands';
+import { LANGUAGES, languageName } from '../_engine/textHelpers';
 import styles from './editor.module.css';
 
 const FONTS = [
@@ -15,6 +16,7 @@ const FONTS = [
   { value: "'Times New Roman', serif", label: 'Times New Roman' },
 ];
 const SIZES = ['11', '12', '13', '14', '16', '18', '24', '32'];
+const LANGUAGE_MENU = [...LANGUAGES].sort((a, b) => a.name.localeCompare(b.name));
 
 // Gray and orange are darkened from the design (#6B778C, #B65C02) so text set
 // in them keeps 4.5:1 against the page (SC 1.4.3).
@@ -70,6 +72,7 @@ export function Toolbar({
   onFontSize,
   onTextColor,
   onHighlight,
+  onLanguage,
   onLink,
   onImage,
   onHeaderFooter,
@@ -82,6 +85,7 @@ export function Toolbar({
   onFontSize: (size: string) => void;
   onTextColor: (color: string) => void;
   onHighlight: (color: string | null) => void;
+  onLanguage: (lang: string) => void;
   onLink: () => void;
   onImage: () => void;
   onHeaderFooter: () => void;
@@ -156,6 +160,7 @@ export function Toolbar({
 
   const sep = <span className={styles.tbSep} aria-hidden="true" />;
   const f = format;
+  const lang = f?.lang ?? '';
 
   return (
     <div
@@ -269,6 +274,16 @@ export function Toolbar({
         {cmd('ul', 'Bulleted list', <Icon name="ul" />, f?.ul ?? false)}
         {cmd('ol', 'Numbered list', <Icon name="ol" />, f?.ol ?? false)}
       </div>
+      {sep}
+      {/* Snaps back to the selection's language: a refused change (no text
+          selected) must not leave the menu showing a language nothing has. */}
+      <select data-tb aria-label="Language" className={styles.select} value={lang} onChange={(e) => { onLanguage(e.target.value); e.target.value = lang; }}>
+        {/* The page's own language: "Language, English" to a screen reader. */}
+        <option value="">English</option>
+        {/* A tag from an imported file ("es-MX") shows as itself until changed. */}
+        {lang && !LANGUAGE_MENU.some((l) => l.code === lang) ? <option value={lang}>{`${languageName(lang)} (${lang})`}</option> : null}
+        {LANGUAGE_MENU.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+      </select>
       {sep}
       {cmd('clear', 'Clear formatting', <Icon name="clear" />)}
       {sep}

@@ -10,13 +10,15 @@
  * table node) and `document-language` (no language field exists in the data
  * model; the spike itself flagged it as noise).
  *
- * Four rules are engine-only, added after the port: `document-no-headings`
+ * Five rules are engine-only, added after the port: `document-no-headings`
  * closes the gap `document-no-h1` leaves (a document with no headings at all),
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
  * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
  * `form-blank` finds fill-in blanks, of which the corpus has none;
  * `img-long-description` asks whether a chart, map or diagram needs more than
- * its alt text, and the parity gate pins its three corpus firings.
+ * its alt text, and the parity gate pins its three corpus firings;
+ * `language-of-parts` finds unmarked passages in another language, and is
+ * silent on the whole (English) corpus, names in other alphabets included.
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -43,6 +45,8 @@ import {
   REDUNDANT_ALT_PREFIX,
   collapseSpaces,
   gradeLevel,
+  languageName,
+  languageRuns,
   sentenceSpans,
 } from './textHelpers';
 import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_BACKGROUND, PAGE_TEXT, contrastRatio, hexOf, parseColour } from './contrast';
@@ -57,6 +61,7 @@ const HIGHLIGHT = schema.marks.highlight!;
 const FONT_SIZE = schema.marks.fontSize!;
 const STRONG = schema.marks.strong!;
 const UNDERLINE = schema.marks.underline!;
+const LANG = schema.marks.lang!;
 
 export type RuleKind = 'structural' | 'prose';
 
@@ -86,6 +91,7 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'colour-only-reference', criterion: '1.4.1 Use of Color', level: 'A', kind: 'prose' },
   { id: 'reading-level', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
   { id: 'long-sentence', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
+  { id: 'language-of-parts', criterion: '3.1.2 Language of Parts', level: 'AA', kind: 'prose' },
   // Structural, not prose-gated: it must retract the moment a heading is added
   // (prose findings are carried across structural runs until blur).
   { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
@@ -513,11 +519,54 @@ export function summarizeBlock(node: PMNode): BlockSummary {
         anchor: { kind: 'blockRange', from, to },
       });
     }
+    findings.push(...languageFindings(node, text, offsets));
   }
 
   findings.push(...contrastFindings(node, headingLevel));
 
   return { text, headingLevel, links, figure: null, blanks: formBlanks(node, text, offsets), findings };
+}
+
+/**
+ * Passages that read as another language and aren't marked as one (3.1.2).
+ * Marked text is blanked before detection, so a marked passage is never
+ * flagged and a partly marked one is judged only on what's left. Needs your
+ * call, not a failure: the guess comes from common words and alphabets, and
+ * names and borrowed words need no marking.
+ * ponytail: paragraphs only, like the other prose rules; upgrade when a
+ * foreign-language heading turns up.
+ */
+function languageFindings(node: PMNode, text: string, offsets: number[]): RawFinding[] {
+  const marked = runsBy(node, (child) => (LANG.isInSet(child.marks) ? true : null), () => true);
+  let open = text;
+  if (marked.length > 0) {
+    open = '';
+    for (let i = 0; i < text.length; i++) {
+      const at = offsets[i]!;
+      open += marked.some((r) => at >= r.from && at < r.to) ? ' ' : text[i];
+    }
+  }
+  return languageRuns(open).map((run): RawFinding => {
+    const known = run.lang !== 'unknown';
+    const name = known ? languageName(run.lang) : 'another language';
+    const lastOffset = offsets[run.to - 1];
+    return {
+      ruleId: 'language-of-parts',
+      severity: 'manual',
+      criterion: crit('language-of-parts'),
+      title: `Text may be in ${name} but isn’t marked`,
+      explanation:
+        'Screen readers will read it with English pronunciation, which can make it impossible to understand. ' +
+        (known
+          ? `If it is ${name}, mark it so screen readers switch voice.`
+          : 'If it is, select it and choose its language from the toolbar.') +
+        ' Names and words borrowed into English don’t need marking.',
+      snippet: text.slice(run.from, run.to),
+      hint: 'Mark the language',
+      ...(known ? { fix: { kind: 'lang', lang: run.lang } as const } : {}),
+      anchor: { kind: 'blockRange', from: offsets[run.from] ?? run.from, to: lastOffset === undefined ? node.content.size : lastOffset + 1 },
+    };
+  });
 }
 
 /* ---------- cross-block rules ---------- */

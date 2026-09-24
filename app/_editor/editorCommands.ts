@@ -47,6 +47,13 @@ function inList(state: EditorState, type: NodeType) {
 /** The href of the link at the cursor or across the selection, or ''. */
 export const currentLink = (state: EditorState) => (markAttr(state, M.link!, 'href') as string | undefined) ?? '';
 
+/** The language tag at the cursor or across the selection, or '' for the
+ *  document's own. Stored documents aren't validated, so a non-string is ''. */
+export const currentLang = (state: EditorState): string => {
+  const lang = markAttr(state, M.lang!, 'lang');
+  return typeof lang === 'string' ? lang : '';
+};
+
 export interface FormatState {
   bold: boolean;
   italic: boolean;
@@ -57,6 +64,7 @@ export interface FormatState {
   ol: boolean;
   fontFamily: string;
   fontSize: string;
+  lang: string;
 }
 
 export function formatState(state: EditorState): FormatState {
@@ -70,6 +78,7 @@ export function formatState(state: EditorState): FormatState {
     ol: inList(state, N.ordered_list!),
     fontFamily: (markAttr(state, M.fontFamily!, 'family') as string | undefined) ?? 'Default',
     fontSize: String((markAttr(state, M.fontSize!, 'size') as number | undefined) ?? 16),
+    lang: currentLang(state),
   };
 }
 
@@ -130,7 +139,8 @@ export const clearFormatting: Command = (state, dispatch) => {
   const { from, to } = state.selection;
   if (!dispatch) return true;
   const tr = state.tr;
-  for (const type of Object.values(M)) if (type !== M.link) tr.removeMark(from, to, type);
+  // A link and a language are meaning, not formatting.
+  for (const type of Object.values(M)) if (type !== M.link && type !== M.lang) tr.removeMark(from, to, type);
   tr.setStoredMarks([]);
   state.doc.nodesBetween(from, to, (node, pos) => {
     if (node.type === N.heading || (node.type === N.paragraph && node.attrs.indent)) {

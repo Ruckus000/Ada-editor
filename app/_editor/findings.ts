@@ -34,7 +34,9 @@ export type FindingFix =
   | { kind: 'headingLevel'; level: number }
   | { kind: 'figureAlt'; alt: string }
   /** Remove text colour and highlight over the range: default black on white is 21:1. */
-  | { kind: 'defaultColours' };
+  | { kind: 'defaultColours' }
+  /** Mark the range as being in another language (a BCP 47 tag). */
+  | { kind: 'lang'; lang: string };
 
 export interface EditorFinding extends Issue {
   severity: OpenSeverity;

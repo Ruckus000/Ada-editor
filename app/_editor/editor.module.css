@@ -432,6 +432,9 @@
 .prose li > p { margin-bottom: 6px; }
 .prose a { color: var(--as-primary); }
 .prose :global(.ProseMirror-selectednode) { outline: 2px solid var(--as-focus); outline-offset: 2px; }
+/* Text marked as another language (3.1.2), in the editor only; the export is plain. Side
+   brackets, not an underline: every underline style already means a finding severity. */
+.prose span[lang] { border-inline: 2px solid var(--as-text-subtle); border-radius: 3px; padding-inline: 2px; }
 
 /* Findings underlines: shape comes inline from issueUnderlinePlugin; only the
  * colour is themed here, so losing colour still leaves the shape. */
