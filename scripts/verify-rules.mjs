@@ -192,7 +192,7 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 check('RULES ports the 12 rules with the §8.1 structural/prose split', () => {
   eq(RULES.length, 12, 'rule count');
-  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-no-headings', 'long-sentence', 'reading-level'], 'prose rules');
+  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
@@ -299,7 +299,12 @@ check('document-no-headings asks about sections once a document has several bloc
   eq(found[0].severity, 'manual', 'needs a person: only they know whether there are sections');
   eq(found[0].criterion, '1.3.1 Info and Relationships', 'criterion');
   deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored');
-  eq(noHeadings(five, false).length, 0, 'prose-gated: never while typing');
+  eq(noHeadings(five, false).length, 1, 'structural: present on every keystroke run');
+  // Adding a heading must retract it at once, not at the next blur: the live
+  // structural run replaces it with document-no-h1 and nothing carries it over.
+  const withH2 = doc(heading(2, 'Now sectioned'), para('One.'), para('Two.'), para('Three.'), para('Four.'), para('Five.'));
+  const next = mod.check.reconcile(mod.check.checkDocument(five, { prose: true }), mod.check.checkDocument(withH2, { prose: false }), new Set(), { keepProse: true });
+  deepEq(next.filter((f) => f.id.startsWith('document-no-')).map((f) => f.id), ['document-no-h1'], 'no stale card beside document-no-h1');
   eq(noHeadings(doc(para('One.'), para('Two.'), para('Three.'), para('Four.'))).length, 0, 'four blocks is a short note');
   eq(noHeadings(doc(para('One.'), para(), para(), figure('img-1', ''), para('Two.'), para('Three.'), para('Four.'))).length, 0, 'empty paragraphs and figures do not count');
   eq(noHeadings(doc(heading(2, 'Only an h2'), para('One.'), para('Two.'), para('Three.'), para('Four.'), para('Five.'))).length, 0, 'any heading silences it (document-no-h1 covers that case)');
