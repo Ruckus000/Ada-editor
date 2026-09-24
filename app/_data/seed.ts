@@ -36,6 +36,8 @@ export interface SeedSpan {
   /** Text colour and highlight, as the toolbar sets them. */
   color?: string;
   highlight?: string;
+  /** Another language (BCP 47), as the toolbar's Language menu sets it. */
+  lang?: string;
 }
 
 export type SeedBlock =
@@ -105,6 +107,8 @@ export const SEEDS: SeedDoc[] = [
         { kind: 'paragraph', spans: ['For shelter locations, ', { text: 'click here', link: 'https://city.example.gov/shelter' }, '.'] },
         { kind: 'paragraph', spans: [DENSE('Applicants must furnish documentation substantiating residency')] },
         { kind: 'paragraph', spans: ['The shelter opens nightly at seven and closes at six in the morning.'] },
+        // Unmarked Spanish: screen readers read it with English pronunciation (3.1.2).
+        { kind: 'paragraph', spans: ['Spanish-language help: Llame al 311 para ayuda.'] },
       ],
     },
   },
@@ -194,6 +198,8 @@ export const SEEDS: SeedDoc[] = [
       blocks: [
         { kind: 'paragraph', spans: ['The annual water quality report is available at the front desk.'] },
         { kind: 'paragraph', spans: ['Samples were collected monthly and tested for the contaminants listed below.'] },
+        // Spanish done right: marked, so this clean document stays clean.
+        { kind: 'paragraph', spans: [{ text: 'Para información en español, llame al 311.', lang: 'es' }] },
       ],
     },
   },
@@ -236,6 +242,7 @@ export function buildSeedDocument(content: DocContent): PMNode {
         if (s.strong) marks.push(M.strong!.create());
         if (s.color) marks.push(M.textColor!.create({ color: s.color }));
         if (s.highlight) marks.push(M.highlight!.create({ color: s.highlight }));
+        if (s.lang) marks.push(M.lang!.create({ lang: s.lang }));
         return schema.text(s.text, marks.length ? marks : undefined);
       });
       blocks.push(N.paragraph!.create(null, children));

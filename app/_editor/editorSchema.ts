@@ -1,6 +1,7 @@
 import { Schema } from 'prosemirror-model';
-import type { DOMOutputSpec, MarkSpec, NodeSpec } from 'prosemirror-model';
+import type { DOMOutputSpec, MarkSpec, NodeSpec, Node as PMNode } from 'prosemirror-model';
 import { addListNodes } from 'prosemirror-schema-list';
+import { isForeignLangTag, isLangTag } from '../_engine/textHelpers';
 
 /**
  * Document schema for the editor screen.
@@ -119,6 +120,28 @@ const marks: Record<string, MarkSpec> = {
     parseDOM: [{ style: 'font-size', getAttrs: (value) => ({ size: parseFloat(value) || 16 }) }],
     toDOM: (mark): DOMOutputSpec => ['span', { style: `font-size: ${mark.attrs.size}px` }, 0],
   },
+  // Language of parts (WCAG 3.1.2): screen readers switch voice on it. Not
+  // inclusive, so typing past a Spanish phrase doesn't carry Spanish on.
+  lang: {
+    attrs: { lang: {} },
+    inclusive: false,
+    // Any element with a lang, and without consuming it: a pasted <p lang="es">
+    // stays a paragraph AND stays Spanish. English is parsed too, so an English
+    // <span> inside that paragraph ends the Spanish (a parse rule can't clear a
+    // mark any other way); `withoutPageLanguage` then drops it on paste, since
+    // English is the page's own language. A malformed tag is no language.
+    // ponytail: no dir attribute; the bidi algorithm handles inline Arabic
+    // and Persian. Upgrade trigger: a reported right-to-left layout bug.
+    parseDOM: [{ tag: '[lang]', priority: 60, consuming: false, getAttrs: (el) => {
+      const lang = (el as HTMLElement).getAttribute('lang') ?? '';
+      return isLangTag(lang) ? { lang } : false;
+    } }],
+    // Stored documents are not trusted to hold a valid tag either.
+    toDOM: (mark): DOMOutputSpec => {
+      const lang = String(mark.attrs.lang ?? '');
+      return ['span', isForeignLangTag(lang) ? { lang } : {}, 0];
+    },
+  },
 };
 
 const base = new Schema({ nodes, marks });
@@ -127,5 +150,12 @@ export const schema = new Schema({
   nodes: addListNodes(base.spec.nodes, 'paragraph block*', 'block'),
   marks: base.spec.marks,
 });
+
+/** A pasted text node without a language mark for the page's own language
+ *  (English) or a tag that isn't one: see the lang mark's parse rule. */
+export function withoutPageLanguage(node: PMNode): PMNode {
+  const mark = schema.marks.lang!.isInSet(node.marks);
+  return mark && !isForeignLangTag(String(mark.attrs.lang ?? '')) ? node.mark(mark.removeFromSet(node.marks)) : node;
+}
 
 export { MAX_INDENT };

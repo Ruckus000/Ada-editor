@@ -20,6 +20,7 @@ import type { Anchor, EditorFinding } from '../_editor/findings';
 import { dismissKeyOf } from '../_editor/findings';
 import type { BlockEntry, BlockSummary, RawFinding } from './rules';
 import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock } from './rules';
+import { languageName } from './textHelpers';
 
 /** Cached per-block rule results, keyed by node identity (§9.1). */
 const blockMemo = new WeakMap<PMNode, BlockSummary>();
@@ -170,6 +171,9 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       } else if (f.fix.kind === 'defaultColours') {
         out.original = f.original ?? f.snippet;
         out.suggestion = 'default colours';
+      } else if (f.fix.kind === 'lang') {
+        out.original = f.snippet;
+        out.suggestion = languageName(f.fix.lang);
       }
     }
     mapped.push(out);

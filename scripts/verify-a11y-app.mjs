@@ -252,11 +252,12 @@ async function dashboard() {
     await focusByName(send, '.dash-sevrow', 'Needs your call');
     await key(send, 'Enter');
     await sleep(300);
-    // 4 = the seed documents with at least one manual finding: hearing-notice,
-    // health-advisory, zoning-variance, and benefits-guide (its form blanks).
+    // 5 = the seed documents with at least one manual finding: hearing-notice,
+    // health-advisory, zoning-variance, benefits-guide (its form blanks) and
+    // shelter-faq (its unmarked Spanish).
     const filtered = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
     const pressed = await evaluate(send, `document.activeElement.getAttribute('aria-pressed')`);
-    if (filtered !== 4 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
+    if (filtered !== 5 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
     else note('severity filter toggles, sets aria-pressed and narrows the queue');
 
     // Side cards are engine-derived now: the manual card must show a real
@@ -386,6 +387,80 @@ async function triage() {
     else if (afterCount !== beforeCount - 1) fail(`CONTRAST  findings ${beforeCount} -> ${afterCount} after applying the contrast fix`);
     else if (!/^Fix applied: Text contrast is below 4\.5:1\. \d+ open\./.test(said)) fail(`CONTRAST  fix not announced with what remains (got ${JSON.stringify(said)})`);
     else note('the contrast fix removes the failing colours, clears the finding and says what remains');
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
+/* ---------- editor: language of parts ---------- */
+
+// shelter-faq's "Spanish-language help: Llame al 311 para ayuda." Apply marks
+// only the Spanish; the toolbar's Language menu marks a selection.
+async function language() {
+  page = '/editor/shelter-faq';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    const findings = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
+    const marked = (lang) => evaluate(send, `[...document.querySelectorAll('#document-text span[lang=${JSON.stringify(lang)}]')].map((el) => el.textContent).join('|')`);
+    const beforeCount = await findings();
+    const opened = await evaluate(send, `(() => {
+      const card = [...document.querySelectorAll('aside button')].find((b) => b.textContent.includes('Mark the language'));
+      card?.click();
+      return Boolean(card);
+    })()`);
+    if (!opened) { fail('LANG  no language-of-parts finding on the unmarked Spanish'); return; }
+    await sleep(200);
+    const suggestion = await evaluate(send, `document.querySelector('aside [role="group"][aria-labelledby^="finding-"]')?.textContent ?? ''`);
+    if (!suggestion.includes('Suggested change: mark it as Spanish')) fail(`LANG  the card does not say what Apply does (${JSON.stringify(suggestion.slice(0, 200))})`);
+    if (!(await focusByName(send, 'aside button', 'Apply fix'))) { fail('LANG  no Apply fix on the language finding'); return; }
+    await key(send, 'Enter');
+    await sleep(400);
+    const spanish = await marked('es');
+    const afterCount = await findings();
+    const said = await liveText(send);
+    if (spanish !== 'Llame al 311 para ayuda') fail(`LANG  Apply marked ${JSON.stringify(spanish)}, expected only the Spanish clause`);
+    else if (afterCount !== beforeCount - 1) fail(`LANG  findings ${beforeCount} -> ${afterCount} after marking the language`);
+    else if (!/^Fix applied: Text may be in Spanish but isn’t marked\. \d+ open\./.test(said)) fail(`LANG  fix not announced with what remains (got ${JSON.stringify(said)})`);
+    else note('Apply marks only the Spanish clause, clears the finding and says what remains');
+
+    // Toolbar: select "shelter" in the editor, choose French from the Language menu.
+    await evaluate(send, `(() => {
+      const walker = document.createTreeWalker(document.getElementById('document-text'), NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const i = n.data.indexOf('shelter opens');
+        if (i >= 0) { document.getElementById('document-text').focus(); getSelection().setBaseAndExtent(n, i, n, i + 7); return; }
+      }
+    })()`);
+    await sleep(300);
+    const chosen = await evaluate(send, `(() => {
+      const select = document.querySelector('select[aria-label="Language"]');
+      if (!select || select.getAttribute('data-tb') === null) return false;
+      select.value = 'fr';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    await sleep(300);
+    const french = await marked('fr');
+    const announced = await liveText(send);
+    if (!chosen) fail('LANG  the toolbar has no Language menu');
+    else if (french !== 'shelter') fail(`LANG  the Language menu marked ${JSON.stringify(french)}, expected "shelter"`);
+    else if (announced !== 'Marked as French.') fail(`LANG  choosing a language was not announced (got ${JSON.stringify(announced)})`);
+    else note('the toolbar Language menu marks the selection and says so');
+    // Nothing selected: refused like a link, said so, and the menu snaps back.
+    await evaluate(send, `getSelection().collapseToEnd()`);
+    await sleep(300);
+    const refused = await evaluate(send, `(() => {
+      const select = document.querySelector('select[aria-label="Language"]');
+      select.value = 'de';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return select.value;
+    })()`);
+    await sleep(300);
+    const refusal = await liveText(send);
+    if (refusal !== 'Select the text you want to mark first.') fail(`LANG  a language with nothing selected was not refused (got ${JSON.stringify(refusal)})`);
+    else if (refused !== '' || (await marked('de')) !== '') fail(`LANG  a refused language still shows or applied (menu=${JSON.stringify(refused)})`);
+    else note('with nothing selected, the Language menu says to select text first and changes nothing');
+    await runAxe(send, ' (language)');
   } finally {
     await shutdown(send, ws, proc);
   }
@@ -668,6 +743,7 @@ try {
   await dashboard();
   await upload();
   await triage();
+  await language();
   await editor();
 } finally {
   server.kill();

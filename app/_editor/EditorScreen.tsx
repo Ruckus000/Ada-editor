@@ -39,9 +39,11 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState } from './editorCommands';
+import { withoutPageLanguage } from './editorSchema';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
+import { languageName } from '../_engine/textHelpers';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
 import { exportHtml } from './exportHtml';
 import type { EditorFinding, Section } from './findings';
@@ -228,6 +230,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       },
       // Pasted or copied images get fresh ids: a copy of an image in this document
       // would otherwise share its id, and alt-text edits would hit the wrong one.
+      // Pasted text loses any English language mark (English is the page's own).
       transformPasted(slice) {
         const renumber = (fragment: Fragment): Fragment => {
           const nodes: PMNode[] = [];
@@ -236,7 +239,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               const n = ++imageSeq.current;
               nodes.push(node.type.create({ ...node.attrs, id: `img-${n}`, label: `pasted image ${n}` }));
             } else {
-              nodes.push(node.isLeaf ? node : node.copy(renumber(node.content)));
+              nodes.push(node.isText ? withoutPageLanguage(node) : node.isLeaf ? node : node.copy(renumber(node.content)));
             }
           });
           return Fragment.from(nodes);
@@ -455,6 +458,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     } else if (f.fix?.kind === 'defaultColours') {
       if (f.from >= f.to || f.to > view.state.doc.content.size) return;
       tr = view.state.tr.removeMark(f.from, f.to, markTypes.textColor!).removeMark(f.from, f.to, markTypes.highlight!);
+    } else if (f.fix?.kind === 'lang') {
+      if (f.from >= f.to || f.to > view.state.doc.content.size) return;
+      tr = view.state.tr.addMark(f.from, f.to, markTypes.lang!.create({ lang: f.fix.lang }));
     } else {
       tr = view.state.tr.insertText(f.suggestion, f.from, f.to);
     }
@@ -621,6 +627,17 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             onFontSize={(size) => run(setMark(markTypes.fontSize!, { size: Number(size) }))}
             onTextColor={(color) => run(setMark(markTypes.textColor!, { color }))}
             onHighlight={(color) => run(setMark(markTypes.highlight!, color ? { color } : null))}
+            onLanguage={(lang) => {
+              // Like links: a language is set on existing text. A stored mark
+              // would cover only the first character typed (the mark is not
+              // inclusive, so the next keystroke drops it).
+              if (viewRef.current?.state.selection.empty ?? true) {
+                announce('Select the text you want to mark first.');
+                return;
+              }
+              run(setMark(markTypes.lang!, lang ? { lang } : null));
+              announce(lang ? `Marked as ${languageName(lang)}.` : 'Language mark removed.');
+            }}
             commands={{
               bold: toggleBold,
               italic: toggleItalic,
@@ -709,7 +726,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               </div>
               <h3 id={`finding-${active.id}`} className={styles.cardTitle}>{active.title}</h3>
               <p className={styles.cardBody}>{active.explanation}</p>
-              {active.suggestion !== undefined ? (
+              {active.fix?.kind === 'lang' ? (
+                // Nothing is replaced, so no struck-through diff: the text stays, marked.
+                <p className={styles.diff}>{`Suggested change: mark it as ${active.suggestion}`}</p>
+              ) : active.suggestion !== undefined ? (
                 <p className={styles.diff}>
                   <VisuallyHidden>Suggested change: replace </VisuallyHidden>
                   <del className={styles.diffOld}>{active.original}</del>

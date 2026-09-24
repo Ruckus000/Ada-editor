@@ -190,16 +190,16 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 15 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 15, 'rule count');
-  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'long-sentence', 'reading-level'], 'prose rules');
+check('RULES ports the 16 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 16, 'rule count');
+  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
     'colour-only-reference', 'contrast-minimum', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
-    'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'link-text-ambiguous', 'link-text-generic',
+    'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level',
   ], 'rule ids');
 });
@@ -700,6 +700,126 @@ check('sortFindings orders by severity, then document position', () => {
     'severity first; within a severity, document position — not insertion order');
 });
 
+/* ---------- language of parts (3.1.2) ---------- */
+
+check('languageRuns names each of the 15 tagline languages and stays quiet on English', () => {
+  const { languageRuns } = mod.textHelpers;
+  // The federal (HHS §1557) language-assistance taglines, as notices print them.
+  const TAGLINES = {
+    es: 'ATENCIÓN: si habla español, tiene a su disposición servicios gratuitos de asistencia lingüística. Llame al 1-888-555-0100.',
+    zh: '注意：如果您使用繁體中文，您可以免費獲得語言援助服務。請致電 1-888-555-0100。',
+    vi: 'CHÚ Ý: Nếu bạn nói Tiếng Việt, có các dịch vụ hỗ trợ ngôn ngữ miễn phí dành cho bạn. Gọi số 1-888-555-0100.',
+    ko: '주의: 한국어를 사용하시는 경우, 언어 지원 서비스를 무료로 이용하실 수 있습니다. 1-888-555-0100 번으로 전화해 주십시오.',
+    tl: 'PAUNAWA: Kung nagsasalita ka ng Tagalog, maaari kang gumamit ng mga serbisyo ng tulong sa wika nang walang bayad. Tumawag sa 1-888-555-0100.',
+    ru: 'ВНИМАНИЕ: Если вы говорите на русском языке, то вам доступны бесплатные услуги перевода. Звоните 1-888-555-0100.',
+    ar: 'ملحوظة: إذا كنت تتحدث اللغة العربية، فإن خدمات المساعدة اللغوية تتوافر لك بالمجان. اتصل برقم 1-888-555-0100.',
+    ht: 'ATANSYON: Si w pale Kreyòl Ayisyen, gen sèvis èd pou lang ki disponib gratis pou ou. Rele 1-888-555-0100.',
+    fr: 'ATTENTION : Si vous parlez français, des services d\'aide linguistique vous sont proposés gratuitement. Appelez le 1-888-555-0100.',
+    pl: 'UWAGA: Jeżeli mówisz po polsku, możesz skorzystać z bezpłatnej pomocy językowej. Zadzwoń pod numer 1-888-555-0100.',
+    pt: 'ATENÇÃO: Se fala português, encontram-se disponíveis serviços linguísticos, grátis. Ligue para 1-888-555-0100.',
+    it: 'ATTENZIONE: In caso la lingua parlata sia l\'italiano, sono disponibili servizi di assistenza linguistica gratuiti. Chiamare il numero 1-888-555-0100.',
+    de: 'ACHTUNG: Wenn Sie Deutsch sprechen, stehen Ihnen kostenlos sprachliche Hilfsdienstleistungen zur Verfügung. Rufnummer: 1-888-555-0100.',
+    ja: '注意事項：日本語を話される場合、無料の言語支援をご利用いただけます。1-888-555-0100 まで、お電話にてご連絡ください。',
+    fa: 'توجه: اگر به زبان فارسی گفتگو می کنید، تسهیلات زبانی بصورت رایگان برای شما فراهم می باشد. با 1-888-555-0100 تماس بگیرید.',
+  };
+  deepEq(Object.keys(TAGLINES).sort(), mod.textHelpers.LANGUAGES.map((l) => l.code).sort(), 'one tagline per menu language');
+  for (const [code, tagline] of Object.entries(TAGLINES)) {
+    const runs = languageRuns(tagline);
+    eq(runs.length, 1, `${code}: one passage`);
+    eq(runs[0].lang, code, `${code}: named`);
+  }
+  // The Spanish passage runs across its two sentences, label included.
+  const es = TAGLINES.es;
+  const [run] = languageRuns(es);
+  eq(es.slice(run.from, run.to), es.slice(0, -1), 'label, both sentences, no final stop');
+  // Only the Spanish clause of a mixed sentence.
+  const mixed = 'Spanish-language help: Llame al 311 para ayuda.';
+  deepEq(languageRuns(mixed).map((r) => mixed.slice(r.from, r.to)), ['Llame al 311 para ayuda'], 'the English lead-in is not marked');
+  for (const english of [
+    'Contact Maria de la Cruz at the Los Angeles office.', // name particles and place names
+    'Van der Berg and De la Fuente both signed the petition.',
+    'The café served a fine résumé of the week.', // borrowed words
+    'Por favor, sign in at the front desk.', // a two-word phrase
+    'Thanks to 唯然 and Сергей Иванов for their contributions.', // names in other alphabets
+    'ChALkeR - Сковорода Никита Андреевич <chalkerx@gmail.com>', // a full Russian name
+    'ak239 - Aleksei Koziatinskii <ak239spb@gmail.com>', // "ak" is Creole for "and"; an email is nobody's words
+    'Smith et al. found the same result, e.g. in 2019.',
+    'Non-profit and non-commercial use is allowed under the MIT license.',
+    'Smith et al., Jones et al., and Brown et al. agree.', // a citation chain
+    'See para. 2 and para. 3 of the lease.',
+    'The annual water quality report is available at the front desk.',
+  ]) deepEq(languageRuns(english), [], `quiet on "${english}"`);
+  // A sentence never joins a Spanish neighbour on one Spanish-looking name.
+  const la = 'Llame al 311 para ayuda. Los Angeles County provides free meals.';
+  deepEq(languageRuns(la).map((r) => la.slice(r.from, r.to)), ['Llame al 311 para ayuda'], 'the English sentence stays English');
+  // Two languages scoring alike: flag it, but don't guess which.
+  deepEq(languageRuns('que para por se está gratuitos').map((r) => r.lang), ['unknown'], 'Spanish/Portuguese tie is unknown');
+});
+
+check('language-of-parts: prose-gated Needs-your-call with a fix; marked text is never flagged', () => {
+  const LANG = (lang) => [M.lang.create({ lang })];
+  const found = (d) => mod.check.checkDocument(d, { prose: true }).filter((f) => f.id.startsWith('language-of-parts'));
+  const d = doc(para('Spanish-language help: Llame al 311 para ayuda.'));
+  const [f] = found(d);
+  eq(f.severity, 'manual', 'a guess, so the author decides');
+  eq(f.criterion, '3.1.2 Language of Parts', 'criterion');
+  eq(f.title, 'Text may be in Spanish but isn’t marked', 'title names the language');
+  deepEq(f.fix, { kind: 'lang', lang: 'es' }, 'one-click fix');
+  eq(f.suggestion, 'Spanish', 'the card says what Apply does');
+  eq(d.textBetween(f.from, f.to), 'Llame al 311 para ayuda', 'range is the Spanish only');
+  eq(mod.check.checkDocument(d, { prose: false }).filter((x) => x.id.startsWith('language-of-parts')).length, 0, 'prose-gated');
+  // Apply = addMark over the range: the next full run is quiet.
+  const applied = d.type.schema.nodes.doc.create(null, [
+    para('Spanish-language help: ', text('Llame al 311 para ayuda', LANG('es')), '.'),
+  ]);
+  eq(found(applied).length, 0, 'marked text is not flagged');
+  // Any language tag counts as marked: the author's call stands.
+  eq(found(doc(para(text('Llame al 311 para ayuda.', LANG('es-MX'))))).length, 0, 'regional tag counts');
+  // Partly marked: only the unmarked Spanish is left to judge.
+  const partial = doc(para(text('Si necesita ayuda, llame al 311. ', LANG('es')), 'Para información en español, llame al 311.'));
+  const [rest] = found(partial);
+  eq(partial.textBetween(rest.from, rest.to), 'Para información en español, llame al 311', 'only the unmarked sentence');
+  // A tie gets no fix: the toolbar is the way.
+  const [tie] = found(doc(para('que para por se está gratuitos')));
+  eq(tie.title, 'Text may be in another language but isn’t marked', 'unknown language title');
+  eq(tie.fix, undefined, 'no guessed fix');
+});
+
+check('lang mark: paste keeps a language, the export writes it, Clear formatting leaves it', () => {
+  const { DOMParser: PMDOMParser } = mod.pm;
+  const parse = (html) => PMDOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body);
+  // What a paste leaves: the parse, then transformPasted's withoutPageLanguage on each text node.
+  const { withoutPageLanguage } = mod;
+  const langsIn = (d) => { const out = []; d.descendants((n) => { if (!n.isText) return; const m = M.lang.isInSet(withoutPageLanguage(n).marks); out.push(`${n.text}=${m ? m.attrs.lang : '-'}`); }); return out.filter((x) => !x.endsWith('=-')); };
+  deepEq(langsIn(parse('<p>Say <span lang="fr">bonjour à tous</span>.</p>')), ['bonjour à tous=fr'], 'span lang');
+  const block = parse('<p lang="es">Llame al 311.</p>');
+  eq(block.firstChild.type.name, 'paragraph', '<p lang> stays a paragraph');
+  deepEq(langsIn(block), ['Llame al 311.=es'], 'and stays Spanish');
+  deepEq(langsIn(parse('<p><span lang="en-US">English</span> and <span lang="x&lt;y">junk</span> and <span lang="eng">eng</span> <span lang="und">und</span></p>')), [], 'English (en, eng), undetermined and malformed tags are no mark');
+  // English inside Spanish ends the Spanish: it must not be read with a Spanish voice.
+  deepEq(langsIn(parse('<p lang="es">Hola <span lang="en">hello there</span> amigos</p>')), ['Hola =es', ' amigos=es'], 'nested English is not Spanish');
+  deepEq(langsIn(parse('<p><a href="https://x.org" lang="es"><b>ayuda</b></a></p>')), ['ayuda=es'], 'lang on a link element');
+  // Export: the schema's toDOM is the export mapping; a tampered stored tag is dropped.
+  const html = mod.exportHtml.exportHtml(doc(para('Help: ', text('Llame al 311', [M.lang.create({ lang: 'es' })]), ' ', text('x', [M.lang.create({ lang: '"><script>' })]))),
+    { title: 't', header: '', footer: '' }, parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document);
+  const page = parseHTML(html).document;
+  eq(page.documentElement.getAttribute('lang'), 'en', 'page stays English');
+  eq(page.querySelector('main span[lang="es"]')?.textContent, 'Llame al 311', 'passage exported with its lang');
+  eq(page.querySelectorAll('main [lang]').length, 1, 'an invalid stored tag is not written');
+  // Clear formatting is formatting only.
+  const { EditorState, TextSelection } = mod.pmState;
+  const { clearFormatting, formatState } = mod.editorCommands;
+  let state = EditorState.create({ doc: doc(para(text('Llame al 311', [M.lang.create({ lang: 'es' }), M.strong.create()]))) });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1, 13)));
+  eq(formatState(state).lang, 'es', 'toolbar reads the language');
+  clearFormatting(state, (tr) => { state = state.apply(tr); });
+  deepEq(langsIn(state.doc), ['Llame al 311=es'], 'language survives, bold does not');
+  eq(formatState(state).bold, false, 'bold cleared');
+  // A stored document is unvalidated JSON: a non-string tag must not reach languageName.
+  const tampered = EditorState.create({ doc: schema.nodeFromJSON({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'lang', attrs: { lang: 5 } }] }] }] }) });
+  eq(formatState(tampered.apply(tampered.tr.setSelection(TextSelection.create(tampered.doc, 1, 2)))).lang, '', 'a non-string tag reads as none');
+});
+
 /* ---------- false-positive floor ---------- */
 
 check('a genuinely clean document produces zero findings', () => {
@@ -762,7 +882,8 @@ check('seed docs produce real engine findings across all four severities', () =>
   const byId = Object.fromEntries(summaries.map((s) => [s.id, s.counts]));
   const expect = (id, counts) => eq(canon(byId[id]), canon(counts), id);
   expect('hearing-notice', { blocker: 1, violation: 2, advisory: 3, manual: 2 });
-  expect('shelter-faq', { blocker: 1, violation: 1, advisory: 1 });
+  // +1 manual: "Llame al 311 para ayuda" is Spanish, unmarked (3.1.2).
+  expect('shelter-faq', { blocker: 1, violation: 1, advisory: 1, manual: 1 });
   // violation 2: the generic "learn more" link and the Gray-on-Blue-highlight contrast run.
   // manual 1: the form's two typed blanks, asked about once (form-blank).
   expect('benefits-guide', { violation: 2, advisory: 1, manual: 1 });
@@ -1259,6 +1380,29 @@ await acheck('import: Word colours and sizes arrive as marks, so contrast is che
   // #888888 is 3.54:1: it passes at 24pt (large text, 3:1) and fails at 11pt.
   deepEq(flagged, ['contrast-minimum:grey on white|#999999 on #ffffff', 'contrast-minimum:on light gray highlight|#767676 on #c0c0c0',
     'contrast-minimum:shaded|#5e6c84 on #cce0ff', 'contrast-minimum:small grey|#888888 on #ffffff'], 'size decides for #888888');
+});
+
+await acheck('import: Word run languages arrive as lang marks, by the characters in the run', async () => {
+  const L = (attrs) => `<w:lang ${attrs}/>`;
+  const r = await importDocx(docx({
+    body: [
+      P(R('Llame al 311 para ayuda', L('w:val="es-ES"'))),
+      P(R('English text', L('w:val="en-US" w:eastAsia="zh-CN" w:bidi="ar-SA"'))),
+      P(R('中文服务', L('w:val="en-US" w:eastAsia="zh-CN"'))),
+      P(R('خدمات', L('w:val="en-US" w:bidi="ar-SA"'))),
+      P(R('junk', L('w:val="x&lt;y"'))),
+      P(R('no language')),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  const langOf = (i) => M.lang.isInSet(r.content.child(i).firstChild.marks)?.attrs.lang ?? null;
+  eq(langOf(0), 'es-ES', 'w:val');
+  eq(langOf(1), null, 'English is the page language (Word writes en-US on nearly every run)');
+  eq(langOf(2), 'zh-CN', 'East Asian characters read w:eastAsia');
+  eq(langOf(3), 'ar-SA', 'right-to-left characters read w:bidi');
+  eq(langOf(4), null, 'a malformed tag is dropped');
+  eq(langOf(5), null, 'no w:lang, no mark');
+  const flagged = mod.check.checkDocument(r.content, { prose: true }).filter((f) => f.id.startsWith('language-of-parts'));
+  eq(flagged.length, 0, 'Spanish Word already marked is not flagged');
 });
 
 await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {

@@ -2,6 +2,7 @@ import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { safeHref, schema } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import { contrastRatio, parseColour } from '../_engine/contrast';
+import { isForeignLangTag } from '../_engine/textHelpers';
 
 /**
  * Import a .docx into the editor's document model, in the browser.
@@ -556,9 +557,14 @@ class Walker {
     if (Number.isFinite(halfPoints) && halfPoints > 0 && halfPoints <= 3276) {
       runMarks = M.fontSize!.create({ size: Math.round((halfPoints / 2) * (4 / 3) * 100) / 100 }).addToSet(runMarks);
     }
-    // ponytail: colours and sizes set by styles (pStyle/rStyle, docDefaults),
-    // theme-only colours and the page colour are not resolved, nor are fonts.
-    // Upgrade trigger: a real file whose colours come from styles.
+    // The run's visible text only: a field code or fallback content in another
+    // script must not pick the attribute.
+    const lang = runLanguage(child(rPr, 'w:lang'), kids(r).filter((k) => k.tagName === 'w:t').map((t) => t.textContent ?? '').join(''));
+    if (lang) runMarks = M.lang!.create({ lang }).addToSet(runMarks);
+    // ponytail: colours, sizes and languages set by styles (pStyle/rStyle,
+    // docDefaults), theme-only colours and the page colour are not resolved,
+    // nor are fonts. Upgrade trigger: a real file whose colours or languages
+    // come from styles.
 
     for (const k of kids(r)) {
       this.tick();
@@ -679,6 +685,20 @@ const PICTURE_TAGS = new Set(['a:blip', 'c:chart', 'dgm:relIds', 'pic:pic']);
 function hyperlinkOf(instr: string): string | null {
   const m = /^\s*HYPERLINK\s+(?!\\l)"([^"]+)"/i.exec(instr);
   return m ? safeHref(m[1]!) : null;
+}
+
+/**
+ * A run's language, if it isn't English. Word keeps three per run and uses
+ * the one matching the characters: East Asian text reads w:eastAsia,
+ * right-to-left text w:bidi, everything else w:val.
+ */
+function runLanguage(lang: Element | null, text: string): string | null {
+  if (!lang) return null;
+  const which = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(text)
+    ? 'w:eastAsia'
+    : /[\p{Script=Arabic}\p{Script=Hebrew}]/u.test(text) ? 'w:bidi' : 'w:val';
+  const tag = val(lang, which);
+  return tag && isForeignLangTag(tag) ? tag : null;
 }
 
 function withLink(marks: readonly Mark[], href: string): readonly Mark[] {
