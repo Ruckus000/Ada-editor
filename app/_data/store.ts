@@ -277,9 +277,14 @@ export function loadDashboardData(): DashboardData {
       order: docs.length,
     });
     for (const f of findings) {
+      if (f.severity === 'manual') {
+        // The card keys rows by docId+title, so keep that pair unique.
+        if (!manualItems.some((m) => m.docId === d.id && m.question === f.title)) manualItems.push({ question: f.title, docId: d.id });
+        continue;
+      }
       // A card that says "failed" counts failures only. Needs-your-call
-      // findings are questions (listed on their own card) and advisories sit
-      // beyond the AA target; counting them overstated conformance failures.
+      // findings are questions (listed above) and advisories sit beyond the
+      // AA target; counting them overstated conformance failures.
       if (f.severity !== 'blocker' && f.severity !== 'violation') continue;
       const space = f.criterion.indexOf(' ');
       const id = space === -1 ? f.criterion : f.criterion.slice(0, space);
@@ -287,12 +292,6 @@ export function loadDashboardData(): DashboardData {
       const row = criteriaTally.get(id);
       if (row) row.count += 1;
       else criteriaTally.set(id, { id, name, count: 1 });
-    }
-    for (const f of findings) {
-      if (f.severity !== 'manual') continue;
-      // The card keys rows by docId+title, so keep that pair unique.
-      if (manualItems.some((m) => m.docId === d.id && m.question === f.title)) continue;
-      manualItems.push({ question: f.title, docId: d.id });
     }
   }
   const criteria = [...criteriaTally.values()]

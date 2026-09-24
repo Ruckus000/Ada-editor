@@ -1180,13 +1180,16 @@ await acheck('dashboard "Most-failed criteria" counts failures only, never quest
   const { store } = await import(`${pathToFileURL(TMP).href}?criteria`);
   // No headings in six blocks (a Needs-your-call question) and dense prose (advisory, 3.1.5 is AAA).
   const questionsOnly = doc(para(DENSE), para('Two.'), para('Three.'), para('Four.'), para('Five.'), para('Six.'));
-  const failing = doc(heading(1, 'T'), figure('img-1', ''));
+  const failing = doc(heading(1, 'T'), figure('img-1', ''), para(text('click here', link('https://x.org/a'))));
   mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() })]));
   try {
     const { criteria, docs } = store.loadDashboardData();
     const q = docs.find((d) => d.id === 'q');
     assert(q.counts.manual >= 1 && q.counts.advisory >= 1, `fixture has manual and advisory findings: ${JSON.stringify(q.counts)}`);
-    deepEq(criteria, [{ id: '1.1.1', name: 'Non-text Content', count: 1 }], 'only the missing alt text is a failed criterion');
+    deepEq(criteria, [
+      { id: '1.1.1', name: 'Non-text Content', count: 1 },
+      { id: '2.4.4', name: 'Link Purpose (In Context)', count: 1 },
+    ], 'the blocker and the violation count; the question and the advisory do not');
   } finally {
     delete globalThis.window;
   }

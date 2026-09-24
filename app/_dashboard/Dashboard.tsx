@@ -394,7 +394,9 @@ export function Dashboard({
 
             <section aria-labelledby="criteria-heading" className="dash-panel dash-card">
               <h2 id="criteria-heading">Most-failed criteria</h2>
-              {dash.criteria.length ? (
+              {/* docs is empty until the store loads after hydration: no "none"
+                  claim on first paint while the real rows are still coming. */}
+              {dash.criteria.length || !dash.docs.length ? (
                 <ul role="list" className="dash-criteria">
                   {dash.criteria.map((c) => (
                     <li key={c.id}>
@@ -406,7 +408,7 @@ export function Dashboard({
                 </ul>
               ) : (
                 // Neutral, not a verdict: open questions and advisories may remain.
-                <p className="dash-muted">No failed criteria in the open findings.</p>
+                <p className="dash-card__intro">No failed criteria in the open findings.</p>
               )}
             </section>
           </div>
