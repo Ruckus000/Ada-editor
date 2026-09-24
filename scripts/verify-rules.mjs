@@ -285,7 +285,7 @@ check('heading-skip fires on level jumps with a level fix (cross-block)', () => 
 check('document-no-h1 fires only when headings exist but none is h1', () => {
   const found = crossFindings(doc(para('intro'), heading(2, 'Section')), 'document-no-h1');
   eq(found.length, 1, 'one finding');
-  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].severity, 'advisory', 'severity: 2.4.10 is AAA, which the scale grades Advisory');
   deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored (§6)');
   eq(crossFindings(doc(heading(1, 'T'), heading(2, 'S')), 'document-no-h1').length, 0, 'h1 present is quiet');
   eq(crossFindings(doc(para('no headings at all')), 'document-no-h1').length, 0, 'no headings is quiet');
@@ -537,7 +537,7 @@ check('document-anchored findings (§6)', () => {
   deepEq(noH1.anchor, { kind: 'document' }, 'document anchor');
   eq(noH1.from, 0, 'from');
   eq(noH1.to, 0, 'to');
-  eq(noH1.severity, 'violation', 'severity');
+  eq(noH1.severity, 'advisory', 'severity: 2.4.10 is AAA, which the scale grades Advisory');
 });
 
 /* ---------- display order ---------- */
@@ -1181,7 +1181,9 @@ await acheck('dashboard "Most-failed criteria" counts failures only, never quest
   // No headings in six blocks (a Needs-your-call question) and dense prose (advisory, 3.1.5 is AAA).
   const questionsOnly = doc(para(DENSE), para('Two.'), para('Three.'), para('Four.'), para('Five.'), para('Six.'));
   const failing = doc(heading(1, 'T'), figure('img-1', ''), para(text('click here', link('https://x.org/a'))));
-  mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() })]));
+  // An h2 with no h1: document-no-h1 is 2.4.10, which is AAA, so it is not an AA failure either.
+  const noH1 = doc(heading(2, 'Section'), para('Body.'));
+  mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() }), storedDocJSON('h', { content: noH1.toJSON() })]));
   try {
     const { criteria, docs } = store.loadDashboardData();
     const q = docs.find((d) => d.id === 'q');

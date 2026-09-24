@@ -400,7 +400,10 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
   if (headings > 0 && !hasH1) {
     out.push({
       ruleId: 'document-no-h1',
-      severity: 'violation',
+      // 2.4.10 Section Headings is AAA, and the severity scale grades AAA as
+      // Advisory; "Fails AA" overstated it. The spike still says violation;
+      // the parity gate compares counts and text, not severity.
+      severity: 'advisory',
       criterion: crit('document-no-h1'),
       title: 'Document has no top-level heading',
       explanation: 'There is no h1, so the document has no stated title in its structure.',
