@@ -324,13 +324,29 @@ function automaticText(background: string): string {
 
 /* ---------- the body walk ---------- */
 
-interface Field { phase: 'code' | 'result'; instr: string; href: string | null }
+interface Field {
+  phase: 'code' | 'result';
+  instr: string;
+  href: string | null;
+  /** A legacy check-box form field (FORMCHECKBOX): its state, shown as a glyph at the field's end. */
+  check: boolean | null;
+  /** The field wrote result text itself, so no glyph is added. */
+  emitted: boolean;
+}
+
+/** Content-control types that make a w:sdt a form field (a check box's tag is w14:checkbox). */
+const FORM_SDT = new Set(['w:text', 'w:dropDownList', 'w:comboBox', 'w:date']);
+
+// ponytail: the Wingdings/Webdings box glyphs Word users type as check boxes;
+// other Symbol-font characters stay dropped. Upgrade trigger: a file with
+// other meaningful Symbol-font characters.
+const SYMBOL_BOXES = new Map<number, string>([[0xf06f, '\u2610'], [0xf0a8, '\u2610'], [0xf0fd, '\u2612'], [0xf0fe, '\u2611']]);
 
 class Walker {
   private visited = 0;
   private figures = 0;
   private paragraphs = 0;
-  private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0 };
+  private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0, fields: 0 };
   /** Shading behind the current paragraph and table cell: what a run sits on when it has none of its own. */
   private paragraphFill: Fill = null;
   private cellFill: Fill = null;
@@ -352,7 +368,14 @@ class Walker {
     if (c.notes) out.push(`${plural(c.notes, 'footnote or endnote', 'footnotes or endnotes')} not imported.`);
     if (c.chunks) out.push(`${plural(c.chunks, 'embedded document part')} not imported.`);
     if (c.tracked) out.push('Tracked changes were imported as if accepted.');
+    if (c.fields) out.push(`${plural(c.fields, 'Word form field')} imported as plain text; ${c.fields === 1 ? 'it is' : 'they are'} not fillable here.`);
     return out;
+  }
+
+  /** A content control that is a form field (text box, check box, list, date) is counted for the import note. */
+  private countFormSdt(sdt: Element) {
+    const pr = child(sdt, 'w:sdtPr');
+    if (pr && kids(pr).some((k) => FORM_SDT.has(k.tagName) || k.tagName.endsWith(':checkbox'))) this.counts.fields++;
   }
 
   private tick() {
@@ -367,7 +390,7 @@ class Walker {
       switch (el.tagName) {
         case 'w:p': out.push(...this.paragraph(el)); break;
         case 'w:tbl': this.counts.tables++; out.push(...this.table(el)); break;
-        case 'w:sdt': { const c = child(el, 'w:sdtContent'); if (c) out.push(...this.blocks(c)); break; }
+        case 'w:sdt': { this.countFormSdt(el); const c = child(el, 'w:sdtContent'); if (c) out.push(...this.blocks(c)); break; }
         case 'w:customXml': out.push(...this.blocks(el)); break;
         case 'w:ins': case 'w:moveTo': this.counts.tracked++; out.push(...this.blocks(el)); break;
         case 'mc:AlternateContent': { const c = child(el, 'mc:Choice'); if (c) out.push(...this.blocks(c)); break; }
@@ -394,7 +417,7 @@ class Walker {
         }
       }
       else if (k.tagName === 'w:tr' || k.tagName === 'w:customXml') out.push(...this.table(k));
-      else if (k.tagName === 'w:sdt') { const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
+      else if (k.tagName === 'w:sdt') { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
     }
     return out;
   }
@@ -479,7 +502,7 @@ class Walker {
         case 'w:ins': case 'w:moveTo': this.counts.tracked++; this.inline(k, marks, out, emitBlocks); break;
         case 'w:del': case 'w:moveFrom': this.counts.tracked++; break;
         case 'w:smartTag': case 'w:customXml': case 'w:dir': case 'w:bdo': this.inline(k, marks, out, emitBlocks); break;
-        case 'w:sdt': { const c = child(k, 'w:sdtContent'); if (c) this.inline(c, marks, out, emitBlocks); break; }
+        case 'w:sdt': { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) this.inline(c, marks, out, emitBlocks); break; }
         case 'mc:AlternateContent': { const c = child(k, 'mc:Choice'); if (c) this.inline(c, marks, out, emitBlocks); break; }
         default: break;
       }
@@ -531,7 +554,11 @@ class Walker {
       const inCode = this.fields.some((f) => f.phase === 'code');
       const href = [...this.fields].reverse().find((f) => f.phase === 'result' && f.href)?.href ?? null;
       const marksHere = href ? withLink(runMarks, href) : runMarks;
-      const text = (str: string) => { if (str && !inCode) out.push(schema.text(str, marksHere)); };
+      const text = (str: string) => {
+        if (!str || inCode) return;
+        out.push(schema.text(str, marksHere));
+        if (field?.phase === 'result') field.emitted = true;
+      };
       switch (k.tagName) {
         case 'w:t': text(k.textContent ?? ''); break;
         case 'w:tab': text(' '); break;
@@ -543,14 +570,31 @@ class Walker {
           // Symbol-font glyphs sit in the private-use area (F0xx) and mean
           // nothing as text; anything else is a real character.
           const code = parseInt(val(k, 'w:char') ?? '', 16);
-          if (Number.isFinite(code) && code > 0 && (code < 0xe000 || code > 0xf8ff) && code <= 0x10ffff) text(String.fromCodePoint(code));
+          const box = /wingdings|webdings/i.test(val(k, 'w:font') ?? '') ? SYMBOL_BOXES.get(code) : undefined;
+          if (box) text(box);
+          else if (Number.isFinite(code) && code > 0 && (code < 0xe000 || code > 0xf8ff) && code <= 0x10ffff) text(String.fromCodePoint(code));
           break;
         }
         case 'w:fldChar': {
           const type = val(k, 'w:fldCharType');
-          if (type === 'begin') this.fields.push({ phase: 'code', instr: '', href: null });
-          else if (type === 'separate' && field) { field.phase = 'result'; field.href = hyperlinkOf(field.instr); }
-          else if (type === 'end') this.fields.pop();
+          if (type === 'begin') {
+            // A legacy form field keeps its settings in w:ffData, inside the begin fldChar.
+            const ffData = child(k, 'w:ffData');
+            const checkBox = child(ffData, 'w:checkBox');
+            if (ffData) this.counts.fields++;
+            const check = checkBox ? (child(checkBox, 'w:checked') ? on(child(checkBox, 'w:checked')) : on(child(checkBox, 'w:default'))) : null;
+            this.fields.push({ phase: 'code', instr: '', href: null, check, emitted: false });
+          } else if (type === 'separate' && field) {
+            field.phase = 'result';
+            field.href = hyperlinkOf(field.instr);
+          } else if (type === 'end') {
+            // A check box has no result text: Word draws the box. Pushed directly,
+            // not through text(), which stays silent while a field code is open.
+            const done = this.fields.pop();
+            if (done?.check != null && !done.emitted && !this.fields.some((f) => f.phase === 'code')) {
+              out.push(schema.text(done.check ? '\u2612' : '\u2610', marksHere));
+            }
+          }
           break;
         }
         case 'w:instrText': if (field?.phase === 'code') field.instr += k.textContent ?? ''; break;

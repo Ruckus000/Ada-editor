@@ -252,10 +252,11 @@ async function dashboard() {
     await focusByName(send, '.dash-sevrow', 'Needs your call');
     await key(send, 'Enter');
     await sleep(300);
-    // 3 = the seed documents with at least one manual finding.
+    // 4 = the seed documents with at least one manual finding: hearing-notice,
+    // health-advisory, zoning-variance, and benefits-guide (its form blanks).
     const filtered = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
     const pressed = await evaluate(send, `document.activeElement.getAttribute('aria-pressed')`);
-    if (filtered !== 3 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
+    if (filtered !== 4 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
     else note('severity filter toggles, sets aria-pressed and narrows the queue');
 
     // Side cards are engine-derived now: the manual card must show a real

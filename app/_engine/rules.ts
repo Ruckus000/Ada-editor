@@ -10,10 +10,11 @@
  * table node) and `document-language` (no language field exists in the data
  * model; the spike itself flagged it as noise).
  *
- * Two rules are engine-only, added after the port: `document-no-headings`
+ * Three rules are engine-only, added after the port: `document-no-headings`
  * closes the gap `document-no-h1` leaves (a document with no headings at all),
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
- * `contrast-minimum` judges colour marks, which the Markdown corpus never has.
+ * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
+ * `form-blank` finds fill-in blanks, of which the corpus has none.
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -51,6 +52,7 @@ const TEXT_COLOR = schema.marks.textColor!;
 const HIGHLIGHT = schema.marks.highlight!;
 const FONT_SIZE = schema.marks.fontSize!;
 const STRONG = schema.marks.strong!;
+const UNDERLINE = schema.marks.underline!;
 
 export type RuleKind = 'structural' | 'prose';
 
@@ -84,6 +86,9 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
   // Engine-only (the spike ran on Markdown, which carries no colours).
   { id: 'contrast-minimum', criterion: '1.4.3 Contrast (Minimum)', level: 'AA', kind: 'structural' },
+  // Engine-only. Manual: a blank only fails if the document must be filled in
+  // digitally, which only its author knows.
+  { id: 'form-blank', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
@@ -143,6 +148,8 @@ export interface BlockSummary {
   headingLevel: number | null;
   links: LinkRun[];
   figure: { id: string; alt: string; label: string } | null;
+  /** Fill-in blanks (form-blank), block-relative, in order. */
+  blanks: { from: number; to: number }[];
   /** Per-block rule results, with blockRange/figure anchors. */
   findings: RawFinding[];
 }
@@ -284,6 +291,52 @@ function contrastFindings(node: PMNode, headingLevel: number | null): RawFinding
   }));
 }
 
+/* ---------- fill-in blanks ---------- */
+
+/**
+ * Typed blanks: underscore lines (also signature lines and __/__/____ dates),
+ * empty-box glyphs, and "[ ]" (a space required: the corpus has bare "[]" in
+ * link references and type names).
+ *
+ * ponytail: not flagged — checked boxes (answered, or decorative), dotted
+ * leaders (they collide with ellipses and table-of-contents text), "( )", and
+ * Word's placeholder phrases (kept language-neutral). Upgrade trigger: a real
+ * form whose blanks use one of these.
+ */
+const BLANK_TEXT = /[_\uFF3F]{3,}|[\u2610\u2751\u25A1\u25FB]|\[ {1,3}\]/g;
+
+function formBlanks(node: PMNode, text: string, offsets: number[]): { from: number; to: number }[] {
+  const blanks: { from: number; to: number }[] = [];
+  for (const m of text.matchAll(BLANK_TEXT)) {
+    const start = m.index ?? 0;
+    const from = offsets[start];
+    const last = offsets[start + m[0].length - 1];
+    if (from !== undefined && last !== undefined) blanks.push({ from, to: last + 1 });
+  }
+  // An underlined stretch with nothing in it: Word's underlined-tab blank, or
+  // underlined spaces. Consecutive underlined text merges first, so the space
+  // in an underlined "**foo** _bar_" is part of a run that has words.
+  let offset = 0;
+  let run: { from: number; to: number; text: string } | null = null;
+  const runs: { from: number; to: number; text: string }[] = [];
+  node.content.forEach((child) => {
+    if (child.isText && UNDERLINE.isInSet(child.marks)) {
+      if (run) {
+        run.text += child.text ?? '';
+        run.to = offset + child.nodeSize;
+      } else {
+        run = { from: offset, to: offset + child.nodeSize, text: child.text ?? '' };
+        runs.push(run);
+      }
+    } else {
+      run = null;
+    }
+    offset += child.nodeSize;
+  });
+  for (const r of runs) if (r.text.trim() === '') blanks.push({ from: r.from, to: r.to });
+  return blanks.sort((a, b) => a.from - b.from);
+}
+
 /* ---------- per-block rules ---------- */
 
 export function summarizeBlock(node: PMNode): BlockSummary {
@@ -340,7 +393,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
         }
       }
     }
-    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, findings };
+    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, blanks: [], findings };
   }
 
   const { text, offsets } = blockChars(node);
@@ -441,7 +494,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
 
   findings.push(...contrastFindings(node, headingLevel));
 
-  return { text, headingLevel, links, figure: null, findings };
+  return { text, headingLevel, links, figure: null, blanks: formBlanks(node, text, offsets), findings };
 }
 
 /* ---------- cross-block rules ---------- */
@@ -518,6 +571,30 @@ export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[]
       snippet: '',
       hint: 'Mark section headings',
       anchor: { kind: 'document' },
+    });
+  }
+
+  // form-blank: one question per document, not one card per blank — how the
+  // document will be filled in is a single decision. Anchored at the first blank.
+  // ponytail: only the first blank is decorated. Upgrade trigger: users asking
+  // to step through every blank.
+  let blankCount = 0;
+  let firstBlank: { entry: BlockEntry; from: number; to: number } | null = null;
+  for (const e of entries) {
+    if (!e.summary.blanks.length) continue;
+    blankCount += e.summary.blanks.length;
+    firstBlank ??= { entry: e, ...e.summary.blanks[0]! };
+  }
+  if (firstBlank) {
+    out.push({
+      ruleId: 'form-blank',
+      severity: 'manual',
+      criterion: crit('form-blank'),
+      title: `Document has ${blankCount} fill-in blank${blankCount === 1 ? '' : 's'}`,
+      explanation: 'Screen readers announce a blank as a run of underscores, or not at all, and it cannot be filled in on screen. If people must complete this digitally, it needs real labelled form fields in the final file. If it is for printing, say so near the form and offer an accessible way to respond, such as a phone number or email address.',
+      snippet: '',
+      hint: 'Decide how it will be filled in',
+      anchor: { kind: 'docRange', from: firstBlank.entry.pos + 1 + firstBlank.from, to: firstBlank.entry.pos + 1 + firstBlank.to },
     });
   }
 
