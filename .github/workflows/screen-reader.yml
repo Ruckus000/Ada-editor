@@ -105,8 +105,8 @@ jobs:
       - name: Guidepup setup
         id: guidepup
         continue-on-error: true
-        # Pinned to a commit: the action publishes no version tags.
-        uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+        # TEMPORARY (reverted before merge): force the first attempt to fail to prove the retry path.
+        run: exit 1
       - name: Wait before retrying Guidepup setup
         if: steps.guidepup.outcome == 'failure'
         run: |
