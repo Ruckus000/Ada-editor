@@ -142,7 +142,7 @@ export const SEEDS: SeedDoc[] = [
       header: 'Public Health Advisory',
       footer: 'Public Health Advisory — Page 1 of 1',
       blocks: [
-        { kind: 'figure', id: 'img-1', alt: 'map', label: 'affected area map' },
+        { kind: 'figure', id: 'img-1', alt: 'Map of the affected area along the river', label: 'affected area map' },
         { kind: 'paragraph', spans: ['See the areas marked in red for the affected area.'] },
         { kind: 'paragraph', spans: [{ text: 'https://city.example.gov/health/advisory/2026/update', link: 'https://city.example.gov/health/advisory/2026/update' }] },
       ],

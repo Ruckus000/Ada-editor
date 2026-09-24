@@ -10,11 +10,13 @@
  * table node) and `document-language` (no language field exists in the data
  * model; the spike itself flagged it as noise).
  *
- * Three rules are engine-only, added after the port: `document-no-headings`
+ * Four rules are engine-only, added after the port: `document-no-headings`
  * closes the gap `document-no-h1` leaves (a document with no headings at all),
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
  * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
- * `form-blank` finds fill-in blanks, of which the corpus has none.
+ * `form-blank` finds fill-in blanks, of which the corpus has none;
+ * `img-long-description` asks whether a chart, map or diagram needs more than
+ * its alt text, and the parity gate pins its three corpus firings.
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -35,6 +37,8 @@ import { schema } from '../_editor/editorSchema';
 import {
   COLOUR_REFERENCE,
   COLOUR_WORDS,
+  COMPLEX_IMAGE,
+  DESCRIPTION_POINTER,
   GENERIC_LINK_TEXT,
   REDUNDANT_ALT_PREFIX,
   collapseSpaces,
@@ -72,6 +76,7 @@ export interface RuleInfo {
 export const RULES: readonly RuleInfo[] = [
   { id: 'img-alt-missing', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
   { id: 'img-alt-suspicious', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
+  { id: 'img-long-description', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
   { id: 'link-text-generic', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
   { id: 'link-text-raw-url', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
   { id: 'link-text-ambiguous', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
@@ -385,6 +390,27 @@ export function summarizeBlock(node: PMNode): BlockSummary {
             explanation: `"${trimmed}" may not convey what the image shows. Only you can tell.`,
             snippet: trimmed,
             hint: 'Confirm it describes the image',
+            anchor: { kind: 'figure', figureId: id },
+          });
+        } else if (COMPLEX_IMAGE.test(trimmed) && !DESCRIPTION_POINTER.test(trimmed)) {
+          // Last in the chain on purpose: one alt-text question per image at a
+          // time, so "map" is asked "does this describe it?" first. Alt text
+          // that already says "details below" has answered the question.
+          // ponytail: ceiling = the alt must name the kind of image. The .docx
+          // importer already recognises Word's native charts and SmartArt
+          // (PICTURE_TAGS) but figures don't store it; upgrade when an imported
+          // chart's alt text doesn't say "chart".
+          findings.push({
+            ruleId: 'img-long-description',
+            severity: 'manual',
+            criterion: crit('img-long-description'),
+            title: `Does this ${label} need a long description?`,
+            explanation:
+              'Alt text can name a chart, map or diagram but can’t carry its data, routes or trends. ' +
+              'If readers need those details, describe them in a paragraph or table next to the image, ' +
+              'and mention it in the alt text (for example, “details below”).',
+            snippet: trimmed,
+            hint: 'Decide on a long description',
             anchor: { kind: 'figure', figureId: id },
           });
         }

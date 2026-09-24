@@ -46,6 +46,11 @@ function baseId(f: RawFinding): string {
   if (f.ruleId === 'img-alt-missing' && f.anchor.kind === 'figure') {
     return `img-alt-${f.anchor.figureId}`;
   }
+  // Keyed on the image, not its alt: the finding tells the author to edit the
+  // alt ("details below"), and following that advice must not undo a dismissal.
+  if (f.ruleId === 'img-long-description' && f.anchor.kind === 'figure') {
+    return `${f.ruleId}:${f.anchor.figureId}`;
+  }
   // A contrast finding is about the text AND its colours: a dismissal made at
   // 3.96:1 must not keep hiding the same text recoloured to 1.2:1.
   if (f.ruleId === 'contrast-minimum' && f.original) return `${f.ruleId}:${f.snippet}|${f.original}`;

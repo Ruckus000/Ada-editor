@@ -30,6 +30,15 @@ export const COLOUR_WORDS = /\b(red|green|blue|yellow|orange|purple|pink|grey|gr
 export const COLOUR_REFERENCE = /\b(the|in|marked|shown|highlighted|coloured|colored|see)\s+\w{0,12}\s*(red|green|blue|yellow|orange|purple|pink)\b/i;
 
 export const REDUNDANT_ALT_PREFIX = /^\s*(image|picture|photo|graphic|icon|screenshot)\s+(of|showing)\s+/i;
+/** Alt text naming an image whose details rarely fit in alt text (WCAG G74).
+ *  Whole words only: "graphic", "photograph" and "roadmap" are not charts. */
+export const COMPLEX_IMAGE = /\b(chart|graph|diagram|map|infographic|flowchart|schematic)s?\b/i;
+/** Alt text that already points to a long description nearby (G74's own
+ *  instruction): "details below", "described in the text". A bare "below" is
+ *  not enough: "Map of parcels below the dam" still needs asking.
+ *  ponytail: a few phrasings; widen when an author's pointer ("see the table
+ *  that follows") goes unrecognised. */
+export const DESCRIPTION_POINTER = /\b(described|(details|description|see)\s+below)\b/i;
 
 /** What the spike's `text(node)` did to extracted text. */
 export const collapseSpaces = (s: string): string => s.replace(/\s+/g, ' ').trim();

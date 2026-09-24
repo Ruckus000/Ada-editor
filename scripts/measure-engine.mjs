@@ -50,6 +50,7 @@ const RL_LIST_ITEMS = { holds: 'superset', text: 'Engine grades tight-list-item 
 const LS_DUPLICATE = { holds: 'subset', text: 'The spike\'s \'p,li\' long-sentence selector matched both the inner <p> of a loose list item and its <li> (identical textContent), double-counting the same sentence. The engine flags each paragraph once; the spike extras are duplicates, verified side by side.' };
 const LS_CONCAT = { holds: 'subset', text: 'The spike measured <li> textContent, which concatenates nested list items and fenced-code blocks inside the item into cross-block "sentences" that exist in no reader\'s experience. The engine evaluates each paragraph; the spike extras are concatenation artifacts, verified against the source.' };
 const NH_ENGINE_ONLY = { holds: 'superset', text: 'document-no-headings is an engine-only rule, added after the spike to close the gap document-no-h1 leaves (it needs at least one heading), so the spike has nothing to agree with. .rst is ingested as plain text by design, so this README really is a many-paragraph document with no headings as checked. Pinned per document: the rule firing anywhere else in the corpus is still a divergence.' };
+const LD_ENGINE_ONLY = { holds: 'superset', text: 'img-long-description is an engine-only rule (a Needs-your-call question when alt text names a chart, map or diagram), so the spike has nothing to agree with. These three images really are graphs of repository traffic, clones and contributors — exactly the question the rule asks. Pinned per document: the rule firing anywhere else in the corpus is still a divergence.' };
 const HE_LOGO = { holds: 'subset', text: 'Logo-only heading (`# ![WICG Logo](...)`): DOM textContent cannot see alt attributes, so the spike called the h1 empty. A heading whose image carries alt text IS announced by screen readers — the spike finding was a false positive; the engine is right to stay silent.' };
 
 const ALLOWLIST = [
@@ -67,6 +68,7 @@ const ALLOWLIST = [
   { doc: 'bootstrap-readme.md', rule: 'reading-level', spike: 1, engine: 2, reason: RL_LIST_ITEMS },
   { doc: 'eslint-readme.md', rule: 'reading-level', spike: 9, engine: 11, reason: RL_LIST_ITEMS },
   { doc: 'django-readme.rst', rule: 'document-no-headings', spike: 0, engine: 1, reason: NH_ENGINE_ONLY },
+  { doc: 'opensource-guide-metrics.md', rule: 'img-long-description', spike: 0, engine: 3, reason: LD_ENGINE_ONLY },
 ];
 
 /* ---------- bundle the TS engine ---------- */
