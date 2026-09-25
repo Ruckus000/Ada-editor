@@ -39,6 +39,7 @@ export function useSyncStatus(): SyncStatus {
 let timer: ReturnType<typeof setTimeout> | undefined;
 let inFlight: Promise<void> | null = null;
 let loadedUid: string | null = null;
+let loading: { uid: string; promise: Promise<void> } | null = null;
 
 function schedulePush(delay = PUSH_DELAY): void {
   clearTimeout(timer);
@@ -90,17 +91,24 @@ function push(): Promise<void> {
  * account (nothing on the server) gets the sample documents. Throws when the
  * server can't be reached; the caller decides whether the cache is enough.
  */
-export async function loadAccount(uid: string): Promise<void> {
+export function loadAccount(uid: string): Promise<void> {
   const client = getClient();
-  if (!client || loadedUid === uid) return;
-  setStoreUser(uid);
-  onDocsDirty(() => schedulePush());
-  const { data, error } = await client.from('documents').select(COLUMNS);
-  if (error) throw error;
-  applyPulled(data);
-  if (data.length === 0) seedAccount();
-  loadedUid = uid;
-  await push();
+  if (!client || loadedUid === uid) return Promise.resolve();
+  // A second caller mid-load (a quick navigation, Strict Mode's double effect)
+  // shares the pull instead of running it — and the seeding — twice.
+  if (loading?.uid === uid) return loading.promise;
+  const promise = (async () => {
+    setStoreUser(uid);
+    onDocsDirty(() => schedulePush());
+    const { data, error } = await client.from('documents').select(COLUMNS);
+    if (error) throw error;
+    applyPulled(data);
+    if (data.length === 0) seedAccount();
+    loadedUid = uid;
+    await push();
+  })().finally(() => { loading = null; });
+  loading = { uid, promise };
+  return promise;
 }
 
 /** Resolves false when edits never reached the server and the person chose
