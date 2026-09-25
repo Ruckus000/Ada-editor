@@ -35,6 +35,10 @@ const TMP = resolve(HERE, '.parity-bundle.mjs');
 const VERBOSE = process.argv.includes('--verbose');
 
 /** §5: not ported — no table node in the schema, no language field in the model. */
+// The spike's document-language ("no language declared") can't happen in the
+// engine, where every document has one; the engine's rule of that id instead
+// checks the declared language against the text, and the English corpus is
+// English, so it fires zero times there.
 const DEFERRED = new Set(['table-no-header', 'document-language']);
 
 /**

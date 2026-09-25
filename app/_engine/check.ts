@@ -8,7 +8,7 @@
  * Two performance guarantees from §9 are load-bearing here, not optional:
  * - Per-textblock memoization (§9.1): ProseMirror keeps untouched nodes
  *   reference-identical across edits, so a WeakMap keyed on the node object
- *   turns every unchanged block into a cache hit. The memo stores block-
+ *   (one per document language) turns every unchanged block into a cache hit. The memo stores block-
  *   RELATIVE offsets; the live walk supplies absolute positions, because
  *   positions shift on edits elsewhere while node identity doesn't.
  * - Identity preservation (§9.4): unchanged findings keep their object, an
@@ -19,11 +19,14 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { Anchor, EditorFinding } from '../_editor/findings';
 import { dismissKeyOf } from '../_editor/findings';
 import type { BlockEntry, BlockSummary, RawFinding } from './rules';
+import { documentLanguage } from '../_editor/editorSchema';
 import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock } from './rules';
-import { languageName } from './textHelpers';
+import { languageName, primaryTag } from './textHelpers';
 
-/** Cached per-block rule results, keyed by node identity (§9.1). */
-const blockMemo = new WeakMap<PMNode, BlockSummary>();
+/** Cached per-block rule results, keyed by node identity (§9.1), one cache
+ *  per document language: a block's language findings and which rules run
+ *  depend on it, and a document's language rarely changes. */
+const blockMemo = new Map<string, WeakMap<PMNode, BlockSummary>>();
 
 const EXCERPT_MAX = 60;
 
@@ -87,13 +90,17 @@ const excerptOf = (snippet: string): string =>
  * action, so they never flag a sentence still being typed (§8.1).
  */
 export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFinding[] {
+  const pageLang = documentLanguage(doc);
+  const key = primaryTag(pageLang);
+  let memo = blockMemo.get(key);
+  if (!memo) blockMemo.set(key, (memo = new WeakMap()));
   const entries: BlockEntry[] = [];
   doc.descendants((node, pos) => {
     if (!isCheckableBlock(node)) return true;
-    let summary = blockMemo.get(node);
+    let summary = memo.get(node);
     if (!summary) {
-      summary = summarizeBlock(node);
-      blockMemo.set(node, summary);
+      summary = summarizeBlock(node, pageLang);
+      memo.set(node, summary);
     }
     entries.push({ pos, contentSize: node.content.size, summary });
     // Inline children carry nothing the block summary hasn't already seen.
@@ -107,7 +114,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       raw.push({ finding: f, blockPos: e.pos });
     }
   }
-  for (const f of crossBlockFindings(entries)) {
+  for (const f of crossBlockFindings(entries, pageLang)) {
     if (!opts.prose && PROSE_RULE_IDS.has(f.ruleId)) continue;
     raw.push({ finding: f, blockPos: -1 });
   }
@@ -173,6 +180,8 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
         out.suggestion = 'default colours';
       } else if (f.fix.kind === 'lang') {
         out.original = f.snippet;
+        out.suggestion = languageName(f.fix.lang);
+      } else if (f.fix.kind === 'docLang') {
         out.suggestion = languageName(f.fix.lang);
       }
     }

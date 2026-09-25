@@ -190,15 +190,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 16 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 16, 'rule count');
-  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
+check('RULES ports the 17 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 17, 'rule count');
+  deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'contrast-minimum', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
+    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level',
   ], 'rule ids');
@@ -722,7 +722,7 @@ check('languageRuns names each of the 15 tagline languages and stays quiet on En
     ja: '注意事項：日本語を話される場合、無料の言語支援をご利用いただけます。1-888-555-0100 まで、お電話にてご連絡ください。',
     fa: 'توجه: اگر به زبان فارسی گفتگو می کنید، تسهیلات زبانی بصورت رایگان برای شما فراهم می باشد. با 1-888-555-0100 تماس بگیرید.',
   };
-  deepEq(mod.textHelpers.LANGUAGES.slice(0, 15).map((l) => l.code).sort(), Object.keys(TAGLINES).sort(), 'the menu leads with the 15');
+  deepEq(mod.textHelpers.LANGUAGES.slice(1, 16).map((l) => l.code).sort(), Object.keys(TAGLINES).sort(), 'the menu leads with English, then the 15');
   for (const [code, tagline] of Object.entries(TAGLINES)) {
     const runs = languageRuns(tagline);
     eq(runs.length, 1, `${code}: one passage`);
@@ -793,7 +793,7 @@ check('languageRuns reads the other alphabets: named when one language uses it, 
     deepEq(languageRuns(sample).map((r) => r.lang), ['unknown'], `${code}: flagged without a name`);
   }
   // Every menu language is either named by the detector or shares an alphabet.
-  const named = new Set(['es', 'zh', 'vi', 'ko', 'tl', 'ru', 'ar', 'ht', 'fr', 'pl', 'pt', 'it', 'de', 'ja', 'fa', ...Object.keys(OTHER_ALPHABETS)]);
+  const named = new Set(['en', 'es', 'zh', 'vi', 'ko', 'tl', 'ru', 'ar', 'ht', 'fr', 'pl', 'pt', 'it', 'de', 'ja', 'fa', ...Object.keys(OTHER_ALPHABETS)]);
   deepEq(LANGUAGES.map((l) => l.code).filter((c) => !named.has(c)).sort(), ['am', 'hi', 'mr', 'ne', 'ti'], 'the rest share Devanagari or Ethiopic');
   // A name's worth of any alphabet stays quiet: uncased ones by word count,
   // cased ones because a name has no lower-case word, unspaced ones by length.
@@ -854,7 +854,7 @@ check('lang mark: paste keeps a language, the export writes it, Clear formatting
   const parse = (html) => PMDOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body);
   // What a paste leaves: the parse, then transformPasted's withoutPageLanguage on each text node.
   const { withoutPageLanguage } = mod;
-  const langsIn = (d) => { const out = []; d.descendants((n) => { if (!n.isText) return; const m = M.lang.isInSet(withoutPageLanguage(n).marks); out.push(`${n.text}=${m ? m.attrs.lang : '-'}`); }); return out.filter((x) => !x.endsWith('=-')); };
+  const langsIn = (d) => { const out = []; d.descendants((n) => { if (!n.isText) return; const m = M.lang.isInSet(withoutPageLanguage(n, 'en').marks); out.push(`${n.text}=${m ? m.attrs.lang : '-'}`); }); return out.filter((x) => !x.endsWith('=-')); };
   deepEq(langsIn(parse('<p>Say <span lang="fr">bonjour à tous</span>.</p>')), ['bonjour à tous=fr'], 'span lang');
   const block = parse('<p lang="es">Llame al 311.</p>');
   eq(block.firstChild.type.name, 'paragraph', '<p lang> stays a paragraph');
@@ -882,6 +882,107 @@ check('lang mark: paste keeps a language, the export writes it, Clear formatting
   // A stored document is unvalidated JSON: a non-string tag must not reach languageName.
   const tampered = EditorState.create({ doc: schema.nodeFromJSON({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'lang', attrs: { lang: 5 } }] }] }] }) });
   eq(formatState(tampered.apply(tampered.tr.setSelection(TextSelection.create(tampered.doc, 1, 2)))).lang, '', 'a non-string tag reads as none');
+});
+
+/* ---------- document language (3.1.1) ---------- */
+
+const docIn = (lang, ...blocks) => N.doc.create({ lang }, blocks);
+const SPANISH = [
+  'Si necesita ayuda con su solicitud, llame al 311 de lunes a viernes.',
+  'Los servicios de asistencia lingüística están disponibles para usted sin costo alguno.',
+];
+
+check('languageRuns judges against the document\'s own language', () => {
+  const { languageRuns } = mod.textHelpers;
+  const mixed = 'Para información en español, llame al 311. For help in English, call 311 from any phone.';
+  deepEq(languageRuns(mixed, 'es').map((r) => [r.lang, mixed.slice(r.from, r.to)]),
+    [['en', 'For help in English, call 311 from any phone']], 'in a Spanish document, English is the change');
+  deepEq(languageRuns(mixed, 'en').map((r) => r.lang), ['es'], 'in an English one, Spanish is');
+  deepEq(languageRuns('我们为您提供免费的语言援助服务。', 'zh'), [], 'Chinese in a Chinese document');
+  deepEq(languageRuns('無料の言語支援をご利用いただけます。', 'zh').map((r) => r.lang), ['ja'], 'Japanese kana in a Chinese document');
+  deepEq(languageRuns('ध्यान दें: यदि आप हिंदी बोलते हैं तो आपके लिए मुफ्त में भाषा सहायता सेवाएं उपलब्ध हैं।', 'hi'), [],
+    'Devanagari in a Hindi document');
+  deepEq(languageRuns('Llame al 311 para ayuda.', 'es-MX'), [], 'a regional tag is its language');
+});
+
+check('document-language: a document mostly in another language asks once, with a fix', () => {
+  const { checkDocument } = mod.check;
+  const ids = (d, prose = true) => checkDocument(d, { prose }).map((f) => f.id);
+  const spanishDoc = docIn('en', heading(1, 'Aviso'), ...SPANISH.map((t) => para(t)));
+  const [f] = checkDocument(spanishDoc, { prose: true }).filter((x) => x.id === 'document-language');
+  eq(f.title, 'Document language is English, but most of it reads as Spanish', 'title names both');
+  eq(f.severity, 'manual', 'a guess, so the author decides');
+  eq(f.criterion, '3.1.1 Language of Page', 'criterion');
+  deepEq(f.fix, { kind: 'docLang', lang: 'es' }, 'one-click fix');
+  eq(f.suggestion, 'Spanish', 'the card says what Apply does');
+  deepEq(f.anchor, { kind: 'document' }, 'about the document');
+  eq(ids(spanishDoc).filter((id) => id.startsWith('language-of-parts')).length, 0, 'its passages are not listed one by one');
+  eq(ids(spanishDoc, false).includes('document-language'), false, 'prose-gated');
+  // Set to Spanish, the same text is quiet.
+  eq(ids(docIn('es', heading(1, 'Aviso'), ...SPANISH.map((t) => para(t)))).filter((id) => id.startsWith('document-language') || id.startsWith('language-of-parts')).length,
+    0, 'declared right, nothing to say');
+  // Too little to say what the document is in: passage questions only.
+  const short = ids(docIn('en', para('Llame al 311 para ayuda.')));
+  eq(short.includes('document-language'), false, 'under 80 letters');
+  eq(short.some((id) => id.startsWith('language-of-parts')), true, 'the passage is still asked about');
+  // An evenly bilingual notice isn't "mostly" anything (two thirds is).
+  const bilingual = ids(docIn('en',
+    para('If you need help with your application, call 311 from Monday to Friday.'),
+    para('Language assistance services are available to you at no cost at the front desk.'),
+    ...SPANISH.map((t) => para(t))));
+  eq(bilingual.includes('document-language'), false, 'half and half');
+  // Unvalidated stored JSON: a bad language reads as English.
+  for (const bad of [5, 'x<y', 'und']) {
+    const d = schema.nodeFromJSON({ type: 'doc', attrs: { lang: bad }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }] });
+    eq(mod.documentLanguage(d), 'en', `lang ${JSON.stringify(bad)} reads as English`);
+  }
+  // The same block node, checked in an English and then a Spanish document:
+  // the per-language memo must not hand back the English answer.
+  const english = para('For help in English, call 311 from any phone.');
+  eq(ids(docIn('en', english)).some((id) => id.startsWith('language-of-parts')), false, 'English in English');
+  eq(ids(docIn('es', english)).some((id) => id.startsWith('language-of-parts')), true, 'the same node in a Spanish document');
+});
+
+check('the English-only checks run on English documents only', () => {
+  const { checkDocument } = mod.check;
+  const blocks = () => [
+    heading(1, 'Notice'),
+    // One sentence of 44 words: reading level and sentence length both fire.
+    para('Applicants must furnish documentation substantiating residency prior to the aforementioned deadline, notwithstanding any prior determination issued by the commission to the contrary in this particular matter, and all such documentation must be submitted in person at the municipal office during regular business hours.'),
+    para('For shelter locations, ', text('click here', link('https://city.example.gov/shelter')), '.'),
+    para('See the areas marked in red for the affected area.'),
+    figure('img-1', 'Map of the affected area', 'map'),
+    figure('img-2', 'Image of a site plan', 'plan'),
+    figure('img-3', 'map', 'map'),
+    figure('img-4', 'siteplan_map.png', 'plan'),
+  ];
+  const ENGLISH_ONLY = ['reading-level', 'long-sentence', 'link-text-generic', 'colour-only-reference', 'img-long-description'];
+  const rulesIn = (lang) => checkDocument(docIn(lang, ...blocks()), { prose: true }).map((f) => f.id);
+  const en = rulesIn('en');
+  for (const rule of ENGLISH_ONLY) assert(en.some((id) => id.startsWith(rule)), `${rule} fires in an English document`);
+  eq(en.filter((id) => id.startsWith('img-alt-suspicious')).length, 3, 'prefix, terse and filename alt in English');
+  const es = rulesIn('es');
+  for (const rule of ENGLISH_ONLY) eq(es.some((id) => id.startsWith(rule)), false, `${rule} is off in a Spanish document`);
+  deepEq(es.filter((id) => id.startsWith('img-alt-suspicious')), ['img-alt-suspicious:siteplan_map.png'], 'a filename is a filename in any language');
+});
+
+check('the export and paste follow the document\'s language', () => {
+  const page = (d) => parseHTML(mod.exportHtml.exportHtml(d, { title: 't', header: '', footer: '' },
+    parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document)).document;
+  const es = page(docIn('es', para('Llame al 311. ', text('Call 311.', [M.lang.create({ lang: 'en' })]))));
+  eq(es.documentElement.getAttribute('lang'), 'es', 'the page is Spanish');
+  eq(es.documentElement.hasAttribute('dir'), false, 'left to right by default');
+  const en = es.querySelector('main span[lang="en"]');
+  eq(en?.textContent, 'Call 311.', 'English inside it is marked');
+  eq(en?.getAttribute('dir'), 'ltr', 'and isolated, so its punctuation stays put');
+  const ar = page(docIn('ar', para('مرحبا')));
+  eq(ar.documentElement.getAttribute('lang'), 'ar', 'an Arabic page');
+  eq(ar.documentElement.getAttribute('dir'), 'rtl', 'reads right to left');
+  // Paste into a Spanish document: its own language is no mark, English is.
+  const { withoutPageLanguage } = mod;
+  const marked = (lang) => M.lang.isInSet(withoutPageLanguage(text('x', [M.lang.create({ lang })]), 'es').marks)?.attrs.lang ?? null;
+  eq(marked('es-MX'), null, 'the document\'s language is dropped');
+  eq(marked('en'), 'en', 'English is kept');
 });
 
 /* ---------- false-positive floor ---------- */
@@ -1444,6 +1545,38 @@ await acheck('import: Word colours and sizes arrive as marks, so contrast is che
   // #888888 is 3.54:1: it passes at 24pt (large text, 3:1) and fails at 11pt.
   deepEq(flagged, ['contrast-minimum:grey on white|#999999 on #ffffff', 'contrast-minimum:on light gray highlight|#767676 on #c0c0c0',
     'contrast-minimum:shaded|#5e6c84 on #cce0ff', 'contrast-minimum:small grey|#888888 on #ffffff'], 'size decides for #888888');
+});
+
+await acheck('import: the document takes the language most of its text is in', async () => {
+  const L = (attrs) => `<w:lang ${attrs}/>`;
+  const DEFAULTS = (attrs) => `<w:docDefaults><w:rPrDefault><w:rPr>${L(attrs)}</w:rPr></w:rPrDefault></w:docDefaults>`;
+  const langsIn = (d) => { const out = []; d.descendants((n) => { if (n.isText) out.push(M.lang.isInSet(n.marks)?.attrs.lang ?? '-'); }); return out; };
+  // A Spanish template: the default language is Spanish, so nothing is marked.
+  const spanish = await importDocx(docx({
+    styles: DEFAULTS('w:val="es-ES"'),
+    body: [P(R('Si necesita ayuda, llame al 311.')), P(R('Los servicios son gratuitos.'))].join(''),
+  }), 'x.docx', parseXml);
+  eq(spanish.content.attrs.lang, 'es-ES', 'docDefaults');
+  deepEq(langsIn(spanish.content), ['-', '-'], 'its own language is no mark');
+  // Spanish typed on English-default Word: every run says es-MX, the default en-US.
+  const typed = await importDocx(docx({
+    styles: DEFAULTS('w:val="en-US"'),
+    body: [
+      P(R('Si necesita ayuda con su solicitud, llame al 311.', L('w:val="es-MX"'))),
+      P(R('Los servicios de asistencia son gratuitos.', L('w:val="es-MX"'))),
+      P(R('Welcome')),
+    ].join(''),
+  }), 'x.docx', parseXml);
+  eq(typed.content.attrs.lang, 'es-MX', 'most of the letters are Spanish');
+  deepEq(langsIn(typed.content), ['-', '-', 'en-US'], 'the English run keeps the language Word gave it');
+  // Numbers and punctuation are no language: an Arabic file's "2024" is not English.
+  const digits = await importDocx(docx({
+    body: P(R('مرحبا بكم في المكتبة العامة', L('w:val="en-US" w:bidi="ar-SA"')) + R(' 2024', L('w:val="en-US"'))),
+  }), 'x.docx', parseXml);
+  eq(digits.content.attrs.lang, 'ar-SA', 'an Arabic file');
+  deepEq(langsIn(digits.content), ['-'], 'its year is not marked English');
+  // No language anywhere in the file: English, as before.
+  eq((await importDocx(docx({ body: P(R('Hello')) }), 'x.docx', parseXml)).content.attrs.lang, 'en', 'untagged is English');
 });
 
 await acheck('import: Word run languages arrive as lang marks, by the characters in the run', async () => {

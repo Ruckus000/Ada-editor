@@ -96,11 +96,13 @@ export function sentenceSpans(text: string): SentenceSpan[] {
 
 /* ---------- language of parts (WCAG 3.1.2) ---------- */
 
-/** The Language menu, and every language the detector can name: the 15 HHS
- *  requires taglines for (Section 1557 notices), in its order, then the
- *  languages of the other alphabets the detector reads (SCRIPTS), including
- *  those that share one, so a flagged passage can always be marked. */
+/** The Language menus, and every language the detector can name: English,
+ *  the 15 HHS requires taglines for (Section 1557 notices), in its order, then
+ *  the languages of the other alphabets the detector reads (SCRIPTS),
+ *  including those that share one, so a flagged passage can always be marked
+ *  and a document can be in any of them. */
 export const LANGUAGES: readonly { code: string; name: string }[] = [
+  { code: 'en', name: 'English' },
   { code: 'es', name: 'Spanish' }, { code: 'zh', name: 'Chinese' }, { code: 'vi', name: 'Vietnamese' },
   { code: 'ko', name: 'Korean' }, { code: 'tl', name: 'Tagalog' }, { code: 'ru', name: 'Russian' },
   { code: 'ar', name: 'Arabic' }, { code: 'ht', name: 'Haitian Creole' }, { code: 'fr', name: 'French' },
@@ -116,34 +118,43 @@ export const LANGUAGES: readonly { code: string; name: string }[] = [
   { code: 'ur', name: 'Urdu' },
 ];
 
-const primaryTag = (tag: string): string => tag.split('-')[0]!.toLowerCase();
+/** "es-MX" → "es"; the three-letter "eng" is English too. */
+export const primaryTag = (tag: string): string => {
+  const primary = tag.split('-')[0]!.toLowerCase();
+  return primary === 'eng' ? 'en' : primary;
+};
 
 /** "es-MX" → "Spanish"; a tag outside the list is shown as itself. */
 export const languageName = (tag: string): string =>
   LANGUAGES.find((l) => l.code === primaryTag(tag))?.name ?? tag;
 
 const LANG_TAG = /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i;
-// English in its two- and three-letter forms, "undetermined" and "no linguistic content".
-const NOT_FOREIGN: ReadonlySet<string> = new Set(['en', 'eng', 'und', 'zxx']);
+// "Undetermined" and "no linguistic content" name no language.
+const NO_LANGUAGE: ReadonlySet<string> = new Set(['und', 'zxx']);
 
-/** A well-formed BCP 47 tag, English included. */
+/** A well-formed BCP 47 tag, whatever it names. */
 export const isLangTag = (tag: string): boolean => LANG_TAG.test(tag);
 
-/**
- * A well-formed BCP 47 tag for a language other than the page's.
- * ponytail: every page is English (exportHtml sets lang="en"), so English is
- * never a change of language; compare with the document's own language once
- * documents have one (the deferred 3.1.1 work).
- */
-export const isForeignLangTag = (tag: string): boolean =>
-  LANG_TAG.test(tag) && !NOT_FOREIGN.has(primaryTag(tag));
+/** A well-formed tag that names a language. */
+export const isUsableLangTag = (tag: string): boolean => LANG_TAG.test(tag) && !NO_LANGUAGE.has(primaryTag(tag));
+
+/** A usable tag for a language other than the page's (`pageLang`). */
+export const isForeignTo = (tag: string, pageLang: string): boolean =>
+  isUsableLangTag(tag) && primaryTag(tag) !== primaryTag(pageLang);
+
+// Written right to left: Arabic script (Arabic, Persian, Urdu, Pashto, Sindhi,
+// Uyghur), Hebrew script (Hebrew, Yiddish), Thaana (Dhivehi) and Syriac.
+const RTL: ReadonlySet<string> = new Set(['ar', 'fa', 'ur', 'ps', 'sd', 'ug', 'he', 'yi', 'dv', 'syr']);
+export const isRtlLanguage = (tag: string): boolean => RTL.has(primaryTag(tag));
 
 const wordSet = (s: string): ReadonlySet<string> => new Set(s.split(' '));
 
-// Common words, lower-cased. No list holds an English word ("son", "pour",
-// "die", "per", "non", "ale", "pale" …), and name particles are ignored
-// outright, so "Maria de la Cruz" or "Van der Berg" reads as nobody's language.
-const ENGLISH = wordSet('the and of to is are was were be been for with that this it you your we our they their a an in on at as by from or not have has will can if which who what when there here would should may must does');
+// Common words, lower-cased. No other list holds an English word ("son",
+// "pour", "die", "per", "non", "ale", "pale" …), and name particles are
+// ignored outright, so "Maria de la Cruz" or "Van der Berg" reads as nobody's
+// language. English is a candidate like the rest: in a Spanish document an
+// English passage is the change of language.
+const ENGLISH = wordSet('the and of to is are was were be been for with that this it you your we our they their a an in on at as by from or not have has will can if which who what when there here would should may must does call help free language services please information available contact');
 const NAME_PARTICLES = wordSet('de del la le du da di van von der den dos das do');
 // ponytail: about 25–40 words per language, weighted toward the phrasing of
 // language-assistance taglines. Upgrade trigger: a real passage the detector
@@ -159,6 +170,8 @@ const LATIN: readonly [string, ReadonlySet<string>][] = [
   ['de', wordSet('und ist sind nicht für auf ein eine einen dem zu wenn oder auch ich wir ihr sich werden kann können bei nach über zur zum noch nur wie sprechen stehen kostenlos sprachliche hilfsdienstleistungen verfügung rufen achtung deutsch')],
   ['vi', wordSet('của và các là có không được cho bạn nếu tiếng việt những này người một với dịch vụ hỗ trợ ngôn ngữ miễn phí dành gọi số chú ý nói trong khi để đến về')],
 ];
+
+const CANDIDATES: readonly [string, ReadonlySet<string>][] = [...LATIN, ['en', ENGLISH]];
 
 interface Guess { lang: string; strong: boolean }
 
@@ -271,12 +284,16 @@ export const LISTED_ALPHABET_LANGUAGES: ReadonlySet<string> =
  * is enough to flag on its own; a weak guess (a word or two, like "ATENCIÓN"
  * or "Llame al 311") only joins a strong neighbour of the same language.
  */
-function guessClause(clause: string): Guess | null {
+function guessClause(clause: string, pageLang: string): Guess | null {
   if (letterCount(clause, /\p{L}/gu) === 0) return null;
+  const page = primaryTag(pageLang);
   // Other alphabets: a majority of the letters, and more than a name's worth
-  // to stand alone (a name's worth may still join a passage beside it).
+  // to stand alone (a name's worth may still join a passage beside it). The
+  // page's own alphabet is no change of language.
+  // ponytail: so another language of the same alphabet (Russian in a
+  // Ukrainian document) isn't flagged. Upgrade trigger: one is reported.
   const alphabet = guessAlphabet(clause);
-  if (alphabet) return { lang: alphabet.lang, strong: alphabet.strong };
+  if (alphabet) return alphabet.family.includes(page) ? null : { lang: alphabet.lang, strong: alphabet.strong };
 
   // Latin alphabet: count common words. A capitalised word after the first is
   // a name, so it counts for no language; handles, emails, URLs and
@@ -284,23 +301,27 @@ function guessClause(clause: string): Guess | null {
   const tokens = clause.replace(/\bet al\b/gi, ' ').split(/\s+/)
     .filter((chunk) => !/[\d@/]|\p{L}\.\p{L}/u.test(chunk))
     .flatMap((chunk) => chunk.match(/\p{L}+/gu) ?? []);
-  let english = 0;
+  // The page's own language is the suppressor: its words say "no change".
+  let own = 0;
   const scores = new Map<string, number>();
   tokens.forEach((raw, i) => {
     if (i > 0 && /^\p{Lu}/u.test(raw)) return;
     const word = raw.toLowerCase();
     if (NAME_PARTICLES.has(word)) return;
-    if (ENGLISH.has(word)) english++;
-    for (const [lang, set] of LATIN) if (set.has(word)) scores.set(lang, (scores.get(lang) ?? 0) + 1);
+    for (const [lang, set] of CANDIDATES) {
+      if (!set.has(word)) continue;
+      if (lang === page) own++;
+      else scores.set(lang, (scores.get(lang) ?? 0) + 1);
+    }
   });
   const [best, next] = [...scores].sort((a, b) => b[1] - a[1]);
-  if (!best || best[1] <= english) return null;
+  if (!best || best[1] <= own) return null;
   const lang = next && next[1] === best[1] ? 'unknown' : best[0];
   if (tokens.length >= 3 && best[1] >= 2) return { lang, strong: true };
   // Weak is for a label or a fragment ("ATENCIÓN", "Llame al 311"), never a
   // sentence: "Los Angeles County provides free meals." must not join a
   // Spanish neighbour and be marked Spanish.
-  return english === 0 && lang !== 'unknown' && tokens.length <= 3 ? { lang, strong: false } : null;
+  return own === 0 && lang !== 'unknown' && tokens.length <= 3 ? { lang, strong: false } : null;
 }
 
 const CLAUSE_BREAK = /[:;()"“”«»—–]/;
@@ -319,12 +340,12 @@ export interface LanguageRun {
  * by one, so "Spanish-language help: Llame al 311 para ayuda." flags only the
  * Spanish; neighbouring clauses in the same language join into one passage.
  */
-export function languageRuns(text: string): LanguageRun[] {
+export function languageRuns(text: string, pageLang = 'en'): LanguageRun[] {
   const clauses: { from: number; to: number; guess: Guess | null }[] = [];
   const push = (from: number, to: number) => {
     while (from < to && EDGE.test(text[from]!)) from++;
     while (to > from && EDGE.test(text[to - 1]!)) to--;
-    if (from < to) clauses.push({ from, to, guess: guessClause(text.slice(from, to)) });
+    if (from < to) clauses.push({ from, to, guess: guessClause(text.slice(from, to), pageLang) });
   };
   for (const s of sentenceSpans(text)) {
     let start = s.from;
