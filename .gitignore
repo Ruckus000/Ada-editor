@@ -17,3 +17,7 @@ ds-bundle/
 .next/
 next-env.d.ts
 *.tsbuildinfo
+.env*.local
+.vercel
+.serena/
+.env*

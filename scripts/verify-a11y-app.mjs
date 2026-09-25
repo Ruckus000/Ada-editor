@@ -525,6 +525,11 @@ async function editor() {
   try {
     await runAxe(send, '');
     await checkTree(send, { contentTextbox: 'Document text' });
+    // SC 2.4.2: the tab names the open document. A server metadata title once
+    // silently outranked this one, so every document read "Document".
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Notice of Public Hearing — Draft · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    else note(`title: ${docTitle}`);
     const stops = await checkTabOrder(send);
     const toolbarStops = stops.filter((s) => /^(BUTTON|SELECT):(Font family|Bold|Italic|Heading 1)/.test(s)).length;
     if (toolbarStops > 1) fail(`TOOLBAR  ${toolbarStops} toolbar controls in the tab order; a toolbar is one tab stop`);
@@ -790,12 +795,42 @@ async function checkExport(send) {
   }
 }
 
+/* ---------- status screens ---------- */
+
+// One shared StatusScreen renders the error boundary (app/error.tsx), unknown
+// URLs (app/not-found.tsx) and missing documents. The error boundary has no
+// deterministic trigger in a production build, so it is covered through the
+// two screens that do: same component, same markup, same focus handling.
+async function statusScreens() {
+  for (const [path, title] of [['/editor/does-not-exist', 'Document not found'], ['/no-such-page', 'Page not found']]) {
+    page = path;
+    const { proc, ws, send } = await openPage(path);
+    try {
+      await runAxe(send, '');
+      await checkTree(send);
+      const focused = await evaluate(send, `document.activeElement?.tagName === 'H1' && document.activeElement.textContent`);
+      if (focused !== title) fail(`FOCUS  focus is not on the "${title}" heading (got ${JSON.stringify(focused)})`);
+      else note('focus lands on the heading');
+      const docTitle = await evaluate(send, `document.title`);
+      if (docTitle !== `${title} · Ada Editor`) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+      else note(`title: ${docTitle}`);
+      if (!(await focusByName(send, 'a', 'Back to all documents'))) fail('STATUS  no way back to all documents');
+      await checkTabOrder(send);
+      await checkReflow(send);
+      await checkForcedColors(send);
+    } finally {
+      await shutdown(send, ws, proc);
+    }
+  }
+}
+
 try {
   await dashboard();
   await upload();
   await triage();
   await language();
   await editor();
+  await statusScreens();
 } finally {
   server.kill();
 }
