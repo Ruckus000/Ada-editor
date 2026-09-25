@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import type { DocSummary } from '../_data/seed';
 import { loadDoc, seedIfEmpty } from '../_data/store';
 import type { StoredDoc } from '../_data/store';
+import { StatusScreen } from '../_status/StatusScreen';
 import { EditorScreen } from './EditorScreen';
 
 /**
@@ -26,19 +27,12 @@ export function EditorRoute() {
     setReady(true);
   }, [docId]);
 
-  useEffect(() => {
-    if (!ready) return;
-    document.title = stored ? `${stored.title} · Ada Editor` : 'Document not found · Ada Editor';
-  }, [ready, stored]);
-
-  if (!ready) return null;
+  if (!ready) return <title>Document · Ada Editor</title>;
   if (!stored) {
     return (
-      <main style={{ padding: 48, textAlign: 'center' }}>
-        <h1>Document not found</h1>
-        <p>No document with that id is stored in this browser.</p>
-        <Link href="/">Back to all documents</Link>
-      </main>
+      <StatusScreen title="Document not found" actions={<Link href="/">Back to all documents</Link>}>
+        No document with that id is stored in this browser.
+      </StatusScreen>
     );
   }
   const doc: DocSummary = {
@@ -50,5 +44,10 @@ export function EditorRoute() {
     lastChecked: '',
     order: 0,
   };
-  return <EditorScreen key={docId} doc={doc} stored={stored} />;
+  return (
+    <>
+      <title>{`${stored.title} · Ada Editor`}</title>
+      <EditorScreen key={docId} doc={doc} stored={stored} />
+    </>
+  );
 }

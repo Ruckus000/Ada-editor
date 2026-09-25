@@ -1,0 +1,44 @@
+/* Status screens (error, not found). Ada tokens only; class prefix `status-`
+ * because conventions reserve `ada-*` for the design system. Mirrors the
+ * dashboard's empty state: centred column, title, one sentence, the way out. */
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ada-space-3);
+  padding: var(--ada-space-6) var(--ada-space-5);
+  text-align: center;
+  color: var(--ada-text-primary);
+}
+
+.status__title {
+  margin: 0;
+  font-size: var(--ada-type-size-xl);
+  font-weight: 700;
+  line-height: var(--ada-type-line-height-tight);
+}
+
+.status__body {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--ada-text-secondary);
+}
+
+.status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ada-space-4);
+  margin-top: var(--ada-space-2);
+}
+
+.status__actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ada-target-comfortable);
+  color: var(--ada-focus-ring);
+}
+
+.status__actions a:hover { color: var(--ada-action-primary-bg); }
