@@ -22,16 +22,25 @@ product reports "ADA compliance" as a status.
 ## Current state
 
 Working prototype. The dashboard and editor screens are built from the design
-system, documents persist to localStorage, and every finding is computed by
+system, and every finding is computed by
 the **real checking engine**: seventeen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
 (the document's language, landmarks, headings and links intact; figures are still placeholders,
 and whatever the checker flags is still wrong in the export). **Upload .docx**
-imports an existing Word file in the browser (the file never leaves the device)
-and checks it like any other document; what the editor can't hold yet (tables,
-footnotes, decorative images) is listed on the document instead of dropped
-silently. There is no backend, no auth, no PDF output and no PDF upload yet.
+imports an existing Word file in the browser (the file itself is never
+uploaded) and checks it like any other document; what the editor can't hold yet
+(tables, footnotes, decorative images) is listed on the document instead of
+dropped silently. There is no PDF output and no PDF upload yet.
+
+**Accounts and storage.** People sign in with an emailed one-time code
+(Supabase Auth), and documents are saved to their account in Supabase
+(`supabase/migrations/`; row-level security keeps each account's documents to
+itself — `supabase/tests/rls.sql` checks it). The browser keeps a working copy,
+so typing never waits on the network and edits made offline sync when the
+connection returns. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
+set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
+documents in this browser's localStorage only, exactly as before accounts.
 
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused

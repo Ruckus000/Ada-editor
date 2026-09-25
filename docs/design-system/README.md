@@ -101,8 +101,8 @@ is silently inert without them.
 
 The token layer, the primitives, and both gates are complete and checked. The
 components typecheck under `strict`, render, and pass axe-core plus an
-accessibility-tree and keyboard audit. The application, the WCAG rule engine,
-persistence and auth do not exist.
+accessibility-tree and keyboard audit. The application built on them — rule
+engine, persistence and sign-in — is described in the root README.
 
 It has been run with a real screen reader — Orca 46.1, driven headlessly — which
 found and fixed a focus-management defect the automated gate had missed. NVDA,
