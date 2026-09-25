@@ -8,8 +8,9 @@ import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isUsableLangTag, primaryT
 /**
  * Import a .docx into the editor's document model, in the browser.
  *
- * The file never leaves the device: there is no backend, and a document
- * someone is checking for accessibility is often not public yet.
+ * The file itself is never uploaded — a document someone is checking for
+ * accessibility is often not public yet. Only the document built from it is
+ * saved: to this browser in local mode, to the signed-in account otherwise.
  *
  * The import is FAITHFUL, never repairing: a bold paragraph that looks like a
  * heading stays a paragraph, and a list typed with "•" and tabs stays text,

@@ -42,6 +42,8 @@ import type { FormatState } from './editorCommands';
 import { documentLanguage, withoutPageLanguage } from './editorSchema';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
+import { isCloud } from '../_data/supabase';
+import { useSyncStatus } from '../_data/sync';
 import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
@@ -621,6 +623,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             <span className={styles.statusDot} data-checking={checking} aria-hidden="true" />
             {checking ? 'Checking…' : 'Up to date'}
           </span>
+          {isCloud ? <SaveStatus /> : null}
           <span className={styles.avatar} aria-hidden="true">JD</span>
         </div>
       </header>
@@ -854,3 +857,20 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   );
 }
 
+
+/**
+ * Whether edits have reached the account. Every keystroke is already safe in
+ * this browser, so only the moves into and out of "not synced" are announced
+ * — announcing each save would talk over typing.
+ */
+function SaveStatus() {
+  const status = useSyncStatus();
+  const announce = useAnnounce();
+  const prev = useRef(status);
+  useEffect(() => {
+    if (status === 'unsynced' && prev.current !== 'unsynced') announce('Changes aren’t reaching your account. They’re kept in this browser and will sync when the connection is back.');
+    if (status === 'saved' && prev.current === 'unsynced') announce('Changes synced to your account.');
+    prev.current = status;
+  }, [status, announce]);
+  return <span className={styles.status}>{status === 'unsynced' ? 'Not synced — kept in this browser' : status === 'saving' ? 'Saving…' : 'Saved'}</span>;
+}
