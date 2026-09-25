@@ -769,6 +769,8 @@ async function checkExport(send) {
     if (!/^Exported hearing-notice\.html\. .*review/.test(said)) fail(`EXPORT  announcement must name the file and what remains (got ${JSON.stringify(said)})`);
     else note(`export announced: ${JSON.stringify(said)}`);
 
+    await checkPdfExport(send, dir);
+
     await send('Page.navigate', { url: pathToFileURL(join(dir, file)).href });
     await sleep(800);
     const page = await evaluate(send, `({ title: document.title, pwned: window.__pwned === 1, scripts: document.scripts.length, lang: document.documentElement.lang })`);
@@ -788,6 +790,61 @@ async function checkExport(send) {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// PDF export in the real app: PDFKit's browser build and the fonts served
+// from public/ (scripts/verify-pdf.mjs validates the file itself against
+// PDF/UA-1). Then a document the font can't draw: refused, visibly and aloud.
+async function checkPdfExport(send, dir) {
+  if (!(await focusByName(send, 'button', 'Export PDF'))) { fail('PDF  no Export PDF button'); return; }
+  await key(send, 'Enter');
+  let file;
+  for (let i = 0; i < 50 && !file; i++) {
+    await sleep(200);
+    file = readdirSync(dir).find((f) => f.endsWith('.pdf'));
+  }
+  if (!file) { fail(`PDF  no .pdf file was downloaded (dir: ${JSON.stringify(readdirSync(dir))}, said: ${JSON.stringify(await liveText(send))})`); return; }
+  const bytes = readFileSync(join(dir, file));
+  if (!bytes.subarray(0, 8).toString('latin1').startsWith('%PDF-1.7') || !bytes.includes('<pdfuaid:part>1</pdfuaid:part>')) fail('PDF  the download is not a PDF/UA-identified PDF');
+  else note(`PDF downloaded: ${file}, ${bytes.length} bytes`);
+  // The announcer clears, then speaks 60ms later: wait for the words, not the file.
+  const saidMatching = async (re) => {
+    let text = '';
+    for (let i = 0; i < 25 && !re.test(text); i++) {
+      text = await liveText(send);
+      if (!re.test(text)) await sleep(100);
+    }
+    return text;
+  };
+  const said = await saidMatching(/^Exported hearing-notice\.pdf\./);
+  if (!/^Exported hearing-notice\.pdf\. .*review/.test(said)) fail(`PDF  announcement must name the file and what remains (got ${JSON.stringify(said)})`);
+  else note(`PDF export announced: ${JSON.stringify(said)}`);
+
+  await evaluate(send, `(() => {
+    const docs = JSON.parse(localStorage.getItem('ada.docs.v1'));
+    docs.find((d) => d.id === 'hearing-notice').header = 'Готово';
+    localStorage.setItem('ada.docs.v1', JSON.stringify(docs));
+  })()`);
+  await send('Page.reload');
+  await sleep(1200);
+  if (!(await focusByName(send, 'button', 'Export PDF'))) { fail('PDF  no Export PDF button after reload'); return; }
+  await key(send, 'Enter');
+  let card = null;
+  for (let i = 0; i < 50 && !card; i++) {
+    await sleep(200);
+    card = await evaluate(send, `document.getElementById('pdf-missing-heading')?.closest('section')?.textContent ?? null`);
+  }
+  if (!card || !card.includes('Г')) fail(`PDF  a refused export must say so on screen, naming the characters (card: ${JSON.stringify(card)})`);
+  else note('refused PDF export shown in the findings panel, naming the characters');
+  const refused = await saidMatching(/^PDF not exported/);
+  if (!/^PDF not exported/.test(refused)) fail(`PDF  a refused export must be announced (got ${JSON.stringify(refused)})`);
+  if (readdirSync(dir).filter((f) => f.endsWith('.pdf')).length !== 1) fail('PDF  a refused export still downloaded a file');
+  await evaluate(send, AXE);
+  const violations = JSON.parse(await evaluate(send, `
+    axe.run(document.getElementById('pdf-missing-heading').closest('section'), { runOnly: { type: 'tag', values: ${JSON.stringify(AXE_TAGS)} } })
+      .then((r) => JSON.stringify(r.violations.map((v) => v.id)))
+  `));
+  if (violations.length) fail(`PDF  axe on the refusal notice: ${violations.join(', ')}`);
 }
 
 try {

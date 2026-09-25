@@ -89,6 +89,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
   const [checking, setChecking] = useState(false);
   const [importNotes, setImportNotes] = useState(stored.importNotes);
+  /** Characters the PDF font can't draw, from the last refused PDF export. */
+  const [pdfMissing, setPdfMissing] = useState<string[]>([]);
+  const pdfBusy = useRef(false);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
     header: { text: stored.header, align: 'left', spacing: 12, image: null },
     footer: { text: stored.footer, align: 'left', spacing: 12, image: null },
@@ -381,18 +384,55 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // The mount check counts as a full check: the doc is current as of now.
   useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
 
+  const download = (blob: Blob, file: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: file });
+    a.click();
+    // Revoking synchronously can cancel the download in some browsers.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const onExport = () => {
     const view = viewRef.current;
     if (!view) return;
     const s = sectionsRef.current;
     const html = exportHtml(view.state.doc, { title: doc.title, header: s.header.text, footer: s.footer.text }, document.implementation.createHTMLDocument(''));
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
     const file = `${doc.id}.html`;
-    const a = Object.assign(document.createElement('a'), { href: url, download: file });
-    a.click();
-    // Revoking synchronously can cancel the download in some browsers.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    download(new Blob([html], { type: 'text/html' }), file);
     announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.`);
+  };
+
+  const onExportPdf = async () => {
+    const view = viewRef.current;
+    if (!view || pdfBusy.current) return;
+    pdfBusy.current = true;
+    // The document as it was when the button was pressed.
+    const content = view.state.doc;
+    const s = sectionsRef.current;
+    announce('Building the PDF…');
+    try {
+      // Loaded on first use: PDFKit and the fonts stay out of the editor's bundle.
+      const { exportPdf, PDF_FONT_FILES } = await import('./exportPdf');
+      const faces = await Promise.all(Object.entries(PDF_FONT_FILES).map(async ([face, url]) => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${url}: ${res.status}`);
+        return [face, new Uint8Array(await res.arrayBuffer())] as const;
+      }));
+      const result = await exportPdf(content, { title: doc.title, header: s.header.text, footer: s.footer.text }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>);
+      if (!result.ok) {
+        setPdfMissing(result.missing);
+        announce(`PDF not exported: its font has no characters for ${result.missing.length === 1 ? 'one character' : `${result.missing.length} characters`} in this document. The findings panel lists them.`);
+        return;
+      }
+      setPdfMissing([]);
+      const file = `${doc.id}.pdf`;
+      download(new Blob([result.bytes as BlobPart], { type: 'application/pdf' }), file);
+      announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.`);
+    } catch {
+      announce('The PDF could not be built. Try again, or use Export HTML.');
+    } finally {
+      pdfBusy.current = false;
+    }
   };
 
   const onRecheck = () => {
@@ -647,6 +687,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             </select>
           </label>
           <button type="button" className={styles.btnSubtle} onClick={onExport}>Export HTML</button>
+          <button type="button" className={styles.btnSubtle} onClick={() => void onExportPdf()}>Export PDF</button>
           <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
         </div>
       </div>
@@ -745,6 +786,29 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                 }}
               >
                 Dismiss import notes
+              </button>
+            </section>
+          ) : null}
+
+          {pdfMissing.length > 0 ? (
+            <section aria-labelledby="pdf-missing-heading" className={styles.summaryCard}>
+              <h2 id="pdf-missing-heading" className={styles.summaryHeading}>PDF not exported</h2>
+              {/* ponytail: the PDF embeds one Latin font (see exportPdf.ts). */}
+              <p className={styles.pdfNotice}>
+                The PDF font covers Latin scripts only, and this document uses characters it can’t draw:{' '}
+                <span lang="">{pdfMissing.slice(0, 24).join(' ')}</span>
+                {pdfMissing.length > 24 ? ` and ${pdfMissing.length - 24} more` : ''}. Export HTML keeps every script.
+              </p>
+              <button
+                type="button"
+                className={styles.btnSubtle}
+                onClick={() => {
+                  setPdfMissing([]);
+                  announce('PDF notice dismissed.');
+                  headingRef.current?.focus();
+                }}
+              >
+                Dismiss PDF notice
               </button>
             </section>
           ) : null}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fetches the veraPDF command-line validator for scripts/verify-pdf.mjs:
+    mvn -q -f scripts/verapdf/pom.xml dependency:copy-dependencies -DoutputDirectory=lib
+  veraPDF is the PDF Association's open-source PDF/UA and PDF/A validator.
+  The jars land in scripts/verapdf/lib (gitignored).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>ada-editor</groupId>
+  <artifactId>verapdf-gate</artifactId>
+  <version>1</version>
+  <packaging>pom</packaging>
+  <dependencies>
+    <dependency>
+      <groupId>org.verapdf.apps</groupId>
+      <artifactId>cli</artifactId>
+      <version>1.30.2</version>
+    </dependency>
+  </dependencies>
+</project>

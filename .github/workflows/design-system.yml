@@ -7,9 +7,9 @@ name: design system
 on:
   push:
     branches: [main]
-    paths: ['design-system/**', 'app/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'app/**', 'public/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
   pull_request:
-    paths: ['design-system/**', 'app/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'app/**', 'public/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
   workflow_dispatch:
 
 jobs:
@@ -44,6 +44,29 @@ jobs:
             git diff --stat -- design-system/
             exit 1
           fi
+
+  # The PDF export: its structure tree asserted directly, and every export
+  # validated against PDF/UA-1 by veraPDF (fetched from Maven Central).
+  pdf:
+    name: PDF/UA export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: scripts/verapdf/pom.xml
+
+      - run: npm ci
+
+      - name: PDF export gate (structure + veraPDF PDF/UA-1)
+        run: node scripts/verify-pdf.mjs --verbose
 
   accessibility:
     runs-on: ubuntu-latest

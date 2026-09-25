@@ -31,7 +31,16 @@ and whatever the checker flags is still wrong in the export). **Upload .docx**
 imports an existing Word file in the browser (the file never leaves the device)
 and checks it like any other document; what the editor can't hold yet (tables,
 footnotes, decorative images) is listed on the document instead of dropped
-silently. There is no backend, no auth, no PDF output and no PDF upload yet.
+silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser, with
+the same promise as the HTML export: headings, lists, links, language changes
+and alt text are tagged from the document's own structure, and a figure the
+checker flags as missing alt text is exported without it. Every export is
+validated by [veraPDF](https://verapdf.org) in CI: clean documents pass, and a
+flagged document fails on exactly the clauses its findings name. The PDF embeds
+one font, Atkinson Hyperlegible Next, which covers Latin scripts only; a
+document with Greek, Cyrillic, Hebrew, Arabic or CJK text is refused with the
+characters listed, never drawn as empty boxes. There is no backend, no auth and
+no PDF upload yet.
 
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused
@@ -47,12 +56,15 @@ silently. There is no backend, no auth, no PDF output and no PDF upload yet.
 
 ```bash
 npm install
-npm run verify     # typecheck, verifier tests, engine gate, token gate, accessibility gates (Node 22)
+npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates (Node 22)
 npm run preview    # serve the live preview at http://127.0.0.1:8080
 ```
 
 `node scripts/verify-tokens.mjs --verbose` and `node scripts/palette-ceiling.mjs`
-run with no dependencies at all.
+run with no dependencies at all. The PDF gate's conformance half needs Java 11+
+and Maven (it fetches veraPDF from Maven Central on first run); without them it
+checks the PDF's structure only and says so. `npm run pdf -- --out pdfs` keeps
+the exported PDFs for a look in a real reader.
 
 ## Is the form right?
 

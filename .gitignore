@@ -2,6 +2,8 @@
 node_modules
 design-system/preview/
 scripts/spike/results.json
+# veraPDF jars, fetched by scripts/verify-pdf.mjs
+scripts/verapdf/lib/
 .DS_Store
 *.log
 test-results/
