@@ -4,7 +4,7 @@ import { keymap } from 'prosemirror-keymap';
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import type { Command, EditorState, Plugin } from 'prosemirror-state';
-import { MAX_INDENT, schema } from './editorSchema';
+import { MAX_INDENT, documentLanguage, schema } from './editorSchema';
 
 const { nodes: N, marks: M } = schema;
 
@@ -65,6 +65,8 @@ export interface FormatState {
   fontFamily: string;
   fontSize: string;
   lang: string;
+  /** The document's own language. */
+  docLang: string;
 }
 
 export function formatState(state: EditorState): FormatState {
@@ -79,6 +81,7 @@ export function formatState(state: EditorState): FormatState {
     fontFamily: (markAttr(state, M.fontFamily!, 'family') as string | undefined) ?? 'Default',
     fontSize: String((markAttr(state, M.fontSize!, 'size') as number | undefined) ?? 16),
     lang: currentLang(state),
+    docLang: documentLanguage(state.doc),
   };
 }
 

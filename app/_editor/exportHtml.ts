@@ -1,6 +1,7 @@
 import { DOMSerializer } from 'prosemirror-model';
 import type { DOMOutputSpec, Node as PMNode } from 'prosemirror-model';
-import { schema } from './editorSchema';
+import { documentLanguage, schema } from './editorSchema';
+import { isRtlLanguage } from '../_engine/textHelpers';
 import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_BACKGROUND, PAGE_TEXT } from '../_engine/contrast';
 
 // Readable standalone defaults. 40rem keeps lines under the 80-character
@@ -46,10 +47,11 @@ export function exportHtml(doc: PMNode, meta: { title: string; header: string; f
     return node;
   };
 
-  // ponytail: lang fixed to 'en' like app/layout.tsx; add a per-document
-  // language field and the deferred document-language rule when a
-  // non-English document exists.
-  dom.documentElement.setAttribute('lang', 'en');
+  // The document's own language (WCAG 3.1.1), and its direction: a Hebrew or
+  // Arabic page reads right to left.
+  const lang = documentLanguage(doc);
+  dom.documentElement.setAttribute('lang', lang);
+  if (isRtlLanguage(lang)) dom.documentElement.setAttribute('dir', 'rtl');
 
   const charset = el('meta');
   charset.setAttribute('charset', 'utf-8');

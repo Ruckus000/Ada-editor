@@ -23,10 +23,10 @@ product reports "ADA compliance" as a status.
 
 Working prototype. The dashboard and editor screens are built from the design
 system, documents persist to localStorage, and every finding is computed by
-the **real checking engine**: sixteen WCAG rules running against the live
+the **real checking engine**: seventeen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
-(`lang`, landmarks, headings and links intact; figures are still placeholders,
+(the document's language, landmarks, headings and links intact; figures are still placeholders,
 and whatever the checker flags is still wrong in the export). **Upload .docx**
 imports an existing Word file in the browser (the file never leaves the device)
 and checks it like any other document; what the editor can't hold yet (tables,

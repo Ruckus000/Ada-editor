@@ -460,6 +460,57 @@ async function language() {
     if (refusal !== 'Select the text you want to mark first.') fail(`LANG  a language with nothing selected was not refused (got ${JSON.stringify(refusal)})`);
     else if (refused !== '' || (await marked('de')) !== '') fail(`LANG  a refused language still shows or applied (menu=${JSON.stringify(refused)})`);
     else note('with nothing selected, the Language menu says to select text first and changes nothing');
+
+    // Document language: set the (English) FAQ to Spanish and it asks once
+    // whether that's right; Apply sets it back and says what remains.
+    const rootLang = () => evaluate(send, `document.getElementById('document-text').getAttribute('lang')`);
+    const setDoc = await evaluate(send, `(() => {
+      const select = document.querySelector('select[aria-label="Document language"]');
+      if (!select) return false;
+      select.value = 'es';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    })()`);
+    await sleep(400);
+    const spanishRoot = await rootLang();
+    const setSaid = await liveText(send);
+    const asked = await evaluate(send, `(() => {
+      const card = [...document.querySelectorAll('aside button')].find((b) => b.textContent.includes('Set the document language'));
+      card?.click();
+      return Boolean(card);
+    })()`);
+    await sleep(200);
+    if (!setDoc) fail('DOCLANG  the editor has no Document language menu');
+    else if (spanishRoot !== 'es') fail(`DOCLANG  the editor text is lang=${JSON.stringify(spanishRoot)} after choosing Spanish`);
+    else if (!/^Document language set to Spanish\. \d+ open\./.test(setSaid)) fail(`DOCLANG  the change was not announced (got ${JSON.stringify(setSaid)})`);
+    else if (!asked) fail('DOCLANG  a mostly English document set to Spanish did not ask about its language');
+    else if (!(await evaluate(send, `document.querySelector('aside').textContent.includes('Suggested change: set the document language to English')`))) {
+      fail('DOCLANG  the card does not say what Apply does');
+    } else {
+      await focusByName(send, 'aside button', 'Apply fix');
+      await key(send, 'Enter');
+      await sleep(400);
+      const back = await rootLang();
+      const backSaid = await liveText(send);
+      const still = await evaluate(send, `[...document.querySelectorAll('aside button')].some((b) => b.textContent.includes('Set the document language'))`);
+      if (back !== 'en' || still) fail(`DOCLANG  Apply left lang=${JSON.stringify(back)}, question still listed: ${still}`);
+      else if (!/^Document language set to English\. \d+ open\./.test(backSaid)) fail(`DOCLANG  Apply was not announced (got ${JSON.stringify(backSaid)})`);
+      else note('choosing a document language relabels the editor, asks when the text disagrees, and Apply sets it back');
+      // Undo is a language change too: the question about Spanish comes back
+      // at once, not at the next blur.
+      await evaluate(send, `(() => {
+        const editor = document.getElementById('document-text');
+        editor.focus();
+        const mac = /Mac/.test(navigator.platform);
+        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }));
+      })()`);
+      await sleep(400);
+      const undone = await rootLang();
+      // Listed or active: the active finding is a card, not a list button.
+      const reasked = await evaluate(send, `document.querySelector('aside').textContent.includes('Document language is Spanish, but most of it reads as English')`);
+      if (undone !== 'es' || !reasked) fail(`DOCLANG  undo left lang=${JSON.stringify(undone)}, question listed: ${reasked}`);
+      else note('undoing a language change rechecks at once');
+    }
     await runAxe(send, ' (language)');
   } finally {
     await shutdown(send, ws, proc);

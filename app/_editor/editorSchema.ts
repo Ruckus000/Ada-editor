@@ -1,7 +1,7 @@
-import { Schema } from 'prosemirror-model';
+import { Fragment, Schema } from 'prosemirror-model';
 import type { DOMOutputSpec, MarkSpec, NodeSpec, Node as PMNode } from 'prosemirror-model';
 import { addListNodes } from 'prosemirror-schema-list';
-import { isForeignLangTag, isLangTag } from '../_engine/textHelpers';
+import { isForeignTo, isLangTag, isRtlLanguage, isUsableLangTag } from '../_engine/textHelpers';
 
 /**
  * Document schema for the editor screen.
@@ -22,7 +22,11 @@ const parseIndent = (el: HTMLElement) => {
 };
 
 const nodes: Record<string, NodeSpec> = {
-  doc: { content: 'block+' },
+  // The document's language (WCAG 3.1.1): the export's <html lang>, the
+  // editor's lang, and what the language checks compare against. On the doc
+  // node itself, so it saves with the content and undoes like any edit; a
+  // document stored before it existed is English.
+  doc: { content: 'block+', attrs: { lang: { default: 'en' } } },
   paragraph: {
     content: 'inline*',
     group: 'block',
@@ -128,18 +132,18 @@ const marks: Record<string, MarkSpec> = {
     // Any element with a lang, and without consuming it: a pasted <p lang="es">
     // stays a paragraph AND stays Spanish. English is parsed too, so an English
     // <span> inside that paragraph ends the Spanish (a parse rule can't clear a
-    // mark any other way); `withoutPageLanguage` then drops it on paste, since
-    // English is the page's own language. A malformed tag is no language.
-    // ponytail: no dir attribute; the bidi algorithm handles inline Arabic
-    // and Persian. Upgrade trigger: a reported right-to-left layout bug.
+    // mark any other way); `withoutPageLanguage` then drops what matches the
+    // document's own language on paste. A malformed tag is no language.
     parseDOM: [{ tag: '[lang]', priority: 60, consuming: false, getAttrs: (el) => {
       const lang = (el as HTMLElement).getAttribute('lang') ?? '';
       return isLangTag(lang) ? { lang } : false;
     } }],
-    // Stored documents are not trusted to hold a valid tag either.
+    // Stored documents are not trusted to hold a valid tag either. `dir`
+    // isolates the passage, so an English phrase in Arabic text (or the
+    // reverse) keeps its punctuation on its own side.
     toDOM: (mark): DOMOutputSpec => {
       const lang = String(mark.attrs.lang ?? '');
-      return ['span', isForeignLangTag(lang) ? { lang } : {}, 0];
+      return ['span', isUsableLangTag(lang) ? { lang, dir: isRtlLanguage(lang) ? 'rtl' : 'ltr' } : {}, 0];
     },
   },
 };
@@ -151,11 +155,25 @@ export const schema = new Schema({
   marks: base.spec.marks,
 });
 
-/** A pasted text node without a language mark for the page's own language
- *  (English) or a tag that isn't one: see the lang mark's parse rule. */
-export function withoutPageLanguage(node: PMNode): PMNode {
+/** The document's language: its `lang` attribute when that is a usable tag
+ *  (stored documents are unvalidated JSON), otherwise English. */
+export function documentLanguage(doc: PMNode): string {
+  const lang = doc.attrs.lang;
+  return typeof lang === 'string' && isUsableLangTag(lang) ? lang : 'en';
+}
+
+/** A text node without a language mark for the document's own language
+ *  (`pageLang`) or a tag that isn't one: see the lang mark's parse rule. */
+export function withoutPageLanguage(node: PMNode, pageLang: string): PMNode {
   const mark = schema.marks.lang!.isInSet(node.marks);
-  return mark && !isForeignLangTag(String(mark.attrs.lang ?? '')) ? node.mark(mark.removeFromSet(node.marks)) : node;
+  return mark && !isForeignTo(String(mark.attrs.lang ?? ''), pageLang) ? node.mark(mark.removeFromSet(node.marks)) : node;
+}
+
+/** `fragment` with `fn` applied to every text node, at any depth. */
+export function mapText(fragment: Fragment, fn: (text: PMNode) => PMNode): Fragment {
+  const nodes: PMNode[] = [];
+  fragment.forEach((node) => nodes.push(node.isText ? fn(node) : node.isLeaf ? node : node.copy(mapText(node.content, fn))));
+  return Fragment.from(nodes);
 }
 
 export { MAX_INDENT };

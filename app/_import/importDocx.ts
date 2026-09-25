@@ -1,8 +1,9 @@
+import { Fragment } from 'prosemirror-model';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
-import { safeHref, schema } from '../_editor/editorSchema';
+import { mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import { contrastRatio, parseColour } from '../_engine/contrast';
-import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isForeignLangTag } from '../_engine/textHelpers';
+import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isUsableLangTag, primaryTag } from '../_engine/textHelpers';
 
 /**
  * Import a .docx into the editor's document model, in the browser.
@@ -198,7 +199,12 @@ function toImportError(error: unknown): ImportError {
 /* ---------- styles and numbering ---------- */
 
 interface StyleInfo { name: string; basedOn: string | null; outlineLvl: number | null; numId: string | null; ilvl: number | null }
-interface Styles { heading(styleId: string | null): number | null; numPr(styleId: string | null): { numId: string; ilvl: number } | null }
+interface Styles {
+  heading(styleId: string | null): number | null;
+  numPr(styleId: string | null): { numId: string; ilvl: number } | null;
+  /** The document default's w:lang (docDefaults), for runs that set none. */
+  defaultLang: Element | null;
+}
 
 function readStyles(doc: Document | null): Styles {
   const map = new Map<string, StyleInfo>();
@@ -246,6 +252,7 @@ function readStyles(doc: Document | null): Styles {
       for (const s of chain(id)) if (s.numId !== null) return { numId: s.numId, ilvl: s.ilvl ?? 0 };
       return null;
     },
+    defaultLang: child(child(child(doc ? first(doc.documentElement, 'w:docDefaults') : null, 'w:rPrDefault'), 'w:rPr'), 'w:lang'),
   };
 }
 
@@ -558,13 +565,18 @@ class Walker {
       runMarks = M.fontSize!.create({ size: Math.round((halfPoints / 2) * (4 / 3) * 100) / 100 }).addToSet(runMarks);
     }
     // The run's visible text only: a field code or fallback content in another
-    // script must not pick the attribute.
-    const lang = runLanguage(child(rPr, 'w:lang'), kids(r).filter((k) => k.tagName === 'w:t').map((t) => t.textContent ?? '').join(''));
+    // script must not pick the attribute. Every run is marked with its
+    // language, English included; `assemble` then settles the document's own
+    // language and drops the marks that match it.
+    const visible = kids(r).filter((k) => k.tagName === 'w:t').map((t) => t.textContent ?? '').join('');
+    // A run with no letters (a date, a number, punctuation) is no language:
+    // marked, a screen reader would switch voice to read "2024".
+    const lang = /\p{L}/u.test(visible) ? runLanguage(child(rPr, 'w:lang'), visible) ?? runLanguage(this.styles.defaultLang, visible) : null;
     if (lang) runMarks = M.lang!.create({ lang }).addToSet(runMarks);
-    // ponytail: colours, sizes and languages set by styles (pStyle/rStyle,
-    // docDefaults), theme-only colours and the page colour are not resolved,
-    // nor are fonts. Upgrade trigger: a real file whose colours or languages
-    // come from styles.
+    // ponytail: colours, sizes and languages set by styles (pStyle/rStyle),
+    // theme-only colours and the page colour are not resolved, nor are fonts;
+    // the docDefaults language is. Upgrade trigger: a real file whose colours
+    // or languages come from paragraph or character styles.
 
     for (const k of kids(r)) {
       this.tick();
@@ -699,9 +711,8 @@ function hyperlinkOf(instr: string): string | null {
 function runLanguage(lang: Element | null, text: string): string | null {
   if (!lang) return null;
   const family = alphabetLanguages(text);
-  const primary = (tag: string) => tag.split('-')[0]!.toLowerCase();
   const pick = (attrs: string[], fits: (code: string) => boolean) =>
-    attrs.map((a) => val(lang, a)).find((tag): tag is string => !!tag && isForeignLangTag(tag) && fits(primary(tag))) ?? null;
+    attrs.map((a) => val(lang, a)).find((tag): tag is string => !!tag && isUsableLangTag(tag) && fits(primaryTag(tag))) ?? null;
   if (!family) return pick(['w:val'], () => true);
   if (family.length) return pick(['w:val', 'w:eastAsia', 'w:bidi'], (code) => family.includes(code));
   return pick(['w:bidi', 'w:eastAsia'], (code) => !LISTED_ALPHABET_LANGUAGES.has(code));
@@ -746,7 +757,35 @@ function assemble(blocks: Block[]): PMNode {
     }
   }
   if (!out.length) out.push(N.paragraph!.create());
-  return N.doc!.create(null, out);
+  const lang = documentLanguageOf(N.doc!.create(null, out));
+  return N.doc!.create({ lang }, mapText(Fragment.from(out), (t) => withoutPageLanguage(t, lang)));
+}
+
+/**
+ * The document's language: the one most of its letters are marked with.
+ * Untagged text (no run or default language in the file) counts as English,
+ * Word's usual default. The most common tag of that language wins ("es-MX"
+ * over "es-ES" when most of the Spanish is Mexican).
+ */
+function documentLanguageOf(doc: PMNode): string {
+  const byLanguage = new Map<string, Map<string, number>>();
+  doc.descendants((node) => {
+    if (!node.isText) return;
+    const tag = String(schema.marks.lang!.isInSet(node.marks)?.attrs.lang ?? 'en');
+    const tags = byLanguage.get(primaryTag(tag)) ?? new Map<string, number>();
+    tags.set(tag, (tags.get(tag) ?? 0) + (node.text!.match(/\p{L}/gu)?.length ?? 0));
+    byLanguage.set(primaryTag(tag), tags);
+  });
+  let best = 'en';
+  let bestLetters = 0;
+  for (const tags of byLanguage.values()) {
+    const letters = [...tags.values()].reduce((a, b) => a + b, 0);
+    if (letters > bestLetters) {
+      bestLetters = letters;
+      best = [...tags].sort((a, b) => b[1] - a[1])[0]![0];
+    }
+  }
+  return best;
 }
 
 /**

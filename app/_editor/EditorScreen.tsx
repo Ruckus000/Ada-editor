@@ -39,15 +39,15 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState } from './editorCommands';
-import { withoutPageLanguage } from './editorSchema';
+import { documentLanguage, withoutPageLanguage } from './editorSchema';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { checkDocument, reconcile } from '../_engine/check';
-import { languageName } from '../_engine/textHelpers';
+import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
 import { exportHtml } from './exportHtml';
 import type { EditorFinding, Section } from './findings';
-import { Toolbar } from './Toolbar';
+import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import styles from './editor.module.css';
 
 const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green', 'PDF/UA': 'purple' };
@@ -85,6 +85,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [activeId, setActiveId] = useState<string | null>(sortFindings(initialFindings)[0]?.id ?? null);
   const [filter, setFilter] = useState<OpenSeverity | null>(null);
   const [format, setFormat] = useState<FormatState | null>(null);
+  const docLang = format?.docLang ?? documentLanguage(initial);
   const [wordCount, setWordCount] = useState(() => wordsIn(EditorState.create({ doc: initial })));
   const [checking, setChecking] = useState(false);
   const [importNotes, setImportNotes] = useState(stored.importNotes);
@@ -220,18 +221,22 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         ],
       }),
       nodeViews: { figure: figureView },
-      attributes: {
+      // The document's language, so spellcheck and screen readers use it here too.
+      attributes: (state) => ({
         id: 'document-text',
         class: styles.prose!,
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': 'Document text',
         spellcheck: 'true',
-      },
+        lang: documentLanguage(state.doc),
+        dir: isRtlLanguage(documentLanguage(state.doc)) ? 'rtl' : 'ltr',
+      }),
       // Pasted or copied images get fresh ids: a copy of an image in this document
       // would otherwise share its id, and alt-text edits would hit the wrong one.
-      // Pasted text loses any English language mark (English is the page's own).
-      transformPasted(slice) {
+      // Pasted text loses any mark for the document's own language.
+      transformPasted(slice, pasteView) {
+        const pageLang = documentLanguage(pasteView.state.doc);
         const renumber = (fragment: Fragment): Fragment => {
           const nodes: PMNode[] = [];
           fragment.forEach((node) => {
@@ -239,7 +244,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               const n = ++imageSeq.current;
               nodes.push(node.type.create({ ...node.attrs, id: `img-${n}`, label: `pasted image ${n}` }));
             } else {
-              nodes.push(node.isText ? withoutPageLanguage(node) : node.isLeaf ? node : node.copy(renumber(node.content)));
+              nodes.push(node.isText ? withoutPageLanguage(node, pageLang) : node.isLeaf ? node : node.copy(renumber(node.content)));
             }
           });
           return Fragment.from(nodes);
@@ -269,8 +274,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           // Structural rules run live on every edit — they cannot false-positive
           // on partial input. Computed BEFORE updateState so the underline
           // decoration layer builds once, against the fresh findings (§9.5).
-          const fresh = checkDocument(next.doc, { prose: false });
-          findingsRef.current = reconcile(findingsRef.current, fresh, dismissedRef.current, { keepProse: true });
+          // A change of the document's language (the menu, Apply, or undoing
+          // either) changes what every language finding means: that edit runs
+          // the full check, so no finding about the old language is carried.
+          const languageChanged = documentLanguage(view.state.doc) !== documentLanguage(next.doc);
+          const fresh = checkDocument(next.doc, { prose: languageChanged });
+          findingsRef.current = reconcile(findingsRef.current, fresh, dismissedRef.current, { keepProse: !languageChanged });
           setWordCount(wordsIn(next));
         }
         view.updateState(next);
@@ -436,9 +445,23 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     return rest;
   };
 
+  // The document's language is set, not a range fixed. The dispatch runs the
+  // full check itself (see dispatchTransaction), so what's announced is current.
+  const changeDocLanguage = (lang: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch(view.state.tr.setDocAttribute('lang', lang));
+    announce(`Document language set to ${languageName(lang)}. ${remaining(findingsRef.current)}`);
+  };
+
   const onApply = (f: EditorFinding) => {
     const view = viewRef.current;
     if (!view || f.suggestion === undefined) return;
+    if (f.fix?.kind === 'docLang') {
+      removeFinding(f);
+      changeDocLanguage(f.fix.lang);
+      return;
+    }
     // The two machine-decidable rule fixes are attribute changes, not text
     // replacements: applying them as text would write a literal "h2" into a
     // heading or replace a figure node with its alt string. Resolve the target
@@ -570,6 +593,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       <div
         className={styles.band}
         data-edge={key}
+        lang={docLang}
+        dir={isRtlLanguage(docLang) ? 'rtl' : 'ltr'}
         style={{ paddingBlock: `${s.spacing}px`, textAlign: s.align }}
       >
         {s.image ? (
@@ -613,6 +638,14 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           </div>
         </div>
         <div className={styles.docActions}>
+          <label className={styles.docLang}>
+            Language
+            <select aria-label="Document language" value={docLang} onChange={(e) => changeDocLanguage(e.target.value)}>
+              {/* A tag from an imported file ("es-MX") shows as itself until changed. */}
+              {LANGUAGE_MENU.some((l) => l.code === docLang) ? null : <option value={docLang}>{`${languageName(docLang)} (${docLang})`}</option>}
+              {LANGUAGE_MENU.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+            </select>
+          </label>
           <button type="button" className={styles.btnSubtle} onClick={onExport}>Export HTML</button>
           <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
         </div>
@@ -687,6 +720,11 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             <p className={styles.summaryLine}>
               {filter ? `Showing ${SEVERITY_ENCODING[filter].label.toLowerCase()} findings only` : summaryLine(findings)}
             </p>
+            {primaryTag(docLang) === 'en' ? null : (
+              <p className={styles.summaryLine}>
+                Wording checks (reading level, sentence length, link text, colour words, alt-text wording) run on English documents only.
+              </p>
+            )}
           </section>
 
           {importNotes.length > 0 ? (
@@ -726,9 +764,13 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               </div>
               <h3 id={`finding-${active.id}`} className={styles.cardTitle}>{active.title}</h3>
               <p className={styles.cardBody}>{active.explanation}</p>
-              {active.fix?.kind === 'lang' ? (
+              {active.fix?.kind === 'lang' || active.fix?.kind === 'docLang' ? (
                 // Nothing is replaced, so no struck-through diff: the text stays, marked.
-                <p className={styles.diff}>{`Suggested change: mark it as ${active.suggestion}`}</p>
+                <p className={styles.diff}>
+                  {active.fix.kind === 'lang'
+                    ? `Suggested change: mark it as ${active.suggestion}`
+                    : `Suggested change: set the document language to ${active.suggestion}`}
+                </p>
               ) : active.suggestion !== undefined ? (
                 <p className={styles.diff}>
                   <VisuallyHidden>Suggested change: replace </VisuallyHidden>

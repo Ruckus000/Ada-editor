@@ -5,12 +5,17 @@
  * traversal layer changed (querySelectorAll → PM node walks), which is what
  * gives exact from/to positions in the coordinate space Issue already requires.
  *
- * Two of the spike's 13 rules are deliberately absent (§5 of
+ * One of the spike's 13 rules is deliberately absent (§5 of
  * docs/audit/checking-engine-plan.md): `table-no-header` (the schema has no
- * table node) and `document-language` (no language field exists in the data
- * model; the spike itself flagged it as noise).
+ * table node). The spike's `document-language` ("no language declared")
+ * can't happen here: every document has a language (the doc node's `lang`,
+ * English by default). The engine's `document-language` instead checks the
+ * declared language against the text.
  *
- * Five rules are engine-only, added after the port: `document-no-headings`
+ * Rules that only understand English (word lists, English syllables, spaces
+ * between words) run only when the document is English; see `summarizeBlock`.
+ *
+ * Six rules are engine-only, added after the port: `document-no-headings`
  * closes the gap `document-no-h1` leaves (a document with no headings at all),
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
  * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
@@ -18,7 +23,9 @@
  * `img-long-description` asks whether a chart, map or diagram needs more than
  * its alt text, and the parity gate pins its three corpus firings;
  * `language-of-parts` finds unmarked passages in another language, and is
- * silent on the whole (English) corpus, names in other alphabets included.
+ * silent on the whole (English) corpus, names in other alphabets included;
+ * `document-language` asks when most of a document reads as a language other
+ * than the one it declares (silent on the corpus, which is English).
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -47,6 +54,7 @@ import {
   gradeLevel,
   languageName,
   languageRuns,
+  primaryTag,
   sentenceSpans,
 } from './textHelpers';
 import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_BACKGROUND, PAGE_TEXT, contrastRatio, hexOf, parseColour } from './contrast';
@@ -92,6 +100,7 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'reading-level', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
   { id: 'long-sentence', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
   { id: 'language-of-parts', criterion: '3.1.2 Language of Parts', level: 'AA', kind: 'prose' },
+  { id: 'document-language', criterion: '3.1.1 Language of Page', level: 'A', kind: 'prose' },
   // Structural, not prose-gated: it must retract the moment a heading is added
   // (prose findings are carried across structural runs until blur).
   { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
@@ -163,6 +172,10 @@ export interface BlockSummary {
   blanks: { from: number; to: number }[];
   /** Per-block rule results, with blockRange/figure anchors. */
   findings: RawFinding[];
+  /** Unmarked passages in a language other than the document's, block-relative. */
+  languageRuns: { from: number; to: number; lang: string; snippet: string; letters: number }[];
+  /** Letters in the block's text, for the document-language share. */
+  letters: number;
 }
 
 /** One summarized block plus where it lives. Assembled by check.ts's walk. */
@@ -347,8 +360,16 @@ function formBlanks(node: PMNode, text: string, offsets: number[]): { from: numb
 
 /* ---------- per-block rules ---------- */
 
-export function summarizeBlock(node: PMNode): BlockSummary {
+/**
+ * `pageLang` is the document's language: check.ts memoizes per language. The
+ * rules that only understand English skip other documents.
+ * ponytail: ceiling = English word lists and English syllables; upgrade
+ * trigger: an author of a non-English document asks for plain-language or
+ * wording checks in their language.
+ */
+export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
   const findings: RawFinding[] = [];
+  const english = primaryTag(pageLang) === 'en';
 
   if (node.type === FIGURE) {
     const id = String(node.attrs.id ?? '');
@@ -371,7 +392,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
       });
     } else {
       const trimmed = alt.trim();
-      if (REDUNDANT_ALT_PREFIX.test(trimmed)) {
+      if (english && REDUNDANT_ALT_PREFIX.test(trimmed)) {
         findings.push({
           ruleId: 'img-alt-suspicious',
           severity: 'advisory',
@@ -386,7 +407,8 @@ export function summarizeBlock(node: PMNode): BlockSummary {
         });
       } else {
         const looksLikeFilename = /\.(png|jpe?g|gif|svg|webp)$/i.test(trimmed) || /^[\w-]+_[\w-]+$/.test(trimmed);
-        const tooTerse = trimmed.split(/\s+/).length < 2 && trimmed.length < 12;
+        // Word count by spaces: a good five-character Chinese alt is one "word".
+        const tooTerse = english && trimmed.split(/\s+/).length < 2 && trimmed.length < 12;
         if (looksLikeFilename || tooTerse) {
           findings.push({
             ruleId: 'img-alt-suspicious',
@@ -398,7 +420,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
             hint: 'Confirm it describes the image',
             anchor: { kind: 'figure', figureId: id },
           });
-        } else if (COMPLEX_IMAGE.test(trimmed) && !DESCRIPTION_POINTER.test(trimmed)) {
+        } else if (english && COMPLEX_IMAGE.test(trimmed) && !DESCRIPTION_POINTER.test(trimmed)) {
           // Last in the chain on purpose: one alt-text question per image at a
           // time, so "map" is asked "does this describe it?" first. Alt text
           // that already says "details below" has answered the question.
@@ -422,7 +444,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
         }
       }
     }
-    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, blanks: [], findings };
+    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, blanks: [], findings, languageRuns: [], letters: 0 };
   }
 
   const { text, offsets } = blockChars(node);
@@ -432,7 +454,7 @@ export function summarizeBlock(node: PMNode): BlockSummary {
   for (const run of links) {
     const label = collapseSpaces(run.text);
     const key = label.toLowerCase().replace(/[.!?:]+$/, '');
-    if (key && GENERIC_LINK_TEXT.has(key)) {
+    if (english && key && GENERIC_LINK_TEXT.has(key)) {
       findings.push({
         ruleId: 'link-text-generic',
         severity: 'violation',
@@ -474,10 +496,10 @@ export function summarizeBlock(node: PMNode): BlockSummary {
 
   // The spike's prose heuristics (colour, grade, sentence length) apply to
   // paragraphs only (it graded <p>/<li>; list items hold paragraphs in this
-  // schema); language of parts also reads headings, below. All prose rules are
-  // gated to blur/Recheck by check.ts's callers so they never flag a sentence
-  // still being typed.
-  if (node.type === PARAGRAPH) {
+  // schema), and only understand English; language of parts also reads
+  // headings, below. All prose rules are gated to blur/Recheck by check.ts's
+  // callers so they never flag a sentence still being typed.
+  if (english && node.type === PARAGRAPH) {
     if (COLOUR_WORDS.test(text) && COLOUR_REFERENCE.test(text)) {
       findings.push({
         ruleId: 'colour-only-reference',
@@ -522,24 +544,26 @@ export function summarizeBlock(node: PMNode): BlockSummary {
       });
     }
   }
-  // Language of parts also reads headings: "Ayuda en español" is a heading
-  // screen readers announce with English pronunciation too.
-  if (node.type === PARAGRAPH || node.type === HEADING) findings.push(...languageFindings(node, text, offsets));
-
   findings.push(...contrastFindings(node, headingLevel));
 
-  return { text, headingLevel, links, figure: null, blanks: formBlanks(node, text, offsets), findings };
+  // Language also reads headings: "Ayuda en español" is a heading screen
+  // readers announce with the document's pronunciation too.
+  const languages = node.type === PARAGRAPH || node.type === HEADING ? foreignRuns(node, text, offsets, pageLang) : [];
+  return {
+    text, headingLevel, links, figure: null, blanks: formBlanks(node, text, offsets), findings,
+    languageRuns: languages, letters: letterTotal(text),
+  };
 }
 
+const letterTotal = (s: string): number => s.match(/\p{L}/gu)?.length ?? 0;
+
 /**
- * Passages in paragraphs and headings that read as another language and
- * aren't marked as one (3.1.2).
- * Marked text is blanked before detection, so a marked passage is never
- * flagged and a partly marked one is judged only on what's left. Needs your
- * call, not a failure: the guess comes from common words and alphabets, and
- * names and borrowed words need no marking.
+ * Passages of a paragraph or heading that read as a language other than the
+ * document's and aren't marked as one, block-relative. Marked text is blanked
+ * before detection, so a marked passage is never flagged and a partly marked
+ * one is judged only on what's left.
  */
-function languageFindings(node: PMNode, text: string, offsets: number[]): RawFinding[] {
+function foreignRuns(node: PMNode, text: string, offsets: number[], pageLang: string): BlockSummary['languageRuns'] {
   const marked = runsBy(node, (child) => (LANG.isInSet(child.marks) ? true : null), () => true);
   let open = text;
   if (marked.length > 0) {
@@ -549,33 +573,92 @@ function languageFindings(node: PMNode, text: string, offsets: number[]): RawFin
       open += marked.some((r) => at >= r.from && at < r.to) ? ' ' : text[i];
     }
   }
-  return languageRuns(open).map((run): RawFinding => {
-    const known = run.lang !== 'unknown';
-    const name = known ? languageName(run.lang) : 'another language';
+  return languageRuns(open, pageLang).map((run) => {
     const lastOffset = offsets[run.to - 1];
+    const snippet = text.slice(run.from, run.to);
     return {
-      ruleId: 'language-of-parts',
-      severity: 'manual',
-      criterion: crit('language-of-parts'),
-      title: `Text may be in ${name} but isn’t marked`,
-      explanation:
-        'Screen readers will read it with English pronunciation, which can make it impossible to understand. ' +
-        (known
-          ? `If it is ${name}, mark it so screen readers switch voice.`
-          : 'If it is, select it and choose its language from the toolbar.') +
-        ' Names and words borrowed into English don’t need marking.',
-      snippet: text.slice(run.from, run.to),
-      hint: 'Mark the language',
-      ...(known ? { fix: { kind: 'lang', lang: run.lang } as const } : {}),
-      anchor: { kind: 'blockRange', from: offsets[run.from] ?? run.from, to: lastOffset === undefined ? node.content.size : lastOffset + 1 },
+      from: offsets[run.from] ?? run.from,
+      to: lastOffset === undefined ? node.content.size : lastOffset + 1,
+      lang: run.lang,
+      snippet,
+      letters: letterTotal(snippet),
     };
   });
 }
 
+/** Enough text in one language to say what the document is written in. */
+const DOCUMENT_LANGUAGE_MIN_LETTERS = 80;
+
+/**
+ * Language of page (3.1.1) and of parts (3.1.2). When unmarked text in one
+ * other language makes up two thirds of the document's letters (marked text
+ * counts toward the whole: the author's marks stand), the declared language is
+ * what's wrong: one document-level question, and that language's passages
+ * aren't listed one by one. A bilingual notice (half and half) is not
+ * "mostly" anything: its passages are what to mark. Everything else unmarked is a passage question.
+ * Both are Needs your call: the guess comes from common words and alphabets,
+ * and names and borrowed words need no marking.
+ */
+function languageFindings(entries: readonly BlockEntry[], pageLang: string): RawFinding[] {
+  const out: RawFinding[] = [];
+  const pageName = languageName(pageLang);
+  let letters = 0;
+  const byLanguage = new Map<string, number>();
+  for (const e of entries) {
+    letters += e.summary.letters;
+    for (const r of e.summary.languageRuns) {
+      if (r.lang !== 'unknown') byLanguage.set(r.lang, (byLanguage.get(r.lang) ?? 0) + r.letters);
+    }
+  }
+  const [top] = [...byLanguage].sort((a, b) => b[1] - a[1]);
+  const majority = top && top[1] >= DOCUMENT_LANGUAGE_MIN_LETTERS && top[1] * 3 >= letters * 2 ? top[0] : null;
+  if (majority) {
+    const name = languageName(majority);
+    out.push({
+      ruleId: 'document-language',
+      severity: 'manual',
+      criterion: crit('document-language'),
+      title: `Document language is ${pageName}, but most of it reads as ${name}`,
+      explanation:
+        `Screen readers read the whole document with ${pageName} pronunciation. ` +
+        `If it is written in ${name}, set the document language to ${name}.`,
+      snippet: '',
+      hint: 'Set the document language',
+      fix: { kind: 'docLang', lang: majority },
+      anchor: { kind: 'document' },
+    });
+  }
+  for (const e of entries) {
+    for (const r of e.summary.languageRuns) {
+      if (r.lang === majority) continue;
+      const known = r.lang !== 'unknown';
+      const name = known ? languageName(r.lang) : 'another language';
+      out.push({
+        ruleId: 'language-of-parts',
+        severity: 'manual',
+        criterion: crit('language-of-parts'),
+        title: `Text may be in ${name} but isn’t marked`,
+        explanation:
+          `Screen readers will read it with ${pageName} pronunciation, which can make it impossible to understand. ` +
+          (known
+            ? `If it is ${name}, mark it so screen readers switch voice.`
+            : 'If it is, select it and choose its language from the toolbar.') +
+          ` Names and words borrowed into ${pageName} don’t need marking.`,
+        snippet: r.snippet,
+        hint: 'Mark the language',
+        ...(known ? { fix: { kind: 'lang', lang: r.lang } as const } : {}),
+        anchor: { kind: 'docRange', from: e.pos + 1 + r.from, to: e.pos + 1 + r.to },
+      });
+    }
+  }
+  return out;
+}
+
 /* ---------- cross-block rules ---------- */
 
-export function crossBlockFindings(entries: readonly BlockEntry[]): RawFinding[] {
-  const out: RawFinding[] = [];
+/** `pageLang` is the document's language, for the language rules. */
+export function crossBlockFindings(entries: readonly BlockEntry[], pageLang = 'en'): RawFinding[] {
+  const out: RawFinding[] = languageFindings(entries, pageLang);
 
   // heading-skip
   let previous = 0;
