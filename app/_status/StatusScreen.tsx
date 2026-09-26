@@ -9,7 +9,7 @@ import './status.css';
  * missing documents. Focus moves to the heading because an error boundary
  * swaps out the tree that held focus — left alone, it falls to <body>.
  */
-export function StatusScreen({ title, children, actions }: { title: string; children: ReactNode; actions: ReactNode }) {
+export function StatusScreen({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [title]);
   return (
@@ -17,7 +17,7 @@ export function StatusScreen({ title, children, actions }: { title: string; chil
       <title>{`${title} · Ada Editor`}</title>
       <h1 ref={heading} tabIndex={-1} className="status__title">{title}</h1>
       <p className="status__body">{children}</p>
-      <div className="status__actions">{actions}</div>
+      {actions ? <div className="status__actions">{actions}</div> : null}
     </main>
   );
 }

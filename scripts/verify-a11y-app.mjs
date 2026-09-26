@@ -824,7 +824,37 @@ async function statusScreens() {
   }
 }
 
+/* ---------- sign-in ---------- */
+
+// CI builds in local mode (no Supabase env vars), so the gate never reaches a
+// real account — but the screen renders the same, and submitting takes the
+// same visible, announced error path a failed send would.
+async function signIn() {
+  page = '/sign-in';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    await runAxe(send, '');
+    await checkTree(send);
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Sign in · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    await checkTabOrder(send);
+    if (!(await focusByName(send, 'input', ''))) fail('SIGNIN  no email field');
+    await send('Input.insertText', { text: 'person@example.org' });
+    await key(send, 'Enter');
+    await sleep(400);
+    const alert = await evaluate(send, `document.querySelector('.signin [role=alert]')?.textContent ?? ''`);
+    if (!/isn’t set up/.test(alert)) fail(`SIGNIN  submitting did not show a visible alert (got ${JSON.stringify(alert)})`);
+    else note('a failed sign-in shows a visible role=alert message');
+    await runAxe(send, ' (error shown)');
+    await checkReflow(send);
+    await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 try {
+  await signIn();
   await dashboard();
   await upload();
   await triage();

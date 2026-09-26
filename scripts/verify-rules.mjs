@@ -1253,6 +1253,69 @@ check('dismissed findings leave dashboard counts and manual items', () => {
   }
 });
 
+/* ---------- cloud mode: the store as sync's working copy ---------- */
+
+/** localStorage keyed by name — cloud mode keeps docs and the dirty set apart. */
+const keyedStorage = () => {
+  const disk = new Map();
+  globalThis.window = {
+    localStorage: {
+      getItem: (k) => disk.get(k) ?? null,
+      setItem: (k, v) => { disk.set(k, v); },
+      removeItem: (k) => { disk.delete(k); },
+    },
+  };
+  return disk;
+};
+
+check('cloud mode: server rows replace the cache, unpushed local edits win, accounts stay apart', () => {
+  const { store } = mod;
+  const disk = keyedStorage();
+  let pushes = 0;
+  const ids = () => store.dirtyDocs().map((d) => d.id).sort();
+  try {
+    store.setStoreUser('u1');
+    store.onDocsDirty(() => { pushes++; });
+    eq(store.loadDashboardData().docs.length, 0, 'an account never gets demo docs from the store itself');
+
+    store.applyPulled([storedDocJSON('a', { header: 'server a' }), storedDocJSON('b', { header: 'server b' }), { id: 'junk' }]);
+    eq(store.loadDoc('a').header, 'server a', 'pulled rows land in the cache');
+    eq(store.loadDoc('junk'), null, 'malformed server rows are dropped like any stored payload');
+    eq(ids().length, 0, 'pulled rows are not dirty');
+
+    store.saveDoc('a', { header: 'local a' });
+    eq(pushes, 1, 'a write asks sync to push');
+    deepEq(ids(), ['a'], 'the written doc is dirty');
+    store.applyPulled([storedDocJSON('a', { header: 'server a v2' }), storedDocJSON('b', { header: 'server b v2' })]);
+    eq(store.loadDoc('a').header, 'local a', 'an unpushed local edit survives a pull');
+    eq(store.loadDoc('b').header, 'server b v2', 'a clean doc takes the server version');
+
+    const pushed = store.dirtyDocs()[0];
+    store.saveDoc('a', { header: 'typed while the push was in flight' });
+    store.markClean(pushed);
+    deepEq(ids(), ['a'], 'a push of an older version does not clear a newer edit');
+    store.markClean(store.dirtyDocs()[0]);
+    eq(ids().length, 0, 'the pushed version clears the flag');
+
+    assert(disk.has('ada.docs.v1:u1') && !disk.has('ada.docs.v1'), 'the account has its own cache key');
+    store.saveDoc('b', { header: 'unpushed' });
+    store.setStoreUser('u1'); // a reload: module state gone, disk kept
+    deepEq(ids(), ['b'], 'unpushed edits survive a closed tab');
+
+    store.setStoreUser('u2');
+    eq(store.loadDashboardData().docs.length, 0, 'another account sees nothing of the first');
+    store.seedAccount();
+    eq(store.loadDashboardData().docs.length, 8, 'a new account gets the eight samples');
+    eq(ids().length, 8, 'queued for the server');
+    store.clearStore();
+    assert(![...disk.keys()].some((k) => k.startsWith('ada.docs.v1:u2')), 'sign-out leaves nothing of the account on disk');
+  } finally {
+    store.onDocsDirty(null);
+    store.setStoreUser(null);
+    delete globalThis.window;
+  }
+});
+
 /* ---------- store hardening: corrupt payloads and failed writes ----------
  * NOTE: these tests mutate the store module's internal state (diskFailed,
  * memoryDocs) with no way to reset it — keep them LAST among store tests. */

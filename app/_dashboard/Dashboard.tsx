@@ -12,6 +12,8 @@ import { summaryLine } from '../_editor/findings';
 import { checkDocument } from '../_engine/check';
 import { ImportError, importDocxFile } from '../_import/importDocx';
 import type { DashboardData } from '../_data/store';
+import { isCloud } from '../_data/supabase';
+import { signOut } from '../_data/sync';
 import './dashboard.css';
 
 type SortKey = 'urgency' | 'recent' | 'name';
@@ -75,6 +77,12 @@ export function Dashboard({
   const importing = useRef(false);
   const [importError, setImportError] = useState('');
 
+  // Edits that never reached the server would be lost with the cache, so ask.
+  const onSignOut = async () => {
+    const done = await signOut(() => window.confirm('Some changes haven’t reached your account yet. If you sign out now, they will be lost. Sign out anyway?'));
+    if (done) router.replace('/sign-in');
+  };
+
   const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // choosing the same file again must fire change again
@@ -93,7 +101,9 @@ export function Dashboard({
         importNotes: imported.notes,
       });
       const notes = [...imported.notes];
-      if (!persisted) {
+      // In cloud mode the account still gets the document (sync pushes it from
+      // memory); only local mode loses it with the tab.
+      if (!persisted && !isCloud) {
         notes.push('Browser storage is full or unavailable, so this document is kept for this session only.');
         saveDoc(id, { importNotes: notes });
       }
@@ -228,7 +238,7 @@ export function Dashboard({
             onChange={onFile}
           />
           <Button variant="primary" onClick={notYet('Creating a document')}>New document</Button>
-          <span className="dash-avatar" aria-hidden="true">JD</span>
+          {isCloud ? <Button variant="ghost" onClick={onSignOut}>Sign out</Button> : <span className="dash-avatar" aria-hidden="true">JD</span>}
         </div>
       </header>
 
