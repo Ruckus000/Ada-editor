@@ -36,7 +36,9 @@ dropped silently. There is no PDF output and no PDF upload yet.
 **Accounts and storage.** People sign in with an emailed one-time code
 (Supabase Auth), and documents are saved to their account in Supabase
 (`supabase/migrations/`; row-level security keeps each account's documents to
-itself — `supabase/tests/rls.sql` checks it). The browser keeps a working copy,
+itself — `supabase/tests/rls.sql` checks it). The sign-in email is `supabase/templates/sign-in-code.html`, pasted into
+Supabase's **Confirm signup** and **Magic link** templates (subject: *Your Ada
+Editor sign-in code*); Supabase fills in `{{ .Token }}` and `{{ .Email }}`. The browser keeps a working copy,
 so typing never waits on the network and edits made offline sync when the
 connection returns. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
 set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
