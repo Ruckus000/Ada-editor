@@ -205,7 +205,10 @@ export function seedIfEmpty(): void {
   if (!diskFailed && hasLocalStorage()) {
     try {
       const raw = window.localStorage.getItem(storageKey ?? '');
-      if (sanitizeStoredDocs(raw ? JSON.parse(raw) : null).length > 0) return;
+      // A stored empty list is a desk someone emptied: keep it empty. Only a
+      // first visit (nothing stored) or a payload with no usable docs reseeds.
+      const parsed: unknown = raw === null ? null : JSON.parse(raw);
+      if (Array.isArray(parsed) && (parsed.length === 0 || sanitizeStoredDocs(parsed).length > 0)) return;
     } catch {
       // corrupt: reseed below
     }
@@ -284,6 +287,16 @@ export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' |
   const persisted = writeAll(all);
   markDirty([id]);
   return { id, persisted };
+}
+
+/** Remove a document from this browser, and from what sync would push.
+ *  Cloud mode deletes on the server first (sync.ts removeDoc), then here. */
+export function deleteDoc(id: string): void {
+  const all = readAll();
+  if (!all.delete(id)) return;
+  writeAll(all);
+  const dirty = readDirty();
+  if (dirty.delete(id)) writeDirty(dirty);
 }
 
 /* ---------- cloud mode: the sync surface (see ./sync.ts) ---------- */

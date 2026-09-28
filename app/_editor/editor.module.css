@@ -759,6 +759,7 @@
 .input[aria-invalid='true'] { border-color: var(--as-blocker); }
 
 .fieldError { margin: -10px 0 0; font-size: 13px; font-weight: 600; color: var(--as-blocker); }
+.deleteError { margin: 0; padding: 10px 24px; font-size: 14px; font-weight: 600; color: var(--as-blocker); background: var(--as-surface); border-bottom: 1px solid var(--as-border); }
 
 .tabs { display: flex; gap: 4px; }
 

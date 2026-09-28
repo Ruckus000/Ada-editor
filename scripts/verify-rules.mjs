@@ -1292,6 +1292,9 @@ check('cloud mode: server rows replace the cache, unpushed local edits win, acco
     store.seedAccount();
     deepEq(store.loadDashboardData().docs.map((d) => d.id), [store.SAMPLE_ID], 'a new account gets the one sample');
     eq(ids().length, 1, 'queued for the server');
+    store.deleteDoc(store.SAMPLE_ID);
+    eq(store.loadDashboardData().docs.length, 0, 'the sample can be deleted');
+    eq(ids().length, 0, 'and is no longer queued, so no push recreates it');
     store.clearStore();
     assert(![...disk.keys()].some((k) => k.startsWith('ada.docs.v1:u2')), 'sign-out leaves nothing of the account on disk');
     store.saveDoc('hearing-notice', { header: 'a closing editor flushes after sign-out' });
@@ -1850,6 +1853,29 @@ await acheck('store: createDoc gives a safe, unique id and keeps import notes', 
     delete globalThis.window;
   }
   deepEq(store.sanitizeStoredDocs([{ ...storedDocJSON('d'), importNotes: ['ok', 3, null] }])[0].importNotes, ['ok'], 'notes sanitized to strings');
+});
+
+await acheck('store: a deleted document is gone, and an emptied desk stays empty', async () => {
+  const { store } = await import(`${pathToFileURL(TMP).href}?delete`);
+  mockStorage(JSON.stringify([storedDocJSON('a'), storedDocJSON('b')]));
+  try {
+    store.deleteDoc('a');
+    deepEq(store.loadDashboardData().docs.map((d) => d.id), ['b'], 'only b is left');
+    eq(store.loadDoc('a'), null, 'a reads as missing');
+    store.saveDoc('a', { header: 'a late autosave' });
+    eq(store.loadDoc('a'), null, 'a save after the delete writes nothing back');
+    store.deleteDoc('b');
+    eq(store.loadDashboardData().docs.length, 0, 'deleting the last document does not reseed the samples');
+    store.deleteDoc('nope'); // unknown ids are a no-op
+  } finally {
+    delete globalThis.window;
+  }
+  mockStorage(null);
+  try {
+    eq(store.loadDashboardData().docs.length, 8, 'a first visit (nothing stored) still gets the seeds');
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 /* ---------- report ---------- */

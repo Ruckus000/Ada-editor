@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Fragment, Slice } from 'prosemirror-model';
 import type { Node as PMNode } from 'prosemirror-model';
 import { EditorState, NodeSelection, Plugin, TextSelection } from 'prosemirror-state';
@@ -20,6 +21,7 @@ import {
 } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
+import { removeDoc } from '../_data/sync';
 import { AltTextDialog, HeaderFooterDialog, ImageIcon, LinkDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
@@ -93,6 +95,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [importNotes, setImportNotes] = useState(stored.importNotes);
   /** Characters the PDF font can't draw, from the last refused PDF export. */
   const [pdfMissing, setPdfMissing] = useState<string[]>([]);
+  const [deleteError, setDeleteError] = useState(false);
+  const deleting = useRef(false);
+  const router = useRouter();
   const pdfBusy = useRef(false);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
     header: { text: stored.header, align: 'left', spacing: 12, image: null },
@@ -404,6 +409,22 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.`);
   };
 
+  // Needs a connection in cloud mode (sync.ts removeDoc): nothing is queued,
+  // so a deleted document can't return. A save that fires after the delete
+  // finds no document and writes nothing.
+  const onDelete = async () => {
+    if (deleting.current || !window.confirm(`Delete “${doc.title}”? This can’t be undone.`)) return;
+    deleting.current = true;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = undefined;
+    setDeleteError(false);
+    const done = await removeDoc(doc.id);
+    deleting.current = false;
+    if (!done) { setDeleteError(true); return; }
+    router.push('/');
+    announce(`Deleted ${doc.title}.`);
+  };
+
   const onExportPdf = async () => {
     const view = viewRef.current;
     if (!view || pdfBusy.current) return;
@@ -692,8 +713,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           <button type="button" className={styles.btnSubtle} onClick={onExport}>Export HTML</button>
           <button type="button" className={styles.btnSubtle} onClick={() => void onExportPdf()}>Export PDF</button>
           <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
+          <button type="button" className={styles.btnSubtle} onClick={() => void onDelete()}>Delete document</button>
         </div>
       </div>
+      {deleteError ? <p role="alert" className={styles.deleteError}>This document couldn’t be deleted. Check your connection and try again.</p> : null}
 
       <div className={styles.body}>
         <main ref={docRegion} tabIndex={-1} aria-label="Document" className={styles.docMain}>

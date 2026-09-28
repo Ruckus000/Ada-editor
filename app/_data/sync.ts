@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getClient } from './supabase';
-import { applyPulled, clearStore, detachStore, dirtyDocs, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
+import { applyPulled, clearStore, deleteDoc, detachStore, dirtyDocs, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
 import type { StoredDoc } from './store';
 
 /**
@@ -124,7 +124,7 @@ async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Prom
 
 /**
  * Point the store at this account and pull its docs, once per sign-in. A new
- * account (nothing on the server) gets the sample documents. Throws when the
+ * account (nothing on the server) gets the sample document, once. Throws when the
  * server can't be reached; the caller decides whether the cache is enough.
  */
 export function loadAccount(uid: string): Promise<void> {
@@ -152,12 +152,46 @@ export function loadAccount(uid: string): Promise<void> {
       if (!data.length) break;
     }
     applyPulled(rows);
-    if (rows.length === 0) seedAccount();
+    // The sample is a first-visit gift, not a floor: once given, an account
+    // that deletes everything stays empty. The flag lives in the user's own
+    // metadata; losing it only means the sample is offered once more.
+    if (rows.length === 0) {
+      const { data } = await client.auth.getSession();
+      if (!data.session?.user.user_metadata?.sample_seeded) {
+        seedAccount();
+        void client.auth.updateUser({ data: { sample_seeded: true } }).then(({ error }) => { if (error) console.error('Could not record the sample', error); });
+      }
+    }
     loadedUid = uid;
     await push();
   })().finally(() => { loading = null; });
   loading = { uid, promise };
   return promise;
+}
+
+/**
+ * Delete a document. Cloud mode deletes on the server first and needs a
+ * connection: nothing is queued, so a deleted document can never come back
+ * from a later push or pull. Resolves false if the server refused or could
+ * not be reached; the document is then untouched.
+ */
+export async function removeDoc(id: string): Promise<boolean> {
+  const client = getClient();
+  if (!client) { deleteDoc(id); return true; }
+  const ownerId = attachedUid;
+  if (!ownerId) return false;
+  // Let any push in flight land first, or its upsert could recreate the row.
+  await push();
+  const { error } = await client.from('documents').delete().eq('owner_id', ownerId).eq('id', id).then(
+    (result) => result,
+    (failure: unknown) => ({ error: failure ?? new Error('Network error') }),
+  );
+  if (error) { console.error(`Delete failed for ${id}`, error); return false; }
+  if (ownerId !== attachedUid) return false; // signed out or switched meanwhile
+  deleteDoc(id);
+  rejected.delete(id);
+  settle();
+  return true;
 }
 
 /** Resolves false when edits never reached the server and the person chose

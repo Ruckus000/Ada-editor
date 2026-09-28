@@ -319,6 +319,21 @@ async function home() {
     await checkTree(send);
     await checkReflow(send);
 
+    // Deleting from the editor: confirm, land on the homepage, and the doc is gone.
+    // The native confirm() is stubbed; what's under test is what follows it.
+    page = '/editor/transit-notice (delete)';
+    await send('Page.navigate', { url: `${origin}/editor/transit-notice` });
+    await sleep(1500);
+    await evaluate(send, `window.confirm = () => true`);
+    if (!(await focusByName(send, 'button', 'Delete document'))) fail('DELETE  the editor has no Delete document button');
+    await key(send, 'Enter');
+    await sleep(1500);
+    const afterDelete = await evaluate(send, `({ path: location.pathname, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-desk > li').length })`);
+    const deleted = await liveText(send);
+    if (afterDelete.path !== '/' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
+    else if (!/^Deleted Transit Service Change Notice\./.test(deleted)) fail(`DELETE  deletion was not announced (got ${JSON.stringify(deleted)})`);
+    else note('Delete document removes it, returns to the homepage and announces it');
+
     // Only the sample: the empty desk teaches instead.
     page = '/ (empty)';
     await keepDocs(send, ['hearing-notice']);
@@ -328,6 +343,23 @@ async function home() {
     await runAxe(send, '');
     await checkTree(send);
     await checkTabOrder(send);
+    await checkReflow(send);
+
+    // Removing the sample leaves a truly empty desk, which stays empty on reload.
+    page = '/ (sample removed)';
+    await evaluate(send, `window.confirm = () => true`);
+    if (!(await focusByName(send, 'button', 'Remove the sample'))) fail('REMOVE  no Remove the sample button');
+    await key(send, 'Enter');
+    await sleep(600);
+    const focusAfter = await evaluate(send, `document.activeElement?.id ?? ''`);
+    if (focusAfter !== 'how-heading') fail(`REMOVE  focus fell to ${JSON.stringify(focusAfter)} instead of the heading`);
+    await send('Page.reload');
+    await sleep(1200);
+    const gone = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sample: !!document.querySelector('a[href="/editor/hearing-notice"]'), sheets: document.querySelectorAll('.home-sheet').length })`);
+    if (!gone.how || gone.sample || gone.sheets !== 0) fail(`REMOVE  the sample came back or the empty state is wrong: ${JSON.stringify(gone)}`);
+    else note('Remove the sample leaves an empty desk that stays empty after a reload');
+    await runAxe(send, '');
+    await checkTree(send);
     await checkReflow(send);
   } finally {
     await shutdown(send, ws, proc);

@@ -1,4 +1,4 @@
--- RLS and privilege check for public.documents, public.contact_messages and
+-- RLS and privilege check for public.documents (including delete), public.contact_messages and
 -- delete_my_account(). Runs in one transaction and rolls back, so
 -- it is safe against a live project: execute it with psql or MCP execute_sql.
 -- Any failed expectation raises and aborts; success returns 'rls ok'.
@@ -21,11 +21,6 @@ do $$ begin
     update public.documents set owner_id = '00000000-0000-0000-0000-00000000000b' where id = 'doc-a';
     raise exception 'A reassigned a document to B';
   exception when insufficient_privilege then null; end;
-  -- Nobody can delete (not granted).
-  begin
-    delete from public.documents where id = 'doc-a';
-    raise exception 'delete is allowed';
-  exception when insufficient_privilege then null; end;
   -- The table rejects malformed rows.
   begin
     insert into public.documents (id, title, owner, content, last_checked) values ('Bad Id!', 'x', 'x', '{}', 0);
@@ -39,6 +34,8 @@ do $$ begin
   if (select count(*) from public.documents) <> 0 then raise exception 'B can read A''s documents'; end if;
   update public.documents set title = 'taken' where id = 'doc-a';
   if found then raise exception 'B updated A''s document'; end if;
+  delete from public.documents where id = 'doc-a';
+  if found then raise exception 'B deleted A''s document'; end if;
   begin
     insert into public.documents (owner_id, id, title, owner, content, last_checked)
       values ('00000000-0000-0000-0000-00000000000a', 'doc-b', 'B', 'You', '{"type": "doc"}', 0);
@@ -62,7 +59,13 @@ insert into public.documents (id, title, owner, content, last_checked)
   values ('doc-b', 'B', 'You', '{"type": "doc"}', 0);
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated", "email": "rls-a@test.invalid"}';
 insert into public.contact_messages (message) values ('A asks a question');
+-- A deletes a document of their own; doc-a stays for the cascade check below.
+insert into public.documents (id, title, owner, content, last_checked)
+  values ('doc-a-2', 'A2', 'You', '{"type": "doc"}', 0);
 do $$ begin
+  delete from public.documents where id = 'doc-a-2';
+  if not found then raise exception 'A could not delete their own document'; end if;
+  if (select count(*) from public.documents) <> 1 then raise exception 'deleting doc-a-2 touched other rows'; end if;
   begin
     insert into public.contact_messages (message, email) values ('forged', 'someone@else.invalid');
     raise exception 'a message was sent with a forged email';

@@ -11,7 +11,7 @@ import type { DocSummary } from '../_data/seed';
 import { SAMPLE_ID, createDoc, loadDashboardData, saveDoc, seedIfEmpty } from '../_data/store';
 import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
-import { signOut } from '../_data/sync';
+import { removeDoc, signOut } from '../_data/sync';
 import { NewDocumentDialog } from '../_editor/dialogs';
 import { schema } from '../_editor/editorSchema';
 import { summaryLine } from '../_editor/findings';
@@ -468,6 +468,17 @@ export function Home() {
   const titleOf = (id: string) => docs.find((d) => d.id === id)?.title ?? '';
   const items = dash?.manualItems ?? [];
   const openImport = () => { setImportError(''); setImportOpen(true); };
+  const [removeError, setRemoveError] = useState(false);
+  const removeSample = async () => {
+    const sample = docs.find((d) => d.id === SAMPLE_ID);
+    if (!sample || !window.confirm(`Remove the sample, “${sample.title}”? This can’t be undone.`)) return;
+    setRemoveError(false);
+    if (!(await removeDoc(SAMPLE_ID))) { setRemoveError(true); return; }
+    setDash(loadDashboardData());
+    announce('Sample removed. Your desk is empty.');
+    // The button that had focus is gone with the sample: land on the page heading.
+    requestAnimationFrame(() => document.getElementById('how-heading')?.focus());
+  };
 
   return (
     <div className="home">
@@ -517,7 +528,7 @@ export function Home() {
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} docs={docs} />
 
       <main className="home-main">
-        {mode === 'empty' ? <EmptyDesk sample={docs[0]} note={items.find((m) => m.docId === SAMPLE_ID)} onImport={openImport} /> : null}
+        {mode === 'empty' ? <EmptyDesk sample={docs[0]} note={items.find((m) => m.docId === SAMPLE_ID)} onImport={openImport} onRemove={() => void removeSample()} removeError={removeError} /> : null}
 
         {mode === 'desk' ? (
           <div className="home-stack">
@@ -558,11 +569,13 @@ export function Home() {
   );
 }
 
-function EmptyDesk({ sample, note, onImport }: { sample: DocSummary | undefined; note: Item | undefined; onImport: () => void }) {
+function EmptyDesk({ sample, note, onImport, onRemove, removeError }: {
+  sample: DocSummary | undefined; note: Item | undefined; onImport: () => void; onRemove: () => void; removeError: boolean;
+}) {
   return (
     <div className="home-empty">
       <section aria-labelledby="how-heading" className="home-how">
-        <h2 id="how-heading">Your desk is empty. Here’s how it works.</h2>
+        <h2 id="how-heading" tabIndex={-1}>Your desk is empty. Here’s how it works.</h2>
         <ol>
           <li><span><strong>Write, or bring a file.</strong> Use the + to start blank or import a Word file. It lands here as a sheet.</span></li>
           <li><span><strong>Ada checks as you go.</strong> Each sheet wears a badge — blocks access, fails AA, advisory — so you can see what stands between it and publishing.</span></li>
@@ -570,8 +583,10 @@ function EmptyDesk({ sample, note, onImport }: { sample: DocSummary | undefined;
         </ol>
         <div className="home-how__actions">
           {sample ? <Link href={`/editor/${sample.id}`} className="ada-button ada-button--primary">Open the sample</Link> : null}
-          <Button variant="ghost" onClick={onImport}>Import a Word file</Button>
+          <Button variant={sample ? 'ghost' : 'primary'} onClick={onImport}>Import a Word file</Button>
+          {sample ? <Button variant="ghost" onClick={onRemove}>Remove the sample</Button> : null}
         </div>
+        {removeError ? <p role="alert" className="home-alert">The sample couldn’t be removed. Check your connection and try again.</p> : null}
       </section>
       {sample ? (
         <div className="home-sample">
