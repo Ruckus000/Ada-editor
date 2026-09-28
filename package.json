@@ -42,8 +42,9 @@
     "prosemirror-model": "^1.25.12",
     "prosemirror-schema-basic": "^1.2.4",
     "prosemirror-schema-list": "^1.5.1",
-    "prosemirror-state": "^1.4.3",
-    "prosemirror-view": "^1.35.0",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-view": "^1.42.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

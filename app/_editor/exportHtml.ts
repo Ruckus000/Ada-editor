@@ -1,6 +1,8 @@
 import { DOMSerializer } from 'prosemirror-model';
 import type { DOMOutputSpec, Node as PMNode } from 'prosemirror-model';
+import { TableMap } from 'prosemirror-tables';
 import { documentLanguage, schema } from './editorSchema';
+import { headerScope, leadingHeaderRows } from './tableHeaders';
 import { isRtlLanguage } from '../_engine/textHelpers';
 import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_BACKGROUND, PAGE_TEXT } from '../_engine/contrast';
 
@@ -13,26 +15,66 @@ body { font: ${BODY_PX}px/1.6 system-ui, sans-serif; color: ${PAGE_TEXT}; backgr
 a, a:visited { color: ${LINK_TEXT}; }
 ${[1, 2, 3, 4, 5, 6].map((n) => `h${n} { font-size: ${HEADING_PX[n]}px; font-weight: bold; }`).join('\n')}
 figure.placeholder { margin: 1.5rem 0; padding: 3rem 1rem; border: 2px dashed currentColor; text-align: center; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid currentColor; padding: 0.25rem 0.5rem; text-align: start; vertical-align: top; overflow-wrap: anywhere; }
+th > :first-child, td > :first-child { margin-top: 0; }
+th > :last-child, td > :last-child { margin-bottom: 0; }
+caption { text-align: start; font-weight: bold; padding-bottom: 0.25rem; }
 `;
 
 // The schema's own toDOM specs are the export mapping (links keep their
-// safeHref check). Only the figure differs: in the editor it is an empty
-// shell a NodeView fills in.
+// safeHref check). Figures differ — in the editor each is an empty shell a
+// NodeView fills in — and so do tables, whose header cells need a scope that
+// depends on where they sit (tableHeaders.ts), which a toDOM can't see.
 // ponytail: figures are placeholders because they carry no image data yet;
 // export a real <img> once figures store one.
-const serializer = new DOMSerializer(
-  {
-    ...DOMSerializer.nodesFromSchema(schema),
-    figure: (node): DOMOutputSpec => [
-      'figure',
-      // No alt means no accessible name: the export is exactly as missing as
-      // the checker reported, never papered over with the label.
-      { class: 'placeholder', role: 'img', 'aria-label': (node.attrs.alt as string) || null },
-      `Image: ${node.attrs.label as string}`,
-    ],
-  },
-  DOMSerializer.marksFromSchema(schema),
-);
+function serializerFor(dom: Document): DOMSerializer {
+  const table = (node: PMNode): HTMLElement => {
+    const el = dom.createElement('table');
+    if (node.attrs.caption) el.append(Object.assign(dom.createElement('caption'), { textContent: String(node.attrs.caption) }));
+    const map = TableMap.get(node);
+    // A <thead> can't hold a cell that spans into the body.
+    let head = leadingHeaderRows(node);
+    for (let r = 0; r < head; r++) node.child(r).forEach((cell) => { if (r + (cell.attrs.rowspan ?? 1) > head) head = 0; });
+    const thead = head ? dom.createElement('thead') : null;
+    const tbody = dom.createElement('tbody');
+    let rowPos = 0;
+    node.forEach((row, _, r) => {
+      const tr = dom.createElement('tr');
+      let cellPos = rowPos + 1;
+      row.forEach((cell) => {
+        const header = cell.type.name === 'table_header';
+        const td = dom.createElement(header ? 'th' : 'td');
+        if (header) td.setAttribute('scope', headerScope(node, r, map.colCount(cellPos)));
+        if ((cell.attrs.colspan ?? 1) > 1) td.setAttribute('colspan', String(cell.attrs.colspan));
+        if ((cell.attrs.rowspan ?? 1) > 1) td.setAttribute('rowspan', String(cell.attrs.rowspan));
+        td.append(serializer.serializeFragment(cell.content, { document: dom }));
+        tr.append(td);
+        cellPos += cell.nodeSize;
+      });
+      (thead && r < head ? thead : tbody).append(tr);
+      rowPos += row.nodeSize;
+    });
+    if (thead) el.append(thead);
+    el.append(tbody);
+    return el;
+  };
+  const serializer: DOMSerializer = new DOMSerializer(
+    {
+      ...DOMSerializer.nodesFromSchema(schema),
+      figure: (node): DOMOutputSpec => [
+        'figure',
+        // No alt means no accessible name: the export is exactly as missing as
+        // the checker reported, never papered over with the label.
+        { class: 'placeholder', role: 'img', 'aria-label': (node.attrs.alt as string) || null },
+        `Image: ${node.attrs.label as string}`,
+      ],
+      table,
+    },
+    DOMSerializer.marksFromSchema(schema),
+  );
+  return serializer;
+}
 
 /**
  * The document as a standalone, accessible HTML page. `dom` is an empty HTML
@@ -66,7 +108,7 @@ export function exportHtml(doc: PMNode, meta: { title: string; header: string; f
   // alignment and spacing aren't persisted in v1; export them once they are.
   if (meta.header.trim()) dom.body.append(el('header', meta.header));
   const main = el('main');
-  main.append(serializer.serializeFragment(doc.content, { document: dom }));
+  main.append(serializerFor(dom).serializeFragment(doc.content, { document: dom }));
   dom.body.append(main);
   if (meta.footer.trim()) dom.body.append(el('footer', meta.footer));
 

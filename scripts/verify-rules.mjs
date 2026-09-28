@@ -165,6 +165,17 @@ const para = (...children) => N.paragraph.create(null, children.map((c) => (type
 const heading = (level, str) => N.heading.create({ level }, str === '' ? undefined : schema.text(str));
 const figure = (id, alt, label = 'image') => N.figure.create({ id, alt, label });
 const doc = (...blocks) => N.doc.create(null, blocks);
+// Tables: rows of cells; a cell is a string (td), { th: 'x' }, or { td|th, colspan, rowspan }.
+const cell = (c) => {
+  const o = typeof c === 'string' ? { td: c } : c;
+  const header = 'th' in o;
+  const content = header ? o.th : o.td;
+  return (header ? N.table_header : N.table_cell).create(
+    { colspan: o.colspan ?? 1, rowspan: o.rowspan ?? 1, colwidth: null },
+    typeof content === 'string' || content === undefined ? [para(content ?? '')] : content,
+  );
+};
+const table = (rows, caption = '') => N.table.create({ caption }, rows.map((r) => N.table_row.create(null, r.map(cell))));
 
 /** Mirrors check.ts's walk: one entry per textblock/figure, in doc order. */
 function entriesOf(document) {
@@ -1171,6 +1182,61 @@ check('exportHtml builds an accessible standalone page', () => {
   for (const rule of ['color: #000000', 'background: #ffffff', 'a, a:visited { color: #0000ee; }', 'h2 { font-size: 24px; font-weight: bold; }']) {
     assert(html.includes(rule), `export stylesheet pins ${rule}`);
   }
+});
+
+check('tables: the schema holds them, stored JSON round-trips, and they never nest', () => {
+  const t = table([[{ th: 'Day' }, { th: 'Hours' }], ['Monday', '9 to 6']], 'Library hours');
+  const d = doc(heading(1, 'Hours'), t);
+  d.check();
+  const back = schema.nodeFromJSON(JSON.parse(JSON.stringify(d.toJSON())));
+  assert(back.eq(d), 'a stored table comes back the same');
+  eq(back.child(1).attrs.caption, 'Library hours', 'caption kept');
+  // A document stored before tables existed still parses.
+  schema.nodeFromJSON(doc(para('x'), N.bullet_list.create(null, [N.list_item.create(null, [para('a')])])).toJSON()).check();
+  // Cells and list items hold flow content, never a table.
+  assert(!N.table_cell.contentMatch.matchType(N.table), 'no table inside a cell');
+  assert(!N.list_item.contentMatch.matchType(N.paragraph).matchType(N.table), 'no table inside a list item');
+  assert(N.table_cell.contentMatch.matchType(N.bullet_list) || N.table_cell.contentMatch.matchType(N.paragraph).matchType(N.bullet_list), 'a cell can hold a list');
+});
+
+check('tables: the HTML export gives headers a scope, keeps spans and the caption', () => {
+  const { exportHtml } = mod.exportHtml;
+  const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
+  const page = (d) => parseHTML(exportHtml(d, { title: 't', header: '', footer: '' }, empty())).document;
+  const p = page(doc(table([
+    [{ th: 'Program' }, { th: 'Deadline', colspan: 2 }],
+    [{ th: 'Food' }, 'May 1', { td: 'Rolling', rowspan: 2 }],
+    [{ th: 'Rent' }, 'June 1'],
+  ], 'Deadlines')));
+  eq(p.querySelector('table > caption')?.textContent, 'Deadlines', 'caption');
+  eq(p.querySelectorAll('thead > tr').length, 1, 'the header row is a thead');
+  eq(p.querySelectorAll('tbody > tr').length, 2, 'body rows');
+  deepEq([...p.querySelectorAll('thead th')].map((th) => th.getAttribute('scope')), ['col', 'col'], 'header row: column scope');
+  deepEq([...p.querySelectorAll('tbody th')].map((th) => th.getAttribute('scope')), ['row', 'row'], 'a header cell starting a row: row scope');
+  eq(p.querySelector('thead th:nth-child(2)').getAttribute('colspan'), '2', 'colspan kept');
+  eq(p.querySelector('td[rowspan]')?.getAttribute('rowspan'), '2', 'rowspan kept');
+  assert(!p.querySelector('td[colspan="1"], th[colspan="1"], [rowspan="1"]'), 'spans of 1 are left out');
+  eq(p.querySelector('tbody td').innerHTML, '<p>May 1</p>', 'cell content serialized with the schema');
+  // No caption, no header row: no <caption>, no <thead>.
+  const bare = page(doc(table([['a', 'b'], ['c', 'd']])));
+  eq(bare.querySelector('caption'), null, 'no empty caption');
+  eq(bare.querySelector('thead'), null, 'no thead without a header row');
+  eq(bare.querySelectorAll('tbody td').length, 4, 'all cells in the body');
+  // A header row whose cell spans into the body can't be a thead.
+  const spanning = page(doc(table([[{ th: 'A', rowspan: 2 }, { th: 'B' }], ['b1']])));
+  eq(spanning.querySelector('thead'), null, 'a header spanning into the body keeps the table in one tbody');
+});
+
+check('tables: a pasted HTML table keeps its caption and header cells', () => {
+  const parse = (html) => mod.pm.DOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body);
+  const d = parse('<table><caption> Library   hours </caption><tr><th>Day</th><th>Hours</th></tr><tr><td>Monday</td><td colspan="2">9 to 6</td></tr></table>');
+  d.check();
+  eq(d.childCount, 1, 'the caption is not a stray paragraph');
+  const t = d.child(0);
+  eq(t.type.name, 'table', 'a table');
+  eq(t.attrs.caption, 'Library hours', 'caption into the attribute, spaces collapsed');
+  eq(t.child(0).child(0).type.name, 'table_header', 'th kept');
+  eq(t.child(1).child(1).attrs.colspan, 2, 'colspan kept');
 });
 
 /* ---------- store mocks (shared by the sections below) ---------- */
