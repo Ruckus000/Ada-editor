@@ -122,6 +122,12 @@ const CONFIRM_STUB = `
     return true;
   };`;
 
+/** Remove a temp dir. Chrome can still be flushing its profile as it exits
+ *  (ENOTEMPTY in CI), so retry — and never let cleanup fail the test. */
+const tidy = (dir) => {
+  try { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* the OS cleans tmp */ }
+};
+
 /** A fresh browser: its own profile, so it starts signed out with empty storage. */
 async function openBrowser() {
   const profile = mkdtempSync(join(tmpdir(), 'ada-e2e-profile-'));
@@ -130,7 +136,7 @@ async function openBrowser() {
   return {
     target,
     tab,
-    close: async () => { await shutdown(tab.send, tab.ws, proc); rmSync(profile, { recursive: true, force: true }); },
+    close: async () => { await shutdown(tab.send, tab.ws, proc); tidy(profile); },
   };
 }
 
@@ -419,7 +425,7 @@ async function secondBrowser() {
     else if (user?.user || leftDocs || leftMessages) fail(`DELETE  left behind: user ${!!user?.user}, ${leftDocs} documents, ${leftMessages} messages`);
     else note('deleting the account asks first, then removes the user, its documents and its messages');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    tidy(dir);
     await browser.close();
   }
 }
@@ -434,9 +440,11 @@ function rlsTest() {
 }
 
 try {
-  await firstBrowser();
-  if (uid) await secondBrowser();
-  rlsTest();
+  // A crash is a failure like any other: report it with everything that ran.
+  const run = async (fn) => { try { await fn(); } catch (error) { fail(`CRASH  ${error?.stack ?? error}`); } };
+  await run(firstBrowser);
+  if (uid) await run(secondBrowser);
+  await run(rlsTest);
 } finally {
   server.kill();
   stopStack();
