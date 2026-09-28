@@ -362,6 +362,16 @@
 
 .popoverSecond { left: 34px; }
 
+/* The Table menu: a vertical list of actions. */
+.menu { flex-direction: column; gap: 0; min-width: 220px; padding: 4px; }
+.menuItem { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 4px 10px; border: 0; border-radius: 6px; background: none; color: var(--as-text); font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.menuItem:hover, .menuItem:focus-visible { background: var(--as-hover); }
+.menuItem:focus-visible { outline: 2px solid var(--as-focus); outline-offset: -2px; }
+.menuItem[aria-disabled='true'] { color: var(--as-text-subtlest); cursor: default; }
+.menuCheck { width: 1em; text-align: center; }
+.menuCheck[data-on='true']::before { content: '✓'; }
+.menuSep { height: 1px; margin: 4px 0; background: var(--as-border); }
+
 .swatch {
   width: 24px;
   height: 24px;
@@ -436,6 +446,18 @@
 .prose li > p { margin-bottom: 6px; }
 .prose a { color: var(--as-primary); }
 .prose :global(.ProseMirror-selectednode) { outline: 2px solid var(--as-focus); outline-offset: 2px; }
+
+/* Tables: ruled cells, header cells bold, text wrapping inside its cell. */
+.prose table { width: 100%; margin: 0 0 20px; border-collapse: collapse; table-layout: fixed; }
+.prose th, .prose td { padding: 4px 8px; border: 1px solid var(--as-border-strong); text-align: start; vertical-align: top; overflow-wrap: anywhere; }
+.prose th { font-weight: 700; background: var(--as-neutral); }
+.prose th > :last-child, .prose td > :last-child { margin-bottom: 0; }
+.prose caption { padding-bottom: 6px; text-align: start; font-weight: 700; }
+.captionEdit { margin-inline-start: 8px; padding: 2px 8px; border: 1px solid var(--as-border-strong); border-radius: 6px; background: var(--as-surface); color: var(--as-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+/* Selected cells: outlined, not colour alone. */
+.prose :global(.selectedCell) { background: var(--as-selected-bg); outline: 2px solid var(--as-focus); outline-offset: -2px; }
+.prose:global(.ProseMirror-hideselection) *::selection { background: transparent; }
+.prose:global(.ProseMirror-hideselection) { caret-color: transparent; }
 /* Text marked as another language (3.1.2), in the editor only; the export is plain. Side
    brackets, not an underline: every underline style already means a finding severity. */
 .prose span[lang] { border-inline: 2px solid var(--as-text-subtle); border-radius: 3px; padding-inline: 2px; }
@@ -449,6 +471,8 @@
 .prose :global(.ada-underline[data-severity='manual'])    { text-decoration-color: var(--as-manual); }
 
 .activeMark { border-radius: 2px; }
+/* The active finding is a whole table: outlined, so it isn't colour alone. */
+.prose .activeTable { outline: 3px solid var(--as-focus); outline-offset: 3px; }
 .activeMark[data-severity='blocker']   { background: var(--as-blocker-bg); }
 .activeMark[data-severity='violation'] { background: var(--as-violation-bg); }
 .activeMark[data-severity='advisory']  { background: var(--as-advisory-bg); }
@@ -758,6 +782,9 @@
 .textarea { padding-block: 8px; line-height: 1.5; resize: vertical; }
 .input[aria-invalid='true'] { border-color: var(--as-blocker); }
 
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.check input { width: 18px; height: 18px; margin: 0; }
+
 .fieldError { margin: -10px 0 0; font-size: 13px; font-weight: 600; color: var(--as-blocker); }
 .deleteError { margin: 0; padding: 10px 24px; font-size: 14px; font-weight: 600; color: var(--as-blocker); background: var(--as-surface); border-bottom: 1px solid var(--as-border); }
 
@@ -914,4 +941,6 @@
   .sevSeg, .statusDot { background: CanvasText; }
   .tbBtn[aria-pressed='true'], .sevRow[aria-pressed='true'], .tab[aria-pressed='true'], .segBtn[aria-pressed='true'] { outline: 2px solid Highlight; }
   .lozenge, .chip, .missingBadge { border: 1px solid CanvasText; }
+  .prose :global(.selectedCell) { outline: 2px solid Highlight; background: Highlight; color: HighlightText; }
+  .menuItem:focus-visible { outline: 2px solid Highlight; }
 }

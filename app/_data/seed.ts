@@ -43,7 +43,9 @@ export interface SeedSpan {
 export type SeedBlock =
   | { kind: 'heading'; level: 2 | 3; text: string }
   | { kind: 'paragraph'; spans: (string | SeedSpan)[] }
-  | { kind: 'figure'; id: string; alt: string; label: string };
+  | { kind: 'figure'; id: string; alt: string; label: string }
+  /** Rows of cell text; `headerRow` makes the first row header cells. */
+  | { kind: 'table'; caption?: string; headerRow: boolean; rows: string[][] };
 
 export interface DocContent {
   /** Becomes the document's h1 — every seed doc has a top-level heading. */
@@ -198,6 +200,18 @@ export const SEEDS: SeedDoc[] = [
       blocks: [
         { kind: 'paragraph', spans: ['The annual water quality report is available at the front desk.'] },
         { kind: 'paragraph', spans: ['Samples were collected monthly and tested for the contaminants listed below.'] },
+        // A table done right: a caption and a header row, so this clean document stays clean.
+        {
+          kind: 'table',
+          caption: 'Contaminants tested in 2026',
+          headerRow: true,
+          rows: [
+            ['Contaminant', 'Highest level found', 'Legal limit'],
+            ['Lead', '3 parts per billion', '15 parts per billion'],
+            ['Nitrate', '4 parts per million', '10 parts per million'],
+            ['Chlorine', '1.2 parts per million', '4 parts per million'],
+          ],
+        },
         // Spanish done right: marked, so this clean document stays clean.
         { kind: 'paragraph', spans: [{ text: 'Para información en español, llame al 311.', lang: 'es' }] },
       ],
@@ -234,6 +248,9 @@ export function buildSeedDocument(content: DocContent): PMNode {
       blocks.push(N.heading!.create({ level: block.level }, block.text === '' ? undefined : schema.text(block.text)));
     } else if (block.kind === 'figure') {
       blocks.push(N.figure!.create({ id: block.id, alt: block.alt, label: block.label }));
+    } else if (block.kind === 'table') {
+      blocks.push(N.table!.create({ caption: block.caption ?? '' }, block.rows.map((row, r) => N.table_row!.create(null, row.map((text) =>
+        (block.headerRow && r === 0 ? N.table_header! : N.table_cell!).create(null, N.paragraph!.create(null, text ? schema.text(text) : undefined)))))));
     } else {
       const children = block.spans.map((span) => {
         const s: SeedSpan = typeof span === 'string' ? { text: span } : span;

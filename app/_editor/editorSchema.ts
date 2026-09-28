@@ -1,6 +1,7 @@
 import { Fragment, Schema } from 'prosemirror-model';
 import type { DOMOutputSpec, MarkSpec, NodeSpec, Node as PMNode } from 'prosemirror-model';
 import { addListNodes } from 'prosemirror-schema-list';
+import { tableNodes } from 'prosemirror-tables';
 import { isForeignTo, isLangTag, isRtlLanguage, isUsableLangTag } from '../_engine/textHelpers';
 
 /**
@@ -29,7 +30,7 @@ const nodes: Record<string, NodeSpec> = {
   doc: { content: 'block+', attrs: { lang: { default: 'en' } } },
   paragraph: {
     content: 'inline*',
-    group: 'block',
+    group: 'block flow',
     attrs: indentAttr,
     parseDOM: [{ tag: 'p', getAttrs: (el) => ({ indent: parseIndent(el as HTMLElement) }) }],
     toDOM: (node): DOMOutputSpec => ['p', node.attrs.indent ? { style: indentStyle(node.attrs.indent) } : {}, 0],
@@ -37,7 +38,7 @@ const nodes: Record<string, NodeSpec> = {
   heading: {
     attrs: { level: { default: 1 }, ...indentAttr },
     content: 'inline*',
-    group: 'block',
+    group: 'block flow',
     defining: true,
     parseDOM: [1, 2].map((level) => ({ tag: `h${level}`, attrs: { level } })),
     toDOM: (node): DOMOutputSpec => [`h${node.attrs.level}`, node.attrs.indent ? { style: indentStyle(node.attrs.indent) } : {}, 0],
@@ -47,7 +48,7 @@ const nodes: Record<string, NodeSpec> = {
    * control can live inside the document without being editable text.
    */
   figure: {
-    group: 'block',
+    group: 'block flow',
     atom: true,
     selectable: true,
     draggable: false,
@@ -150,8 +151,33 @@ const marks: Record<string, MarkSpec> = {
 
 const base = new Schema({ nodes, marks });
 
+/**
+ * Tables (prosemirror-tables). `flow` is every block except a table: cells and
+ * list items hold flow, so a table never nests in a table or sits in a list.
+ * The caption is an attribute, not a child node — prosemirror-tables reads
+ * every child of a table as a row. `scope` isn't in toDOM because a cell can't
+ * see its position there; the exporters add it (tableHeaders.ts).
+ */
+const tables = tableNodes({ tableGroup: 'block', cellContent: 'flow+', cellAttributes: {} });
+const table: NodeSpec = {
+  ...tables.table,
+  attrs: { caption: { default: '' } },
+  parseDOM: [{
+    tag: 'table',
+    getAttrs: (el) => ({ caption: (el as HTMLElement).querySelector(':scope > caption')?.textContent?.replace(/\s+/g, ' ').trim() ?? '' }),
+  }, { tag: 'caption', ignore: true }],
+  toDOM: (node): DOMOutputSpec => node.attrs.caption
+    ? ['table', ['caption', String(node.attrs.caption)], ['tbody', 0]]
+    : ['table', ['tbody', 0]],
+};
+
 export const schema = new Schema({
-  nodes: addListNodes(base.spec.nodes, 'paragraph block*', 'block'),
+  nodes: addListNodes(base.spec.nodes, 'paragraph flow*', 'block flow').append({
+    table,
+    table_row: tables.table_row,
+    table_cell: tables.table_cell,
+    table_header: tables.table_header,
+  }),
   marks: base.spec.marks,
 });
 

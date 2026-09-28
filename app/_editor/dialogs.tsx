@@ -22,6 +22,7 @@ function Shell({
   children,
   footer,
   onSubmit,
+  restoreFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +31,9 @@ function Shell({
   children: ReactNode;
   footer: ReactNode;
   onSubmit?: (e: FormEvent) => void;
+  /** Called as the dialog closes: false when it has put focus somewhere else
+   *  itself (saving moved on into the document), so the opener isn't refocused. */
+  restoreFocus?: () => boolean;
 }) {
   // These dialogs open from state, not a Dialog.Trigger, so Radix has nowhere
   // to return focus on close. Remember what had focus when we opened: on
@@ -51,6 +55,7 @@ function Shell({
           {...(description ? {} : { 'aria-describedby': undefined })}
           onOpenAutoFocus={() => { returnTo.current = document.activeElement as HTMLElement | null; }}
           onCloseAutoFocus={(e) => {
+            if (restoreFocus && !restoreFocus()) { e.preventDefault(); return; }
             if (!returnTo.current?.isConnected) return;
             e.preventDefault();
             returnTo.current.focus();
@@ -106,6 +111,148 @@ export function AltTextDialog({
       <label className={styles.field} htmlFor={id}>
         <span className={styles.fieldLabel}>Description</span>
         <textarea id={id} className={styles.textarea} rows={3} value={value} onChange={(e) => setValue(e.target.value)} />
+      </label>
+    </Shell>
+  );
+}
+
+/* ---------- tables ---------- */
+
+const MAX_ROWS = 50;
+const MAX_COLS = 10;
+
+export function InsertTableDialog({
+  open,
+  onInsert,
+  onClose,
+  focusDocument,
+}: {
+  open: boolean;
+  onInsert: (table: { rows: number; cols: number; headerRow: boolean; headerColumn: boolean; caption: string }) => void;
+  onClose: () => void;
+  /** Where focus goes after inserting: into the new table. */
+  focusDocument: () => void;
+}) {
+  const [rows, setRows] = useState('3');
+  const [cols, setCols] = useState('2');
+  const [headerRow, setHeaderRow] = useState(true);
+  const [headerColumn, setHeaderColumn] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [invalid, setInvalid] = useState<'rows' | 'cols' | null>(null);
+  const inserted = useRef(false);
+  const id = useId();
+  useEffect(() => {
+    if (!open) return;
+    setRows('3'); setCols('2'); setHeaderRow(true); setHeaderColumn(false); setCaption(''); setInvalid(null);
+    inserted.current = false;
+  }, [open]);
+  const whole = (v: string, max: number) => (/^\d+$/.test(v.trim()) && Number(v) >= 1 && Number(v) <= max ? Number(v) : null);
+  const number = (key: 'rows' | 'cols', label: string, value: string, set: (v: string) => void, max: number) => (
+    <>
+      <label className={styles.field} htmlFor={`${id}-${key}`}>
+        <span className={styles.fieldLabel}>{label}</span>
+        <input
+          id={`${id}-${key}`}
+          className={styles.input}
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={max}
+          value={value}
+          aria-invalid={invalid === key}
+          {...(invalid === key ? { 'aria-describedby': `${id}-${key}-error` } : {})}
+          onChange={(e) => { set(e.target.value); setInvalid(null); }}
+        />
+      </label>
+      {invalid === key ? <p id={`${id}-${key}-error`} className={styles.fieldError} role="alert">{`Use a whole number from 1 to ${max}.`}</p> : null}
+    </>
+  );
+
+  return (
+    <Shell
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="Insert table"
+      description="Header cells tell screen reader users what each value in the table means, so a header row is on unless the table really has none."
+      restoreFocus={() => {
+        if (!inserted.current) return true;
+        focusDocument();
+        return false;
+      }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const r = whole(rows, MAX_ROWS);
+        const c = whole(cols, MAX_COLS);
+        if (r === null) { setInvalid('rows'); return; }
+        if (c === null) { setInvalid('cols'); return; }
+        inserted.current = true;
+        onInsert({ rows: r, cols: c, headerRow, headerColumn, caption });
+      }}
+      footer={
+        <>
+          <Dialog.Close className={styles.btnSubtle} type="button">Cancel</Dialog.Close>
+          <button type="submit" className={styles.btnPrimary}>Insert table</button>
+        </>
+      }
+    >
+      {number('rows', 'Rows', rows, setRows, MAX_ROWS)}
+      {number('cols', 'Columns', cols, setCols, MAX_COLS)}
+      <label className={styles.check}>
+        <input type="checkbox" checked={headerRow} onChange={(e) => setHeaderRow(e.target.checked)} />
+        <span>First row is a header row</span>
+      </label>
+      <label className={styles.check}>
+        <input type="checkbox" checked={headerColumn} onChange={(e) => setHeaderColumn(e.target.checked)} />
+        <span>First column is a header column</span>
+      </label>
+      <label className={styles.field} htmlFor={`${id}-caption`}>
+        <span className={styles.fieldLabel}>Caption (optional)</span>
+        <input id={`${id}-caption`} className={styles.input} type="text" value={caption} onChange={(e) => setCaption(e.target.value)} />
+      </label>
+    </Shell>
+  );
+}
+
+export function TableCaptionDialog({
+  open,
+  initial,
+  onSave,
+  onClose,
+  focusDocument,
+}: {
+  open: boolean;
+  initial: string;
+  onSave: (caption: string) => void;
+  onClose: () => void;
+  focusDocument: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const saved = useRef(false);
+  const id = useId();
+  useEffect(() => { if (open) { setValue(initial); saved.current = false; } }, [open, initial]);
+
+  return (
+    <Shell
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="Table caption"
+      description="A caption names the table, so people can tell what it is before reading it. Leave it empty for no caption."
+      restoreFocus={() => {
+        if (!saved.current) return true;
+        focusDocument();
+        return false;
+      }}
+      onSubmit={(e) => { e.preventDefault(); saved.current = true; onSave(value.trim()); }}
+      footer={
+        <>
+          <Dialog.Close className={styles.btnSubtle} type="button">Cancel</Dialog.Close>
+          <button type="submit" className={styles.btnPrimary}>Save caption</button>
+        </>
+      }
+    >
+      <label className={styles.field} htmlFor={id}>
+        <span className={styles.fieldLabel}>Caption</span>
+        <input id={id} className={styles.input} type="text" value={value} onChange={(e) => setValue(e.target.value)} />
       </label>
     </Shell>
   );

@@ -1,5 +1,7 @@
 import { Fragment } from 'prosemirror-model';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
+import { EditorState } from 'prosemirror-state';
+import { fixTables } from 'prosemirror-tables';
 import { mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import { contrastRatio, parseColour } from '../_engine/contrast';
@@ -14,8 +16,11 @@ import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isUsableLangTag, primaryT
  *
  * The import is FAITHFUL, never repairing: a bold paragraph that looks like a
  * heading stays a paragraph, and a list typed with "•" and tabs stays text,
- * because the checker exists to report exactly those problems. Whatever the
- * schema cannot hold is reported in `notes` rather than dropped silently.
+ * because the checker exists to report exactly those problems. Tables come
+ * across as tables, merged cells included, and a row is a header row only
+ * when Word marks it one (w:tblHeader), never because it looks bold. Whatever
+ * the schema cannot hold (a table nested inside a table cell, among others) is
+ * reported in `notes` rather than dropped silently.
  *
  * Everything read from the file is untrusted: ids live in Maps (a styleId of
  * "__proto__" is just a string), links pass through safeHref, text only ever
@@ -52,6 +57,10 @@ const MAX_ELEMENTS = 400_000;
 const MAX_ALT = 2000;
 const MAX_TITLE = 200;
 const MAX_BAND = 500;
+/** Table cells across the document: past this, a file is too complex, not a table. */
+const MAX_TABLE_CELLS = 10_000;
+/** Word's own limit on a table's columns, and so on any span. */
+const MAX_SPAN = 63;
 
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
 const STRICT_NS = 'http://purl.oclc.org/ooxml/';
@@ -90,6 +99,7 @@ const first = (el: Element, tag: string): Element | null => el.getElementsByTagN
 /** Every descendant element (linkedom has no getElementsByTagName('*')). */
 const descendants = (el: Element): Element[] => kids(el).flatMap((k) => [k, ...descendants(k)]);
 const on = (el: Element | null): boolean => !!el && !FALSE_VALS.has((val(el) ?? 'true').toLowerCase());
+const clampInt = (n: number, lo: number, hi: number) => (Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.trunc(n))) : lo);
 
 /** Resolve a relationship target against the directory of the part that owns it. */
 function resolvePart(dir: string, target: string): string {
@@ -363,7 +373,10 @@ class Walker {
   private visited = 0;
   private figures = 0;
   private paragraphs = 0;
-  private counts = { tables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0, fields: 0 };
+  private counts = { nestedTables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0, fields: 0 };
+  /** Tables open around the walk: a table inside a cell can't be a table here. */
+  private tableDepth = 0;
+  private tableCells = 0;
   /** Shading behind the current paragraph and table cell: what a run sits on when it has none of its own. */
   private paragraphFill: Fill = null;
   private cellFill: Fill = null;
@@ -380,7 +393,7 @@ class Walker {
   notes(): string[] {
     const c = this.counts;
     const out: string[] = [];
-    if (c.tables) out.push(`${plural(c.tables, 'table')} flattened into paragraphs; table structure isn’t checked yet.`);
+    if (c.nestedTables) out.push(`${plural(c.nestedTables, 'table inside a table cell', 'tables inside table cells')} flattened into paragraphs.`);
     if (c.decorative) out.push(`${plural(c.decorative, 'decorative image')} marked in Word left out.`);
     if (c.notes) out.push(`${plural(c.notes, 'footnote or endnote', 'footnotes or endnotes')} not imported.`);
     if (c.chunks) out.push(`${plural(c.chunks, 'embedded document part')} not imported.`);
@@ -409,7 +422,15 @@ class Walker {
       this.tick();
       switch (el.tagName) {
         case 'w:p': out.push(...this.paragraph(el)); break;
-        case 'w:tbl': this.counts.tables++; out.push(...this.table(el)); break;
+        case 'w:tbl':
+          if (this.tableDepth > 0) {
+            this.counts.nestedTables++;
+            out.push(...this.flatTable(el));
+          } else {
+            const table = this.table(el);
+            if (table) out.push({ node: table, list: null, src: ++this.paragraphs });
+          }
+          break;
         case 'w:sdt': { this.countFormSdt(el); const c = child(el, 'w:sdtContent'); if (c) out.push(...this.blocks(c)); break; }
         case 'w:customXml': out.push(...this.blocks(el)); break;
         case 'w:ins': case 'w:moveTo': this.counts.tracked++; out.push(...this.blocks(el)); break;
@@ -422,8 +443,105 @@ class Walker {
     return out;
   }
 
-  /** Table text in reading order. Rows and cells may be wrapped in content controls or custom XML. */
-  private table(el: Element): Block[] {
+  /**
+   * A table: rows and cells, header rows, and merged cells. Word merges across
+   * with w:gridSpan (colspan) and down with w:vMerge (a "restart" cell, then
+   * "continue" cells beneath it: one cell with a rowspan). A continue with
+   * nothing open above it is imported as a cell of its own.
+   */
+  private table(el: Element): PMNode | null {
+    const N = schema.nodes;
+    const grid = kids(child(el, 'w:tblGrid') ?? el).filter((k) => k.tagName === 'w:gridCol').map((g) => Number(val(g, 'w:w')) / 15);
+    const caption = (val(child(child(el, 'w:tblPr'), 'w:tblCaption')) ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_ALT);
+    type Cell = { header: boolean; colspan: number; rowspan: number; col: number; content: PMNode[] };
+    const rows: Cell[][] = [];
+    const open = new Map<number, Cell>();
+    const isEmpty = (nodes: PMNode[]) => nodes.every((n) => n.type === N.paragraph && n.content.size === 0);
+    this.tableDepth++;
+    try {
+      for (const tr of this.rowsOf(el)) {
+        this.tick();
+        const trPr = child(tr, 'w:trPr');
+        const header = on(child(trPr, 'w:tblHeader'));
+        const row: Cell[] = [];
+        let col = clampInt(Number(val(child(trPr, 'w:gridBefore'))), 0, MAX_SPAN);
+        // Word's skipped leading columns: an empty cell holds their place.
+        if (col) row.push({ header: false, colspan: col, rowspan: 1, col: 0, content: [N.paragraph!.create()] });
+        for (const tc of this.cellsOf(tr)) {
+          this.tick();
+          if (++this.tableCells > MAX_TABLE_CELLS) throw new ImportError(MESSAGES.tooComplex);
+          const tcPr = child(tc, 'w:tcPr');
+          const span = clampInt(Number(val(child(tcPr, 'w:gridSpan')) ?? 1), 1, MAX_SPAN);
+          const vMerge = child(tcPr, 'w:vMerge');
+          const merge = vMerge ? (val(vMerge) ?? 'continue') : null;
+          const content = this.cellContent(tc);
+          const above = merge === 'continue' ? open.get(col) : undefined;
+          if (above && above.colspan === span) {
+            above.rowspan++;
+            // Word keeps a merged cell's text in its first cell; anything typed
+            // into the others is kept, after it.
+            if (!isEmpty(content)) above.content.push(...content);
+            col += span;
+            continue;
+          }
+          const cell: Cell = { header, colspan: span, rowspan: 1, col, content };
+          for (let c = col; c < col + span; c++) open.delete(c);
+          if (merge === 'restart') open.set(col, cell);
+          row.push(cell);
+          col += span;
+        }
+        rows.push(row);
+      }
+    } finally {
+      this.tableDepth--;
+    }
+    const widths = (c: Cell) => {
+      const w = grid.slice(c.col, c.col + c.colspan).map((n) => Math.round(n));
+      return w.length === c.colspan && w.every((n) => n > 0) ? w : null;
+    };
+    const pmRows = rows.filter((r) => r.length).map((r) => N.table_row!.create(null, r.map((c) =>
+      (c.header ? N.table_header! : N.table_cell!).create({ colspan: c.colspan, rowspan: c.rowspan, colwidth: widths(c) }, c.content))));
+    return pmRows.length ? N.table!.create({ caption }, pmRows) : null;
+  }
+
+  /** A table's rows, through the content controls, custom XML and tracked changes Word wraps them in. */
+  private rowsOf(el: Element): Element[] {
+    const out: Element[] = [];
+    for (const k of kids(el)) {
+      if (k.tagName === 'w:tr') out.push(k);
+      else if (k.tagName === 'w:customXml') out.push(...this.rowsOf(k));
+      else if (k.tagName === 'w:sdt') { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) out.push(...this.rowsOf(c)); }
+      else if (k.tagName === 'w:ins' || k.tagName === 'w:moveTo') { this.counts.tracked++; out.push(...this.rowsOf(k)); }
+      else if (k.tagName === 'w:del' || k.tagName === 'w:moveFrom') this.counts.tracked++;
+    }
+    return out;
+  }
+
+  /** A row's cells, through the same wrappers. */
+  private cellsOf(tr: Element): Element[] {
+    const out: Element[] = [];
+    for (const k of kids(tr)) {
+      if (k.tagName === 'w:tc') out.push(k);
+      else if (k.tagName === 'w:customXml') out.push(...this.cellsOf(k));
+      else if (k.tagName === 'w:sdt') { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) out.push(...this.cellsOf(c)); }
+    }
+    return out;
+  }
+
+  /** A cell's content, sitting on the cell's shading (the contrast check reads it from the runs). */
+  private cellContent(tc: Element): PMNode[] {
+    const outer = this.cellFill;
+    this.cellFill = shadingFill(child(child(tc, 'w:tcPr'), 'w:shd')) ?? outer;
+    try {
+      const nodes = flow(this.blocks(tc));
+      return nodes.length ? nodes : [schema.nodes.paragraph!.create()];
+    } finally {
+      this.cellFill = outer;
+    }
+  }
+
+  /** A table inside a table cell: its text in reading order. */
+  private flatTable(el: Element): Block[] {
     const out: Block[] = [];
     for (const k of kids(el)) {
       this.tick();
@@ -436,8 +554,8 @@ class Walker {
           this.cellFill = outer;
         }
       }
-      else if (k.tagName === 'w:tr' || k.tagName === 'w:customXml') out.push(...this.table(k));
-      else if (k.tagName === 'w:sdt') { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) out.push(...this.table(c)); }
+      else if (k.tagName === 'w:tr' || k.tagName === 'w:customXml') out.push(...this.flatTable(k));
+      else if (k.tagName === 'w:sdt') { this.countFormSdt(k); const c = child(k, 'w:sdtContent'); if (c) out.push(...this.flatTable(c)); }
     }
     return out;
   }
@@ -736,6 +854,16 @@ type Entry = { list: ListInfo; nodes: PMNode[] };
 
 function assemble(blocks: Block[]): PMNode {
   const N = schema.nodes;
+  const out = flow(blocks);
+  if (!out.length) out.push(N.paragraph!.create());
+  const lang = documentLanguageOf(N.doc!.create(null, out));
+  const doc = N.doc!.create({ lang }, mapText(Fragment.from(out), (t) => withoutPageLanguage(t, lang)));
+  // Ragged rows (Word allows them) are padded, so every table is a grid.
+  return fixTables(EditorState.create({ doc }))?.doc ?? doc;
+}
+
+/** Blocks in order, consecutive list paragraphs grouped into lists: a body's or a table cell's content. */
+function flow(blocks: Block[]): PMNode[] {
   const out: PMNode[] = [];
   for (let i = 0; i < blocks.length;) {
     const b = blocks[i]!;
@@ -757,9 +885,7 @@ function assemble(blocks: Block[]): PMNode {
       k = next;
     }
   }
-  if (!out.length) out.push(N.paragraph!.create());
-  const lang = documentLanguageOf(N.doc!.create(null, out));
-  return N.doc!.create({ lang }, mapText(Fragment.from(out), (t) => withoutPageLanguage(t, lang)));
+  return out;
 }
 
 /**

@@ -19,14 +19,18 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { Anchor, EditorFinding } from '../_editor/findings';
 import { dismissKeyOf } from '../_editor/findings';
 import type { BlockEntry, BlockSummary, RawFinding } from './rules';
-import { documentLanguage } from '../_editor/editorSchema';
-import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock } from './rules';
+import { documentLanguage, schema } from '../_editor/editorSchema';
+import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock, summarizeTable } from './rules';
 import { languageName, primaryTag } from './textHelpers';
 
 /** Cached per-block rule results, keyed by node identity (§9.1), one cache
  *  per document language: a block's language findings and which rules run
  *  depend on it, and a document's language rarely changes. */
 const blockMemo = new Map<string, WeakMap<PMNode, BlockSummary>>();
+// Table rules don't depend on the page language. Any edit in a table makes a
+// new table node, but the summary is a cheap walk over its cells.
+const tableMemo = new WeakMap<PMNode, RawFinding[]>();
+const TABLE = schema.nodes.table!;
 
 const EXCERPT_MAX = 60;
 
@@ -95,7 +99,15 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
   let memo = blockMemo.get(key);
   if (!memo) blockMemo.set(key, (memo = new WeakMap()));
   const entries: BlockEntry[] = [];
+  const tables: { findings: RawFinding[]; pos: number; size: number }[] = [];
   doc.descendants((node, pos) => {
+    if (node.type === TABLE) {
+      let findings = tableMemo.get(node);
+      if (!findings) tableMemo.set(node, (findings = summarizeTable(node)));
+      tables.push({ findings, pos, size: node.nodeSize });
+      // Its cells' paragraphs are ordinary blocks: keep walking.
+      return true;
+    }
     if (!isCheckableBlock(node)) return true;
     let summary = memo.get(node);
     if (!summary) {
@@ -107,13 +119,15 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
     return false;
   });
 
-  const raw: { finding: RawFinding; blockPos: number }[] = [];
+  const raw: { finding: RawFinding; blockPos: number; blockSize?: number }[] = [];
   for (const e of entries) {
     for (const f of e.summary.findings) {
       if (!opts.prose && PROSE_RULE_IDS.has(f.ruleId)) continue;
       raw.push({ finding: f, blockPos: e.pos });
     }
   }
+  // Table rules are all structural.
+  for (const t of tables) for (const f of t.findings) raw.push({ finding: f, blockPos: t.pos, blockSize: t.size });
   for (const f of crossBlockFindings(entries, pageLang)) {
     if (!opts.prose && PROSE_RULE_IDS.has(f.ruleId)) continue;
     raw.push({ finding: f, blockPos: -1 });
@@ -122,7 +136,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
   const seen = new Map<string, number>();
   const mapped: EditorFinding[] = [];
   const keyed: [EditorFinding, string][] = [];
-  for (const { finding: f, blockPos } of raw) {
+  for (const { finding: f, blockPos, blockSize } of raw) {
     let from: number;
     let to: number;
     let anchor: Anchor;
@@ -141,6 +155,11 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
         from = blockPos;
         to = blockPos + 1;
         anchor = { kind: 'figure', figureId: f.anchor.figureId };
+        break;
+      case 'table':
+        from = blockPos;
+        to = blockPos + (blockSize ?? 1);
+        anchor = { kind: 'table' };
         break;
       case 'document':
         from = 0;
@@ -183,6 +202,9 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
         out.suggestion = languageName(f.fix.lang);
       } else if (f.fix.kind === 'docLang') {
         out.suggestion = languageName(f.fix.lang);
+      } else if (f.fix.kind === 'tableHeaderRow') {
+        out.original = 'no header row';
+        out.suggestion = 'first row as header row';
       }
     }
     mapped.push(out);

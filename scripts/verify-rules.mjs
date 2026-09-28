@@ -18,7 +18,7 @@
 
 import { build } from 'esbuild';
 import { DOMParser as XmlParser, parseHTML } from 'linkedom';
-import { crc32, deflateRawSync } from 'node:zlib';
+import { NS, P, R, docx, makeZip, rel, rels } from './harness/docx.mjs';
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -165,6 +165,17 @@ const para = (...children) => N.paragraph.create(null, children.map((c) => (type
 const heading = (level, str) => N.heading.create({ level }, str === '' ? undefined : schema.text(str));
 const figure = (id, alt, label = 'image') => N.figure.create({ id, alt, label });
 const doc = (...blocks) => N.doc.create(null, blocks);
+// Tables: rows of cells; a cell is a string (td), { th: 'x' }, or { td|th, colspan, rowspan }.
+const cell = (c) => {
+  const o = typeof c === 'string' ? { td: c } : c;
+  const header = 'th' in o;
+  const content = header ? o.th : o.td;
+  return (header ? N.table_header : N.table_cell).create(
+    { colspan: o.colspan ?? 1, rowspan: o.rowspan ?? 1, colwidth: null },
+    typeof content === 'string' || content === undefined ? [para(content ?? '')] : content,
+  );
+};
+const table = (rows, caption = '') => N.table.create({ caption }, rows.map((r) => N.table_row.create(null, r.map(cell))));
 
 /** Mirrors check.ts's walk: one entry per textblock/figure, in doc order. */
 function entriesOf(document) {
@@ -190,8 +201,8 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 17 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 17, 'rule count');
+check('RULES ports the 19 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 19, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
@@ -200,7 +211,7 @@ check('RULES ports the 17 rules with the §8.1 structural/prose split', () => {
   deepEq(RULES.map((r) => r.id).sort(), [
     'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
-    'link-text-raw-url', 'long-sentence', 'reading-level',
+    'link-text-raw-url', 'long-sentence', 'reading-level', 'table-merged-cells', 'table-no-header',
   ], 'rule ids');
 });
 
@@ -1173,6 +1184,155 @@ check('exportHtml builds an accessible standalone page', () => {
   }
 });
 
+check('tables: the schema holds them, stored JSON round-trips, and they never nest', () => {
+  const t = table([[{ th: 'Day' }, { th: 'Hours' }], ['Monday', '9 to 6']], 'Library hours');
+  const d = doc(heading(1, 'Hours'), t);
+  d.check();
+  const back = schema.nodeFromJSON(JSON.parse(JSON.stringify(d.toJSON())));
+  assert(back.eq(d), 'a stored table comes back the same');
+  eq(back.child(1).attrs.caption, 'Library hours', 'caption kept');
+  // A document stored before tables existed still parses.
+  schema.nodeFromJSON(doc(para('x'), N.bullet_list.create(null, [N.list_item.create(null, [para('a')])])).toJSON()).check();
+  // Cells and list items hold flow content, never a table.
+  assert(!N.table_cell.contentMatch.matchType(N.table), 'no table inside a cell');
+  assert(!N.list_item.contentMatch.matchType(N.paragraph).matchType(N.table), 'no table inside a list item');
+  assert(N.table_cell.contentMatch.matchType(N.bullet_list) || N.table_cell.contentMatch.matchType(N.paragraph).matchType(N.bullet_list), 'a cell can hold a list');
+});
+
+check('tables: the HTML export gives headers a scope, keeps spans and the caption', () => {
+  const { exportHtml } = mod.exportHtml;
+  const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
+  const page = (d) => parseHTML(exportHtml(d, { title: 't', header: '', footer: '' }, empty())).document;
+  const p = page(doc(table([
+    [{ th: 'Program' }, { th: 'Deadline', colspan: 2 }],
+    [{ th: 'Food' }, 'May 1', { td: 'Rolling', rowspan: 2 }],
+    [{ th: 'Rent' }, 'June 1'],
+  ], 'Deadlines')));
+  eq(p.querySelector('table > caption')?.textContent, 'Deadlines', 'caption');
+  eq(p.querySelectorAll('thead > tr').length, 1, 'the header row is a thead');
+  eq(p.querySelectorAll('tbody > tr').length, 2, 'body rows');
+  deepEq([...p.querySelectorAll('thead th')].map((th) => th.getAttribute('scope')), ['col', 'col'], 'header row: column scope');
+  deepEq([...p.querySelectorAll('tbody th')].map((th) => th.getAttribute('scope')), ['row', 'row'], 'a header cell starting a row: row scope');
+  eq(p.querySelector('thead th:nth-child(2)').getAttribute('colspan'), '2', 'colspan kept');
+  eq(p.querySelector('td[rowspan]')?.getAttribute('rowspan'), '2', 'rowspan kept');
+  assert(!p.querySelector('td[colspan="1"], th[colspan="1"], [rowspan="1"]'), 'spans of 1 are left out');
+  eq(p.querySelector('tbody td').innerHTML, '<p>May 1</p>', 'cell content serialized with the schema');
+  // No caption, no header row: no <caption>, no <thead>.
+  const bare = page(doc(table([['a', 'b'], ['c', 'd']])));
+  eq(bare.querySelector('caption'), null, 'no empty caption');
+  eq(bare.querySelector('thead'), null, 'no thead without a header row');
+  eq(bare.querySelectorAll('tbody td').length, 4, 'all cells in the body');
+  // A header row whose cell spans into the body can't be a thead.
+  const spanning = page(doc(table([[{ th: 'A', rowspan: 2 }, { th: 'B' }], ['b1']])));
+  eq(spanning.querySelector('thead'), null, 'a header spanning into the body keeps the table in one tbody');
+});
+
+check('table-no-header: a table without header cells blocks, and the fix makes row one a header row', () => {
+  const { checkDocument } = mod.check;
+  const found = (d) => checkDocument(d, { prose: false }).filter((f) => f.id.startsWith('table-no-header'));
+  const plain = doc(heading(1, 'Hours'), table([['Day', 'Hours'], ['Monday', '9 to 6']]));
+  const [f] = found(plain);
+  assert(f, 'a headerless table is flagged');
+  eq(found(plain).length, 1, 'once per table');
+  eq(f.severity, 'blocker', 'blocker, as in the spike');
+  eq(f.criterion, '1.3.1 Info and Relationships', 'criterion');
+  eq(f.anchor.kind, 'table', 'anchored on the table');
+  const at = plain.child(0).nodeSize;
+  eq(f.from, at, 'from: the table node');
+  eq(f.to, at + plain.child(1).nodeSize, 'to: the end of the table node');
+  eq(f.excerpt, 'Day Hours Monday 9 to 6', 'excerpt: the table text, cells apart');
+  deepEq(f.fix, { kind: 'tableHeaderRow' }, 'fix offered');
+  eq(f.suggestion, 'first row as header row', 'the card has something to apply');
+  // One header cell anywhere passes (the spike's rule), and a header column alone counts.
+  eq(found(doc(table([['Day', { th: 'Hours' }], ['Monday', '9 to 6']]))).length, 0, 'any th passes');
+  eq(found(doc(table([[{ th: 'Monday' }, '9 to 6'], [{ th: 'Tuesday' }, '9 to 6']]))).length, 0, 'a header column passes');
+  eq(found(doc(table([['Only', 'row']])))[0]?.fix, undefined, 'a one-row table: no header row to suggest');
+  // Apply: the first row becomes header cells and the finding is gone.
+  const state = mod.pmState.EditorState.create({ doc: plain });
+  let next;
+  assert(mod.editorCommands.makeFirstRowHeader(f.from)(state, (tr) => { next = state.apply(tr); }), 'the fix applies');
+  deepEq(next.doc.child(1).child(0).content.content.map((c) => c.type.name), ['table_header', 'table_header'], 'row one is header cells');
+  eq(next.doc.child(1).child(1).child(0).type.name, 'table_cell', 'row two untouched');
+  eq(found(next.doc).length, 0, 'finding retracted');
+  // A stale Apply (no table there any more) does nothing.
+  assert(!mod.editorCommands.makeFirstRowHeader(0)(state), 'no table at the position: no-op');
+});
+
+check('table-merged-cells: merged cells get a gentle advisory; cells are still checked inside tables', () => {
+  const { checkDocument } = mod.check;
+  const findings = (d) => checkDocument(d, { prose: false });
+  const merged = doc(heading(1, 'Deadlines'), table([[{ th: 'Program' }, { th: 'Deadline' }], [{ td: 'Food and rent', colspan: 2 }]]));
+  const m = findings(merged).filter((f) => f.id.startsWith('table-merged-cells'));
+  eq(m.length, 1, 'merged cells flagged once');
+  eq(m[0].severity, 'advisory', 'advisory, never blocking');
+  eq(m[0].fix, undefined, 'no automatic fix');
+  eq(findings(doc(heading(1, 'x'), table([[{ th: 'A' }, { th: 'B' }], ['a', 'b']]))).filter((f) => f.id.startsWith('table-')).length, 0, 'a simple headed table is clean');
+  // A generic link inside a cell is flagged, at its own position.
+  const linked = doc(heading(1, 'x'), table([[{ th: 'Form' }], [{ td: [para(text('click here', link('https://x.org')))] }]]));
+  const g = findings(linked).find((f) => f.id.startsWith('link-text-generic'));
+  assert(g, 'a paragraph inside a cell is checked');
+  eq(linked.textBetween(g.from, g.to), 'click here', 'at the right position');
+});
+
+check('table commands: insert puts the cursor in the first cell, never nests, and header toggles mean the first row/column', () => {
+  const { insertTable, tableCommands, formatState, setTableCaption } = mod.editorCommands;
+  const { EditorState, TextSelection } = mod.pmState;
+  let state = EditorState.create({ doc: doc(para('Before')) });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 7)));
+  const run = (cmd) => { let ok = false; cmd(state, (tr) => { state = state.apply(tr); ok = true; }); return ok; };
+  assert(run(insertTable({ rows: 3, cols: 2, headerRow: true, headerColumn: false, caption: ' Dates ' })), 'inserted');
+  const t = state.doc.child(1);
+  eq(t.type.name, 'table', 'a table after the paragraph');
+  eq(t.attrs.caption, 'Dates', 'caption trimmed');
+  deepEq(t.content.content.map((r) => r.content.content.map((c) => c.type.name === 'table_header' ? 'th' : 'td')), [['th', 'th'], ['td', 'td'], ['td', 'td']], 'header row only');
+  eq(state.selection.$from.node(-1).type.name, 'table_header', 'cursor in the first cell');
+  let f = formatState(state).table;
+  deepEq({ rows: f.rows, cols: f.cols, headerRow: f.headerRow, headerColumn: f.headerColumn, canSplit: f.canSplit }, { rows: 3, cols: 2, headerRow: true, headerColumn: false, canSplit: false }, 'table state');
+  assert(!run(insertTable({ rows: 1, cols: 1, headerRow: false, headerColumn: false, caption: '' })), 'no table inside a table');
+  // Toggles act on the first row/column wherever the cursor is.
+  state = state.apply(state.tr.setSelection(TextSelection.near(state.doc.resolve(state.doc.child(0).nodeSize + t.child(0).nodeSize + 2))));
+  eq(state.selection.$from.node(-1).type.name, 'table_cell', 'cursor moved into a body cell');
+  run(tableCommands.toggleHeaderRow);
+  eq(formatState(state).table.headerRow, false, 'header row off');
+  eq(state.doc.child(1).child(1).child(0).type.name, 'table_cell', 'the body row was not turned into headers');
+  run(tableCommands.toggleHeaderColumn);
+  eq(formatState(state).table.headerColumn, true, 'header column on');
+  run(tableCommands.addRowAfter);
+  eq(formatState(state).table.rows, 4, 'row added');
+  run(setTableCaption('  New   caption '));
+  eq(state.doc.child(1).attrs.caption, 'New caption', 'caption set, spaces collapsed');
+  run(tableCommands.deleteTable);
+  eq(formatState(state).table, null, 'table deleted');
+});
+
+check('table commands: inserting in a list item puts the table beside the list, never inside it', () => {
+  const { insertTable } = mod.editorCommands;
+  const { EditorState, TextSelection } = mod.pmState;
+  const list = N.bullet_list.create(null, [N.list_item.create(null, [para('one')]), N.list_item.create(null, [para('two')])]);
+  let state = EditorState.create({ doc: doc(list) });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 6)));
+  insertTable({ rows: 2, cols: 2, headerRow: true, headerColumn: false, caption: '' })(state, (tr) => { state = state.apply(tr); });
+  state.doc.check();
+  const top = state.doc.content.content.map((n) => n.type.name);
+  assert(top.includes('table'), `the table is a top-level block (${JSON.stringify(top)})`);
+  let nested = false;
+  state.doc.descendants((n, _pos, parent) => { if (n.type.name === 'table' && parent.type.name !== 'doc') nested = true; });
+  assert(!nested, 'never inside the list');
+  eq(state.doc.textContent.replace(/\s/g, ''), 'onetwo', 'no list text lost');
+});
+
+check('tables: a pasted HTML table keeps its caption and header cells', () => {
+  const parse = (html) => mod.pm.DOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body);
+  const d = parse('<table><caption> Library   hours </caption><tr><th>Day</th><th>Hours</th></tr><tr><td>Monday</td><td colspan="2">9 to 6</td></tr></table>');
+  d.check();
+  eq(d.childCount, 1, 'the caption is not a stray paragraph');
+  const t = d.child(0);
+  eq(t.type.name, 'table', 'a table');
+  eq(t.attrs.caption, 'Library hours', 'caption into the attribute, spaces collapsed');
+  eq(t.child(0).child(0).type.name, 'table_header', 'th kept');
+  eq(t.child(1).child(1).attrs.colspan, 2, 'colspan kept');
+});
+
 /* ---------- store mocks (shared by the sections below) ---------- */
 
 const storedDocJSON = (id, overrides = {}) => ({
@@ -1413,65 +1573,6 @@ const rejects = async (bytes, message, what) => {
   throw new Error(`${what}: imported without error`);
 };
 
-/** Build a ZIP from [name, content, { method, flags }] entries — enough to forge hostile archives. */
-function makeZip(files, { centralSize } = {}) {
-  const locals = [];
-  const centrals = [];
-  let offset = 0;
-  for (const [name, content, opt = {}] of files) {
-    const data = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
-    const method = opt.method ?? 8;
-    const body = method === 8 ? deflateRawSync(data) : data;
-    const nameBuf = Buffer.from(name, 'utf8');
-    const head = (sig, central) => {
-      const b = Buffer.alloc(central ? 46 : 30);
-      let o = 0;
-      const w16 = (v) => { b.writeUInt16LE(v, o); o += 2; };
-      const w32 = (v) => { b.writeUInt32LE(v >>> 0, o); o += 4; };
-      w32(sig);
-      if (central) w16(20);
-      w16(20); w16(opt.flags ?? 0); w16(method); w16(0); w16(0);
-      w32(crc32(data)); w32(centralSize ?? body.length); w32(data.length);
-      w16(nameBuf.length); w16(0);
-      if (central) { w16(0); w16(0); w16(0); w32(0); w32(offset); }
-      return b;
-    };
-    const local = Buffer.concat([head(0x04034b50, false), nameBuf, body]);
-    centrals.push(Buffer.concat([head(0x02014b50, true), nameBuf]));
-    locals.push(local);
-    offset += local.length;
-  }
-  const cd = Buffer.concat(centrals);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(files.length, 8);
-  end.writeUInt16LE(files.length, 10);
-  end.writeUInt32LE(cd.length, 12);
-  end.writeUInt32LE(offset, 16);
-  return new Uint8Array(Buffer.concat([...locals, cd, end]));
-}
-
-const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:v="urn:schemas-microsoft-com:vml"';
-const REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-const rel = (id, type, target, external = false) =>
-  `<Relationship Id="${id}" Type="${REL_NS}/${type}" Target="${target}"${external ? ' TargetMode="External"' : ''}/>`;
-const rels = (...r) => `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${r.join('')}</Relationships>`;
-
-/** A minimal .docx: body XML plus optional styles, numbering, extra document rels and parts. */
-function docx({ body, styles = '', numbering = '', docRels = [], parts = [], title } = {}) {
-  const files = [
-    ['_rels/.rels', rels(rel('rId1', 'officeDocument', 'word/document.xml'), title === undefined ? '' : rel('rId2', 'metadata/core-properties', 'docProps/core.xml'))],
-    ['word/document.xml', `<?xml version="1.0"?><w:document ${NS}><w:body>${body}</w:body></w:document>`],
-    ['word/_rels/document.xml.rels', rels(rel('rS', 'styles', 'styles.xml'), rel('rN', 'numbering', 'numbering.xml'), ...docRels)],
-    ['word/styles.xml', `<?xml version="1.0"?><w:styles ${NS}>${styles}</w:styles>`],
-    ['word/numbering.xml', `<?xml version="1.0"?><w:numbering ${NS}>${numbering}</w:numbering>`],
-    ...parts,
-  ];
-  if (title !== undefined) files.push(['docProps/core.xml', `<?xml version="1.0"?><cp:coreProperties xmlns:cp="x" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${title}</dc:title></cp:coreProperties>`]);
-  return makeZip(files);
-}
-const P = (inner, pPr = '') => `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ''}${inner}</w:p>`;
-const R = (text, rPr = '') => `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${text}</w:t></w:r>`;
 const style = (id, name, extra = '') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/>${extra}</w:style>`;
 const drawing = (docPr, graphic = '<pic:pic/>') => `<w:r><w:drawing><wp:inline>${docPr}<a:graphic><a:graphicData>${graphic}</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 
@@ -1481,19 +1582,23 @@ await acheck('linkedom matches OOXML by qualified name, as the importer assumes'
 });
 
 for (const producer of ['pandoc', 'libreoffice']) {
-  await acheck(`import: ${producer}'s .docx keeps headings, lists, links, images and reports the table`, async () => {
+  await acheck(`import: ${producer}'s .docx keeps headings, lists, links, images and the table with its header row`, async () => {
     const r = await importDocx(fixture(`library-hours.${producer}.docx`), `library-hours.${producer}.docx`, parseXml);
     eq(r.title, 'Library hours notice', 'title from docProps');
     deepEq(shape(r.content), ['h1', 'h1', 'paragraph', 'h2', 'bullet_list', 'ordered_list', 'h4', 'paragraph', 'figure', 'figure',
-      'paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph'], 'block structure');
+      'table', 'paragraph'], 'block structure');
+    const t = r.content.child(10);
+    deepEq(t.content.content.map((row) => row.content.content.map((c) => `${c.type.name === 'table_header' ? 'th' : 'td'}:${c.textContent}`)),
+      [['th:Day', 'th:Hours'], ['td:Monday', 'td:9 to 6']], 'a 2×2 table; Word marked row one a header row');
     const bullets = r.content.child(4);
     eq(bullets.childCount, 2, 'two top-level bullets');
     eq(bullets.child(1).lastChild.type.name, 'bullet_list', 'the second bullet holds the nested list');
     eq(r.content.child(5).childCount, 2, 'one ordered list of two items, even across numIds');
     deepEq(hrefs(r.content), ['https://example.org/hours', 'https://example.org/branch'], 'links');
     deepEq(figures(r.content), ['Bar chart of visits by weekday', ''], 'image alt text');
-    deepEq(r.notes, ['1 table flattened into paragraphs; table structure isn’t checked yet.'], 'notes');
+    deepEq(r.notes, [], 'nothing left out');
     const ids = findingIds(r.content);
+    assert(!ids.some((id) => id.startsWith('table-')), `a headed table raises nothing: ${JSON.stringify(ids)}`);
     for (const want of ['heading-skip:Details', 'link-text-generic:click here', 'img-alt-img-2']) {
       assert(ids.includes(want), `finding ${want} in ${JSON.stringify(ids)}`);
     }
@@ -1679,6 +1784,96 @@ await acheck('import: Word run languages arrive as lang marks, by the characters
   deepEq(flagged.map((f) => f.excerpt), ['අවධානය ඔබ සිංහල'], 'only the untagged alphabet is flagged');
 });
 
+// Table XML: rows of cells; tc(text, tcPr) and tr(cells, trPr).
+const tc = (text, tcPr = '') => `<w:tc>${tcPr ? `<w:tcPr>${tcPr}</w:tcPr>` : ''}${P(R(text))}</w:tc>`;
+const tr = (cells, trPr = '') => `<w:tr>${trPr ? `<w:trPr>${trPr}</w:trPr>` : ''}${cells.join('')}</w:tr>`;
+const tbl = (rows, tblPr = '', grid = '') => `<w:tbl>${tblPr ? `<w:tblPr>${tblPr}</w:tblPr>` : ''}${grid}${rows.join('')}</w:tbl>`;
+const cellsOf = (t) => t.content.content.map((row) => row.content.content.map((c) =>
+  `${c.type.name === 'table_header' ? 'th' : 'td'}:${c.textContent}${c.attrs.colspan > 1 ? `|c${c.attrs.colspan}` : ''}${c.attrs.rowspan > 1 ? `|r${c.attrs.rowspan}` : ''}`));
+
+await acheck('import: tables keep merged cells, header rows only where Word marks them, widths and a caption', async () => {
+  const r = await importDocx(docx({
+    body: tbl([
+      tr([tc('Program'), tc('Deadline', '<w:gridSpan w:val="2"/>')], '<w:tblHeader/>'),
+      tr([tc('Utilities', '<w:vMerge w:val="restart"/>'), tc('June 1'), tc('Online')]),
+      tr([tc('', '<w:vMerge/>'), tc('July 1'), tc('In person')]),
+    ], '<w:tblCaption w:val="  Benefit   deadlines "/>', '<w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="1500"/><w:gridCol w:w="1500"/></w:tblGrid>'),
+  }), 'x.docx', parseXml);
+  const t = r.content.child(0);
+  eq(t.type.name, 'table', 'a table');
+  deepEq(cellsOf(t), [['th:Program', 'th:Deadline|c2'], ['td:Utilities|r2', 'td:June 1', 'td:Online'], ['td:July 1', 'td:In person']], 'gridSpan → colspan, vMerge → rowspan');
+  eq(t.attrs.caption, 'Benefit deadlines', 'tblCaption → caption');
+  deepEq(t.child(0).child(0).attrs.colwidth, [200], 'grid widths in px (twips ÷ 15)');
+  deepEq(t.child(0).child(1).attrs.colwidth, [100, 100], 'a spanning cell takes each column it covers');
+  deepEq(r.notes, [], 'nothing left out');
+});
+
+await acheck('import: a bold first row without Word’s header-row mark stays data, and is flagged', async () => {
+  const r = await importDocx(docx({
+    body: tbl([tr([tc('Day'), tc('Hours')].map((c) => c.replace('<w:t', '<w:rPr><w:b/></w:rPr><w:t'))), tr([tc('Monday'), tc('9 to 6')])]),
+  }), 'x.docx', parseXml);
+  const t = r.content.child(0);
+  deepEq(cellsOf(t)[0], ['td:Day', 'td:Hours'], 'no header guessed from bold');
+  assert(findingIds(r.content).some((id) => id.startsWith('table-no-header')), 'table-no-header flagged');
+});
+
+await acheck('import: ragged rows are padded, gridBefore holds its place, a stray vMerge continue is a cell', async () => {
+  const r = await importDocx(docx({
+    body: tbl([
+      tr([tc('a'), tc('b'), tc('c')], '<w:tblHeader/>'),
+      tr([tc('only one')]),
+      tr([tc('after a gap')], '<w:gridBefore w:val="2"/>'),
+      tr([tc('stray', '<w:vMerge/>'), tc('x'), tc('y')]),
+    ]),
+  }), 'x.docx', parseXml);
+  const t = r.content.child(0);
+  const widths = t.content.content.map((row) => row.content.content.reduce((n, c) => n + c.attrs.colspan, 0));
+  deepEq(widths, [3, 3, 3, 3], 'every row spans the full grid');
+  eq(t.child(2).child(0).attrs.colspan, 2, 'gridBefore: an empty cell spanning the skipped columns');
+  eq(t.child(2).child(1).textContent, 'after a gap', 'then the row’s own cell');
+  eq(t.child(3).child(0).textContent, 'stray', 'a continue with nothing above is imported as its own cell');
+});
+
+await acheck('import: a cell holds lists and images; a nested table is flattened and noted; an empty cell is a paragraph', async () => {
+  const num = '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>';
+  const li = (text) => P(R(text), '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>');
+  const r = await importDocx(docx({
+    numbering: num,
+    body: tbl([
+      tr([tc('What to bring'), tc('Where')], '<w:tblHeader/>'),
+      tr([`<w:tc>${li('ID')}${li('Proof of address')}</w:tc>`, `<w:tc>${tbl([tr([tc('Room'), tc('4B')])])}<w:p/></w:tc>`]),
+      tr(['<w:tc><w:p/></w:tc>', `<w:tc>${P(drawing('<wp:docPr id="1" name="Map" descr="Map of the office"/>'))}</w:tc>`]),
+    ]),
+  }), 'x.docx', parseXml);
+  const t = r.content.child(0);
+  eq(t.child(1).child(0).firstChild.type.name, 'bullet_list', 'a list inside a cell');
+  eq(t.child(1).child(0).firstChild.childCount, 2, 'both items');
+  eq(t.child(1).child(1).textContent, 'Room4B', 'the nested table’s text, in order');
+  assert(t.child(1).child(1).content.content.every((n) => n.type.name === 'paragraph'), 'flattened into paragraphs');
+  eq(t.child(2).child(0).firstChild.type.name, 'paragraph', 'an empty cell holds an empty paragraph');
+  eq(t.child(2).child(1).firstChild.type.name, 'figure', 'an image inside a cell');
+  eq(t.child(2).child(1).firstChild.attrs.alt, 'Map of the office', 'with its alt text');
+  deepEq(r.notes, ['1 table inside a table cell flattened into paragraphs.'], 'the nested table is noted');
+});
+
+await acheck('import: rows and cells inside custom XML and tracked insertions; hostile spans and sizes', async () => {
+  const r = await importDocx(docx({
+    body: tbl([
+      `<w:customXml>${tr([tc('Head', '<w:gridSpan w:val="99999"/>')], '<w:tblHeader/>')}</w:customXml>`,
+      `<w:ins w:id="1" w:author="a">${tr([`<w:customXml>${tc('Inserted row')}</w:customXml>`])}</w:ins>`,
+    ]),
+  }), 'x.docx', parseXml);
+  const t = r.content.child(0);
+  eq(t.child(0).child(0).attrs.colspan, 63, 'a span is clamped to Word’s 63 columns');
+  assert(t.textContent.includes('Inserted row'), 'the tracked insertion’s row is kept');
+  assert(r.notes.includes('Tracked changes were imported as if accepted.'), 'and noted');
+  const huge = tbl(Array.from({ length: 101 }, () => tr(Array.from({ length: 100 }, () => '<w:tc><w:p/></w:tc>'))));
+  let error;
+  try { await importDocx(docx({ body: huge }), 'x.docx', parseXml); } catch (e) { error = e; }
+  assert(error instanceof ImportError, `over 10,000 cells is refused (got ${error})`);
+  eq(error.userMessage, 'This document is too large to import.', 'with the plain too-large message');
+});
+
 await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {
   const cell = (fill, runs) => `<w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="${fill}"/></w:tcPr>${P(runs)}</w:tc>`;
   const r = await importDocx(docx({
@@ -1693,7 +1888,9 @@ await acheck('import (review regressions): colours arrive with the background th
       P(R('pattern', '<w:color w:val="FFFFFF"/><w:shd w:val="pct25" w:color="000000" w:fill="1F3864"/>')),
     ].join(''),
   }), 'x.docx', parseXml);
-  const marks = (i) => r.content.child(i).firstChild.marks.map((m) => `${m.type.name}=${m.attrs.color}`).sort();
+  // Block 0 is the table: table › row › cell › paragraph › text.
+  const textOf = (i) => (i === 0 ? r.content.child(0).child(0).child(0).child(0) : r.content.child(i)).firstChild;
+  const marks = (i) => textOf(i).marks.map((m) => `${m.type.name}=${m.attrs.color}`).sort();
   deepEq(marks(0), ['highlight=#1f3864', 'textColor=#ffffff'], 'cell fill kept behind the white text');
   deepEq(marks(1), ['highlight=#1f3864', 'textColor=#ffffff'], 'automatic text resolved to white on dark');
   deepEq(marks(2), ['highlight=#000000', 'textColor=#ffffff'], 'solid shading shows its pattern colour');

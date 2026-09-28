@@ -1,7 +1,10 @@
 import PDFDocument from 'pdfkit';
 import { toBytes } from 'pdfkit/output';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
+import { TableMap } from 'prosemirror-tables';
+import type { Rect } from 'prosemirror-tables';
 import { documentLanguage, safeHref } from './editorSchema';
+import { headerScope, leadingHeaderRows } from './tableHeaders';
 import { isForeignTo, isUsableLangTag } from '../_engine/textHelpers';
 import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_TEXT, parseColour } from '../_engine/contrast';
 import type { RGB } from '../_engine/contrast';
@@ -64,6 +67,10 @@ const FIGURE_MARGIN = 24 * PT;
 const FIGURE_PAD = 48 * PT;
 const FIGURE_BORDER = 2 * PT;
 const BULLET = '•';
+/** The export stylesheet's table: 0.25rem × 0.5rem cell padding, 1px rules. */
+const CELL_PAD_X = 8 * PT;
+const CELL_PAD_Y = 4 * PT;
+const CELL_RULE = 1 * PT;
 
 interface Style {
   face: Face;
@@ -107,8 +114,9 @@ type Content =
 interface Elem {
   type: string;
   options: { alt?: string; lang?: string; bbox?: [number, number, number, number] };
-  /** Extra attribute dictionary (/A), e.g. a list's numbering. */
-  attributes?: Record<string, string>;
+  /** Extra attribute dictionary (/A), e.g. a list's numbering or a header's scope.
+   *  PDFKit writes strings as PDF names and numbers as numbers. */
+  attributes?: Record<string, string | number>;
   href?: string;
   children: (Elem | Content)[];
 }
@@ -325,7 +333,11 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   let page = 0;
   let y = contentTop;
   let pendingMargin = 0;
-  const atTop = () => y === contentTop;
+  // A table cell is laid out in a frame (inFrame): at the origin, with no page
+  // breaks, so its height is known before its row is placed on a page.
+  let frameTop = contentTop;
+  let breaks = true;
+  const atTop = () => y === frameTop;
   const newPage = () => {
     page++;
     y = contentTop;
@@ -343,7 +355,7 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     for (const line of lines) {
       const height = lineHeight(line.size);
       if (flow) {
-        if (y + height > contentBottom && !atTop()) newPage();
+        if (breaks && y + height > contentBottom && !atTop()) newPage();
         lineTop = y;
         onPage = page;
       }
@@ -384,20 +396,60 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     return elem;
   };
 
-  const blockNode = (node: PMNode, left: number, width: number, depth: number, label?: (firstLine: Frag | undefined) => Elem): Elem[] => {
+  /** Lay out `fn` in a frame at the origin with no page breaks: its height,
+   *  and elements that `shift` then moves into place. */
+  const inFrame = <T,>(fn: () => T): { result: T; height: number } => {
+    const saved = { y, page, pendingMargin, frameTop, breaks };
+    y = 0;
+    page = 0;
+    pendingMargin = 0;
+    frameTop = 0;
+    breaks = false;
+    try {
+      const result = fn();
+      return { result, height: y };
+    } finally {
+      ({ y, page, pendingMargin, frameTop, breaks } = saved);
+    }
+  };
+
+  /** Move laid-out elements down by `dy` onto page `onPage`. */
+  const shift = (items: (Elem | Content)[], dy: number, onPage: number) => {
+    for (const item of items) {
+      if ('type' in item) {
+        const b = item.options.bbox;
+        if (b) item.options.bbox = [b[0], b[1] + dy, b[2], b[3] + dy];
+        shift(item.children, dy, onPage);
+      } else if (item.kind === 'text') {
+        for (const f of item.frags) { f.y += dy; f.top += dy; f.page = onPage; }
+      } else {
+        item.top += dy;
+        item.page = onPage;
+        item.label.y += dy;
+        item.label.top += dy;
+        item.label.page = onPage;
+      }
+    }
+  };
+
+  /** Cell rules, and header rows redrawn on each later page a table reaches. */
+  const cellBoxes: { page: number; x: number; top: number; w: number; h: number }[] = [];
+  const repeatedHeaders: Frag[] = [];
+
+  const blockNode = (node: PMNode, left: number, width: number, depth: number, label?: (firstLine: Frag | undefined) => Elem, bold = false): Elem[] => {
     const name = node.type.name;
     if (name === 'paragraph' || name === 'heading') {
       const level = name === 'heading' ? Math.min(6, Math.max(1, Number(node.attrs.level) || 1)) : 0;
       const size = level ? (HEADING_PX[level] ?? BODY_PX) * PT : BODY;
       const margin = level ? (HEADING_MARGIN_EM[level] ?? 1) * size : size;
       const inset = (Number(node.attrs.indent) || 0) * 2 * size;
-      const { runs, groups } = inline(node, baseStyle(size, level > 0));
+      const { runs, groups } = inline(node, baseStyle(size, level > 0 || bold));
       const lines = breakLines(runs, width - inset, size);
       openBlock(margin);
       if (level && !atTop()) {
         // Keep a heading with the first line after it.
         const need = lines.reduce((h, l) => h + lineHeight(l.size), 0) + margin + lineHeight(BODY);
-        if (y + need > contentBottom) newPage();
+        if (breaks && y + need > contentBottom) newPage();
       }
       const frags = placeLines(lines, left + inset, true);
       pendingMargin = margin;
@@ -412,7 +464,7 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
       const lines = breakLines([{ text, style, group: 0 }], width - 2 * FIGURE_PAD, BODY);
       const height = 2 * (FIGURE_PAD + FIGURE_BORDER) + bandHeight(lines);
       openBlock(FIGURE_MARGIN);
-      if (y + height > contentBottom && !atTop()) newPage();
+      if (breaks && y + height > contentBottom && !atTop()) newPage();
       const top = y;
       const labelFrags = placeLines(lines, left, false, page, top + FIGURE_BORDER + FIGURE_PAD);
       // Centred, like the placeholder's text-align.
@@ -443,7 +495,7 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
           return { type: 'Lbl', options: {}, children: [{ kind: 'text', frags: [frag] }] };
         };
         item.forEach((child, __, childIndex) => {
-          const elems = blockNode(child, left + LIST_INSET, width - LIST_INSET, depth + 1, childIndex === 0 ? makeLabel : undefined);
+          const elems = blockNode(child, left + LIST_INSET, width - LIST_INSET, depth + 1, childIndex === 0 ? makeLabel : undefined, bold);
           for (const elem of elems) (elem.type === 'Lbl' ? li : body).children.push(elem);
         });
         li.children.push(body);
@@ -452,7 +504,135 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
       pendingMargin = Math.max(pendingMargin, depth ? 0 : BODY);
       return [list];
     }
+    if (name === 'table') return [tableElem(node, left, width, depth)];
     return [];
+  };
+
+  /**
+   * A table: Table > [Caption] > TR > TH | TD. Each cell is laid out in a
+   * frame to learn its height; a row is as tall as its tallest cell, and rows
+   * joined by a rowspan move to a new page together. Header rows the table
+   * leads with are drawn again, as pagination artifacts, on every later page.
+   * ponytail: a row group taller than a page can't be kept together, so its
+   * cells are stacked one after another in the flow instead (tags unchanged,
+   * rules left out). Upgrade trigger: a real document that hits it.
+   */
+  const tableElem = (node: PMNode, left: number, width: number, depth: number): Elem => {
+    const map = TableMap.get(node);
+    const table: Elem = { type: 'Table', options: {}, children: [] };
+    openBlock(BODY);
+    const caption = String(node.attrs.caption ?? '').replace(/\s+/g, ' ').trim();
+    if (caption) {
+      const style = baseStyle(BODY, true);
+      needGlyphs(caption, style.face);
+      const frags = placeLines(breakLines([{ text: caption, style, group: 0 }], width, BODY), left, true);
+      y += CELL_PAD_Y;
+      table.children.push({ type: 'Caption', options: {}, children: [{ kind: 'text', frags }] });
+    }
+
+    interface Cell { node: PMNode; row: number; rect: Rect; header: boolean }
+    const cells: Cell[] = [];
+    const px: (number | null)[] = Array.from({ length: map.width }, () => null);
+    node.forEach((row, rowOffset, r) => {
+      row.forEach((cell, cellOffset) => {
+        const rect = map.findCell(rowOffset + 1 + cellOffset);
+        cells.push({ node: cell, row: r, rect, header: cell.type.name === 'table_header' });
+        const widths = cell.attrs.colwidth as unknown;
+        if (Array.isArray(widths)) widths.forEach((w, i) => { if (Number(w) > 0 && px[rect.left + i] == null) px[rect.left + i] = Number(w); });
+      });
+    });
+    // Word's column widths, in proportion, when every column has one; else equal.
+    const known = px.every((v) => v != null);
+    const total = known ? px.reduce<number>((sum, v) => sum + (v ?? 0), 0) : 0;
+    const colX = [left];
+    for (const v of px) colX.push(colX[colX.length - 1]! + (known && total > 0 ? ((v ?? 0) / total) * width : width / map.width));
+
+    const cellBox = (c: Cell) => ({ x: colX[c.rect.left]!, w: colX[c.rect.right]! - colX[c.rect.left]! });
+    const cellContent = (c: Cell): Elem[] => {
+      const { x, w } = cellBox(c);
+      const out: Elem[] = [];
+      c.node.forEach((child) => out.push(...blockNode(child, x + CELL_PAD_X, w - 2 * CELL_PAD_X, depth + 1, undefined, c.header)));
+      return out;
+    };
+    const laid = cells.map((c) => {
+      const { result, height } = inFrame(() => cellContent(c));
+      return { ...c, elems: result, height: Math.max(height, lineHeight(BODY)) + 2 * CELL_PAD_Y };
+    });
+
+    const rows = map.height;
+    const rowH: number[] = Array.from({ length: rows }, () => lineHeight(BODY) + 2 * CELL_PAD_Y);
+    const sum = (a: number, b: number) => rowH.slice(a, b + 1).reduce((s2, h) => s2 + h, 0);
+    for (const c of laid) if (c.rect.bottom - c.rect.top === 1) rowH[c.rect.top] = Math.max(rowH[c.rect.top]!, c.height);
+    for (const c of laid) {
+      if (c.rect.bottom - c.rect.top < 2) continue;
+      const have = sum(c.rect.top, c.rect.bottom - 1);
+      if (c.height > have) rowH[c.rect.bottom - 1]! += c.height - have;
+    }
+    // Rows joined by a rowspan are one group: never split across pages.
+    const groups: [number, number][] = [];
+    for (let a = 0; a < rows;) {
+      let b = a;
+      for (let r = a; r <= b; r++) for (const c of laid) if (c.rect.top === r) b = Math.max(b, c.rect.bottom - 1);
+      groups.push([a, b]);
+      a = b + 1;
+    }
+    const headRows = leadingHeaderRows(node);
+    const repeatable = headRows > 0 && groups.some(([, b]) => b === headRows - 1);
+    const headH = repeatable ? sum(0, headRows - 1) : 0;
+
+    const trs: Elem[] = Array.from({ length: rows }, () => ({ type: 'TR', options: {}, children: [] }));
+    const cellElem = (c: Cell, children: Elem[]): Elem => {
+      const attributes: Record<string, string | number> = {};
+      if (c.header) Object.assign(attributes, { O: 'Table', Scope: headerScope(node, c.row, c.rect.left) === 'row' ? 'Row' : 'Column' });
+      const rs = c.rect.bottom - c.rect.top;
+      const cs = c.rect.right - c.rect.left;
+      if (rs > 1) Object.assign(attributes, { O: 'Table', RowSpan: rs });
+      if (cs > 1) Object.assign(attributes, { O: 'Table', ColSpan: cs });
+      return { type: c.header ? 'TH' : 'TD', options: {}, ...(Object.keys(attributes).length ? { attributes } : {}), children };
+    };
+    const rowTop: number[] = [];
+    const repeats: { page: number; top: number }[] = [];
+    for (const [a, b] of groups) {
+      const h = sum(a, b);
+      if (y + h > contentBottom && !atTop()) {
+        newPage();
+        if (repeatable && a >= headRows && headH + h <= contentBottom - y) {
+          repeats.push({ page, top: y });
+          y += headH;
+        }
+      }
+      const group = laid.filter((c) => c.rect.top >= a && c.rect.top <= b);
+      if (y + h > contentBottom) {
+        // Taller than a page: stacked in the flow (see above).
+        for (const c of group) trs[c.row]!.children.push(cellElem(c, cellContent(c)));
+        pendingMargin = BODY;
+        continue;
+      }
+      for (let r = a, top = y; r <= b; r++) { rowTop[r] = top; top += rowH[r]!; }
+      for (const c of group) {
+        const { x, w } = cellBox(c);
+        const top = rowTop[c.rect.top]!;
+        shift(c.elems, top + CELL_PAD_Y, page);
+        cellBoxes.push({ page, x, top, w, h: sum(c.rect.top, c.rect.bottom - 1) });
+        trs[c.row]!.children.push(cellElem(c, c.elems));
+      }
+      y += h;
+    }
+    // The header rows again on each page the table continued onto.
+    for (const rep of repeats) {
+      for (const c of laid.filter((cell) => cell.rect.bottom <= headRows)) {
+        const dy = rep.top - rowTop[0]!;
+        const { x, w } = cellBox(c);
+        cellBoxes.push({ page: rep.page, x, top: rowTop[c.rect.top]! + dy, w, h: sum(c.rect.top, c.rect.bottom - 1) });
+        const frags: Frag[] = [];
+        const gather = (items: (Elem | Content)[]) => items.forEach((i) => ('type' in i ? gather(i.children) : i.kind === 'text' ? frags.push(...i.frags) : undefined));
+        gather(c.elems);
+        for (const f of frags) repeatedHeaders.push({ ...f, page: rep.page, y: f.y + dy, top: f.top + dy });
+      }
+    }
+    table.children.push(...trs);
+    pendingMargin = BODY;
+    return table;
   };
 
   /* ---------- compose ---------- */
@@ -514,6 +694,16 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
         }
       });
     }
+    const boxes = cellBoxes.filter((b) => b.page === p);
+    if (boxes.length) {
+      artifact(() => {
+        pdf.save().lineWidth(CELL_RULE).strokeColor([...hex(PAGE_TEXT, [0, 0, 0])]);
+        for (const b of boxes) pdf.rect(b.x, b.top, b.w, b.h).stroke();
+        pdf.restore();
+      });
+    }
+    const repeated = repeatedHeaders.filter((f) => f.page === p);
+    if (repeated.length) artifact(() => repeated.forEach(drawText), 'Pagination');
     if (headerLines.length && p !== 0) artifact(() => placeLines(headerLines, MARGIN, false, p, MARGIN).forEach(drawText), 'Pagination');
     if (footerLines.length && p !== pageCount - 1) artifact(() => placeLines(footerLines, MARGIN, false, p, footerTop).forEach(drawText), 'Pagination');
   };

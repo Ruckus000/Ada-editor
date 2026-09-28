@@ -9,7 +9,7 @@ Relevant facts that shape the plan:
 - There is no server code anywhere — no `app/api/*`, no server actions, no `'use server'`. Every screen is `'use client'`. `app/editor/[docId]/page.tsx` uses `generateStaticParams()` over the static `DOCS` array, i.e. today the doc list is baked in at build time.
 - `EditorScreen.tsx` already contains a working, if fake, "live checking" apparatus: a 900ms debounce (`checkTimer`/`markChecking`) that flips a `checking` status dot, and a **synchronous, non-debounced** reconcile in `dispatchTransaction` that adds/removes the one real rule that exists today — "figure has no alt text" (`imageFinding`) — on every keystroke, using stable ids (`img-alt-${id}`) and a `dismissedRef` set so dismissed findings don't reappear. This is the template the real engine should generalize, not replace.
 - `EditorFinding`/`Anchor` (app/_editor/findings.ts) currently supports only `text`, `figure`, `section` anchors. `Issue` (design-system/primitives/types.ts) requires `from`/`to` PM positions on every finding.
-- `editorSchema.ts` has no `table` node and no document-language attribute anywhere in the data model.
+- `editorSchema.ts` has no `table` node and no document-language attribute anywhere in the data model. *(Since shipped: the doc node carries `lang`, and tables arrived with prosemirror-tables.)*
 
 ---
 
@@ -69,7 +69,7 @@ Concrete design, extending the pattern already proven for figures (`img-alt-${id
 `img-alt-missing`, `img-alt-suspicious`, `link-text-generic`, `link-text-raw-url`, `link-text-ambiguous`, `heading-skip`, `heading-empty`, `document-no-h1`, `reading-level`, `long-sentence`, `colour-only-reference`.
 
 **Defer explicitly, with reasons:**
-- `table-no-header` — `editorSchema.ts` has no `table` node at all. Dead code until tables ship in the schema.
+- `table-no-header` — `editorSchema.ts` has no `table` node at all. Dead code until tables ship in the schema. *(Since shipped: tables are in the schema and the rule runs on whole tables, with an engine-only `table-merged-cells` advisory beside it.)*
 - `document-language` — no language field anywhere in the data model. In the spike, this rule fired on every document (Markdown has no language declaration) — the spike's own Limitations section calls this "noise for a Markdown source." Needs a product decision before it's meaningful.
 
 **Consequence worth naming:** several finding types currently shown by fixture data ("Form fields have no labels," "change of language is not marked," "meaning relies on a symbol") have **no corresponding rule** — they were fixture-author inventions, not validated rules. When fixtures are replaced, these stop appearing unless someone writes real rules later. The demo documents will look sparser and more blocker/advisory-heavy, matching the spike's actual severity distribution (45% blocker, 6% violation, 30% advisory, 18% manual).

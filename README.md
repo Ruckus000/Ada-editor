@@ -23,18 +23,23 @@ product reports "ADA compliance" as a status.
 
 Working prototype. The homepage and editor screens are built from the design
 system, and every finding is computed by
-the **real checking engine**: seventeen WCAG rules running against the live
+the **real checking engine**: nineteen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
 (the document's language, landmarks, headings and links intact; figures are still placeholders,
 and whatever the checker flags is still wrong in the export). **Upload .docx**
 imports an existing Word file in the browser (the file itself is never
-uploaded) and checks it like any other document; what the editor can't hold yet
-(tables, footnotes, decorative images) is listed on the document instead of
-dropped silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser,
+uploaded) and checks it like any other document. Tables come across as real
+tables, header rows and merged cells included, and a table with no header
+cells is a blocking finding. What the editor can't hold yet (footnotes,
+decorative images, tables nested inside table cells) is listed on the document
+instead of dropped silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser,
 with the same promise as the HTML export: headings, lists, links, language
-changes and alt text are tagged from the document's own structure, and a figure
-the checker flags as missing alt text is exported without it. CI runs
+changes, alt text and tables (header cells with their scope, merged cells with
+their spans) are tagged from the document's own structure, and a figure
+the checker flags as missing alt text is exported without it. A table's header
+rows repeat on each page it runs onto; a single table row taller than a page is
+stacked cell by cell instead of drawn as a grid. CI runs
 [veraPDF](https://verapdf.org) on exports of the sample documents: clean ones
 pass PDF/UA-1, and a flagged one fails on exactly the clauses its findings name.
 The PDF embeds one font, Atkinson Hyperlegible Next, which covers Latin scripts

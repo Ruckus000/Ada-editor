@@ -13,12 +13,13 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { CHROME, connect, evaluate, key, launch, shutdown, sleep, track, watchdog } from './cdp.mjs';
+import { P, R, docx } from './harness/docx.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
@@ -458,7 +459,8 @@ async function upload() {
     else note('a non-.docx upload shows a visible role=alert message');
     await runAxe(send, ' (import error shown)');
 
-    // A real .docx (pandoc's): stored, opened, announced with what was left out.
+    // A real .docx (pandoc's): stored, opened, announced. Its table arrives as a
+    // table, header row and all, so nothing is left out.
     if (!(await choose('corpus/docx/library-hours.pandoc.docx'))) return;
     let path = '';
     for (let i = 0; i < 30 && !path.startsWith('/editor/'); i++) {
@@ -469,7 +471,7 @@ async function upload() {
     page = path;
     await sleep(1500);
     const said = await liveText(send);
-    if (!/^Imported Library hours notice\. .*blocking.* 1 table flattened/.test(said)) fail(`UPLOAD  announcement must name the document, what was found and what was not imported (got ${JSON.stringify(said)})`);
+    if (!/^Imported Library hours notice\. .*blocking/.test(said) || /flattened|not imported/.test(said)) fail(`UPLOAD  announcement must name the document and what was found, and nothing was left out (got ${JSON.stringify(said)})`);
     else note(`upload announced: ${JSON.stringify(said)}`);
     const view = await evaluate(send, `({
       h1: document.querySelector('h1')?.textContent,
@@ -477,14 +479,45 @@ async function upload() {
       headings: [...document.querySelectorAll('.ProseMirror h1, .ProseMirror h2, .ProseMirror h4')].length,
       lists: document.querySelectorAll('.ProseMirror ul, .ProseMirror ol').length,
       figures: document.querySelectorAll('.ProseMirror figure').length,
+      tables: document.querySelectorAll('.ProseMirror table').length,
+      headerCells: document.querySelectorAll('.ProseMirror table th').length,
     })`);
     if (view.h1 !== 'Library hours notice' || view.headings !== 4 || view.lists !== 3 || view.figures !== 2) fail(`UPLOAD  the imported document lost structure: ${JSON.stringify(view)}`);
     else note('the imported document keeps its headings, nested lists and images in the editor');
-    if (view.notes.length !== 1 || !view.notes[0].includes('table')) fail(`UPLOAD  import notes are not visible on the page (${JSON.stringify(view.notes)})`);
-    else note('what was not carried over is visible, not only announced');
+    if (view.tables !== 1 || view.headerCells !== 2) fail(`UPLOAD  the table did not arrive as a table with its header row: ${JSON.stringify(view)}`);
+    else note('the Word table arrives as a table, with the header row Word marked');
+    if (view.notes.length) fail(`UPLOAD  nothing was left out, but notes are shown: ${JSON.stringify(view.notes)}`);
     await runAxe(send, ' (imported document)');
     // The imported h2 -> h4 jump is the file's own finding, flagged by the engine.
     await checkTree(send, { contentTextbox: 'Document text' });
+
+    // A file with something the editor can't hold (a table inside a table
+    // cell): the notes are visible, not only announced.
+    const scratch = mkdtempSync(join(tmpdir(), 'ada-upload-'));
+    const nested = join(scratch, 'nested-table.docx');
+    const cellXml = (inner) => `<w:tc>${inner}</w:tc>`;
+    writeFileSync(nested, docx({
+      title: 'Room guide',
+      body: `<w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr>${cellXml(P(R('Floor')))}${cellXml(P(R('Rooms')))}</w:tr>`
+        + `<w:tr>${cellXml(P(R('Second')))}${cellXml(`<w:tbl><w:tr>${cellXml(P(R('4B')))}${cellXml(P(R('Clinic')))}</w:tr></w:tbl><w:p/>`)}</w:tr></w:tbl>`,
+    }));
+    await send('Page.navigate', { url: `${origin}/` });
+    await sleep(1500);
+    if (!(await fromPlus(send, 'Import a Word file'))) return;
+    if (!(await choose(nested))) return;
+    path = '';
+    for (let i = 0; i < 30 && !path.startsWith('/editor/'); i++) {
+      await sleep(200);
+      path = await evaluate(send, `location.pathname`);
+    }
+    page = path;
+    await sleep(1500);
+    const nestedSaid = await liveText(send);
+    if (!/table inside a table cell flattened/.test(nestedSaid)) fail(`UPLOAD  the announcement must say what was not carried over (got ${JSON.stringify(nestedSaid)})`);
+    const notes = await evaluate(send, `[...document.querySelectorAll('[aria-labelledby=import-notes-heading] li')].map((li) => li.textContent)`);
+    rmSync(scratch, { recursive: true, force: true });
+    if (notes.length !== 1 || !notes[0].includes('table inside a table cell')) fail(`UPLOAD  import notes are not visible on the page (${JSON.stringify(notes)})`);
+    else note('what was not carried over is visible, not only announced');
 
     // Dismissing the notes keeps focus in the findings panel and survives a reload.
     if (!(await focusByName(send, 'button', 'Dismiss import notes'))) { fail('UPLOAD  no way to dismiss the import notes'); return; }
@@ -887,12 +920,99 @@ async function editor() {
     if (findingsAfterReload !== countAfterDismiss + 2) fail(`PERSIST  findings went ${countAfterDismiss} -> ${findingsAfterReload} across reload; expected exactly +2 (the pasted images), i.e. the dismissal persisted`);
     else note('dismissals persist across reloads (count = post-dismiss + 2 pasted images)');
 
+    await tables(send, findingCount);
+
     await checkReflow(send);
     await checkForcedColors(send);
     await checkExport(send);
   } finally {
     await shutdown(send, ws, proc);
   }
+}
+
+// Tables in the editor: the Table menu and dialog, Tab between cells and out,
+// and a header row that retracts the blocker the moment it's on. Leaves a
+// headed table in hearing-notice for the reflow, forced-colours and export checks.
+async function tables(send, findingCount) {
+  const selectIn = (js) => evaluate(send, `(() => {
+    const d = document.getElementById('document-text');
+    d.focus();
+    const target = ${js};
+    const r = document.createRange();
+    r.selectNodeContents(target);
+    r.collapse(false);
+    const s = getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    return true;
+  })()`);
+  const inCell = () => evaluate(send, `(() => { const c = getSelection().anchorNode?.parentElement?.closest('th, td'); return c ? { tag: c.tagName, text: c.textContent, caption: c.closest('table')?.querySelector('caption')?.firstChild?.textContent ?? '' } : null; })()`);
+  const menu = async (item) => {
+    if (!(await focusByName(send, '[role=toolbar] button', 'Table'))) { fail('TABLE  no Table button in the toolbar'); return false; }
+    await key(send, 'Enter');
+    await sleep(200);
+    const first = await evaluate(send, `document.activeElement?.getAttribute('role') === 'menuitem' && document.activeElement.textContent`);
+    if (first !== 'Insert table…') fail(`TABLE  the Table menu did not open on its first item (focus: ${JSON.stringify(first)})`);
+    if (!(await focusByName(send, '[role=menu] [role^=menuitem]', item))) { fail(`TABLE  the Table menu has no ${JSON.stringify(item)}`); return false; }
+    await key(send, 'Enter');
+    await sleep(300);
+    return true;
+  };
+
+  // Insert from the end of the document.
+  await selectIn(`[...d.querySelectorAll(':scope > p')].pop()`);
+  await sleep(200);
+  if (!(await menu('Insert table…'))) return;
+  const inDialog = await evaluate(send, `!!document.activeElement?.closest('[role=dialog]')`);
+  if (!inDialog) { fail('TABLE  Insert table did not move focus into a dialog'); return; }
+  await runAxe(send, ' (insert table dialog)');
+  if (!(await focusByName(send, '[role=dialog] input[type=text]', ''))) fail('TABLE  no caption field');
+  await send('Input.insertText', { text: 'Hearing dates' });
+  if (!(await focusByName(send, '[role=dialog] button', 'Insert table'))) { fail('TABLE  no Insert table button in the dialog'); return; }
+  await key(send, 'Enter');
+  await sleep(600);
+  const said = await liveText(send);
+  if (!/^Table inserted: 3 rows, 2 columns, with a header row\. Tab moves between cells\./.test(said)) fail(`TABLE  insertion not announced as expected (got ${JSON.stringify(said)})`);
+  const start = await inCell();
+  if (start?.tag !== 'TH' || start.caption !== 'Hearing dates') fail(`TABLE  the cursor did not land in the new table's first header cell (${JSON.stringify(start)})`);
+  else note('Insert table: menu → dialog → a captioned table, announced, cursor in its first header cell');
+
+  // Tab between cells, Shift-Tab back, Escape then Tab out.
+  await send('Input.insertText', { text: 'Date' });
+  await key(send, 'Tab');
+  await send('Input.insertText', { text: 'Room' });
+  await key(send, 'Tab');
+  await send('Input.insertText', { text: 'May 4' });
+  const typed = await inCell();
+  await key(send, 'Tab', 8);
+  const back = await inCell();
+  if (typed?.tag !== 'TD' || typed.text !== 'May 4' || back?.text !== 'Room') fail(`TABLE  Tab/Shift-Tab did not move between cells (${JSON.stringify({ typed, back })})`);
+  await key(send, 'Escape');
+  await key(send, 'Tab');
+  // Out of the editable text: the next stop may be a control inside the page
+  // (the table's Edit caption button), as it is after a figure.
+  const left = await evaluate(send, `({ out: document.activeElement !== document.getElementById('document-text'), at: document.activeElement?.textContent?.slice(0, 30) })`);
+  if (!left.out) fail('TABLE  Escape then Tab did not leave the table (keyboard trap, WCAG 2.1.2)');
+  else note(`Tab and Shift-Tab move between cells; Escape then Tab leaves the table (to ${JSON.stringify(left.at)})`);
+
+  // Header row off: a blocker, announced. On again: gone.
+  const before = await findingCount();
+  await selectIn(`[...d.querySelectorAll('table')].find((t) => t.querySelector('caption')?.textContent.startsWith('Hearing dates')).querySelector('td p')`);
+  await sleep(200);
+  if (!(await menu('Header row'))) return;
+  const off = await findingCount();
+  const offSaid = await liveText(send);
+  if (off !== before + 1 || !/^Header row off\./.test(offSaid)) fail(`TABLE  turning the header row off should add one finding and say so (${before} -> ${off}, ${JSON.stringify(offSaid)})`);
+  const active = await evaluate(send, `document.querySelector('[aria-labelledby^=finding-] h3, h3[id^=finding-]')?.textContent ?? ''`);
+  if (!(await menu('Header row'))) return;
+  const on = await findingCount();
+  if (on !== before) fail(`TABLE  turning the header row back on should retract the finding (${off} -> ${on})`);
+  else note(`a table without header cells is a live blocker (active card: ${JSON.stringify(active)}); the header row retracts it`);
+
+  await runAxe(send, ' (table in the document)');
+  await checkTree(send, { contentTextbox: 'Document text' });
+  // Let the debounced save land: the export reloads from storage.
+  await sleep(1500);
 }
 
 // Export: the downloaded page must be exactly as accessible as the findings
@@ -944,6 +1064,9 @@ async function checkExport(send) {
     const unnamed = violations.find((v) => v.id === 'role-img-alt')?.nodes ?? 0;
     if (unnamed !== missingAlt) fail(`EXPORT  ${unnamed} unnamed images exported, but the editor showed ${missingAlt} missing alt text`);
     else note(`exported page: axe clean apart from the ${missingAlt} image(s) the editor flags as missing alt`);
+    const table = await evaluate(send, `(() => { const t = [...document.querySelectorAll('table')].find((x) => x.querySelector('caption')?.textContent === 'Hearing dates'); return t ? { th: [...t.querySelectorAll('thead th[scope=col]')].map((c) => c.textContent), rows: t.querySelectorAll('tr').length } : null; })()`);
+    if (!table || table.th.join('|') !== 'Date|Room' || table.rows !== 3) fail(`EXPORT  the table from the editor did not reach the page with its header row (${JSON.stringify(table)})`);
+    else note('the table exports with its caption and scoped header row, axe clean');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
