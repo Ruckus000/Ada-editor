@@ -15,12 +15,15 @@ import { StatusScreen } from '../_status/StatusScreen';
  * editor keep reading the store synchronously and never race the pull.
  * Local mode (no Supabase env vars) renders straight through.
  */
+/** Readable without an account: signing in, and what signing up means. */
+const PUBLIC_PATHS = new Set(['/sign-in', '/privacy']);
+
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [attempt, setAttempt] = useState(0);
-  const open = !isCloud || pathname === '/sign-in';
+  const open = !isCloud || PUBLIC_PATHS.has(pathname);
 
   // The session can end or change under this tab: sign-out or sign-in in
   // another tab (auth-js relays those between tabs), or a revoked session.
@@ -44,7 +47,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!client) return;
     // Leaving the app for sign-in ends the session's "ready": the next account
     // must load before anything reads the store.
-    if (pathname === '/sign-in') { setState('loading'); return; }
+    if (PUBLIC_PATHS.has(pathname)) { setState('loading'); return; }
     let live = true;
     void (async () => {
       const { data } = await client.auth.getSession();

@@ -552,3 +552,11 @@ body { margin: 0; background: var(--ada-surface-sunken); }
   .dash-segmented button[aria-pressed='true'],
   .dash-sevrow[aria-pressed='true'] { border-color: Highlight; }
 }
+
+.dash-header__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ada-target-comfortable);
+  padding-inline: var(--ada-space-2);
+  font-size: var(--ada-type-size-sm);
+}

@@ -240,6 +240,7 @@ export function Dashboard({
             onChange={onFile}
           />
           <Button variant="primary" onClick={notYet('Creating a document')}>New document</Button>
+          <Link href="/privacy" className="dash-header__link">Privacy</Link>
           {isCloud ? <Button variant="ghost" onClick={onSignOut}>Sign out</Button> : <span className="dash-avatar" aria-hidden="true">JD</span>}
         </div>
       </header>

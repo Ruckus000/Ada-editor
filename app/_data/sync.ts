@@ -186,6 +186,29 @@ export function detachAccount(): void {
   detachStore();
 }
 
+/**
+ * Delete the signed-in account (and, by cascade, its documents), then leave
+ * nothing of it in this browser. Resolves false if the server refused, so the
+ * caller can say so. Works from any page — including /privacy, where the store
+ * was never attached — because it clears the account's cache by uid.
+ */
+export async function deleteAccount(): Promise<boolean> {
+  const client = getClient();
+  if (!client) return false;
+  const { data } = await client.auth.getSession();
+  const uid = data.session?.user.id;
+  if (!uid) return false;
+  const { error } = await client.rpc('delete_my_account');
+  if (error) { console.error('Account deletion failed', error); return false; }
+  forget();
+  setStoreUser(uid);
+  clearStore();
+  // The user is gone, so the server's logout answers 404/403; auth-js treats
+  // those as signed out and removes the local session.
+  await client.auth.signOut();
+  return true;
+}
+
 /** The account this tab's store belongs to, if any. */
 export const attachedAccount = (): string | null => attachedUid;
 

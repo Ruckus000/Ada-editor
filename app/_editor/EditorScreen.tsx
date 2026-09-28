@@ -52,7 +52,7 @@ import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import styles from './editor.module.css';
 
-const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green', 'PDF/UA': 'purple' };
+const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green' };
 
 type AltTarget = { kind: 'figure'; id: string; label: string; alt: string } | { kind: 'section'; section: Section; label: string; alt: string };
 
