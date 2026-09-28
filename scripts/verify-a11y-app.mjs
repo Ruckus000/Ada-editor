@@ -920,12 +920,99 @@ async function editor() {
     if (findingsAfterReload !== countAfterDismiss + 2) fail(`PERSIST  findings went ${countAfterDismiss} -> ${findingsAfterReload} across reload; expected exactly +2 (the pasted images), i.e. the dismissal persisted`);
     else note('dismissals persist across reloads (count = post-dismiss + 2 pasted images)');
 
+    await tables(send, findingCount);
+
     await checkReflow(send);
     await checkForcedColors(send);
     await checkExport(send);
   } finally {
     await shutdown(send, ws, proc);
   }
+}
+
+// Tables in the editor: the Table menu and dialog, Tab between cells and out,
+// and a header row that retracts the blocker the moment it's on. Leaves a
+// headed table in hearing-notice for the reflow, forced-colours and export checks.
+async function tables(send, findingCount) {
+  const selectIn = (js) => evaluate(send, `(() => {
+    const d = document.getElementById('document-text');
+    d.focus();
+    const target = ${js};
+    const r = document.createRange();
+    r.selectNodeContents(target);
+    r.collapse(false);
+    const s = getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    return true;
+  })()`);
+  const inCell = () => evaluate(send, `(() => { const c = getSelection().anchorNode?.parentElement?.closest('th, td'); return c ? { tag: c.tagName, text: c.textContent, caption: c.closest('table')?.querySelector('caption')?.firstChild?.textContent ?? '' } : null; })()`);
+  const menu = async (item) => {
+    if (!(await focusByName(send, '[role=toolbar] button', 'Table'))) { fail('TABLE  no Table button in the toolbar'); return false; }
+    await key(send, 'Enter');
+    await sleep(200);
+    const first = await evaluate(send, `document.activeElement?.getAttribute('role') === 'menuitem' && document.activeElement.textContent`);
+    if (first !== 'Insert table…') fail(`TABLE  the Table menu did not open on its first item (focus: ${JSON.stringify(first)})`);
+    if (!(await focusByName(send, '[role=menu] [role^=menuitem]', item))) { fail(`TABLE  the Table menu has no ${JSON.stringify(item)}`); return false; }
+    await key(send, 'Enter');
+    await sleep(300);
+    return true;
+  };
+
+  // Insert from the end of the document.
+  await selectIn(`[...d.querySelectorAll(':scope > p')].pop()`);
+  await sleep(200);
+  if (!(await menu('Insert table…'))) return;
+  const inDialog = await evaluate(send, `!!document.activeElement?.closest('[role=dialog]')`);
+  if (!inDialog) { fail('TABLE  Insert table did not move focus into a dialog'); return; }
+  await runAxe(send, ' (insert table dialog)');
+  if (!(await focusByName(send, '[role=dialog] input[type=text]', ''))) fail('TABLE  no caption field');
+  await send('Input.insertText', { text: 'Hearing dates' });
+  if (!(await focusByName(send, '[role=dialog] button', 'Insert table'))) { fail('TABLE  no Insert table button in the dialog'); return; }
+  await key(send, 'Enter');
+  await sleep(600);
+  const said = await liveText(send);
+  if (!/^Table inserted: 3 rows, 2 columns, with a header row\. Tab moves between cells\./.test(said)) fail(`TABLE  insertion not announced as expected (got ${JSON.stringify(said)})`);
+  const start = await inCell();
+  if (start?.tag !== 'TH' || start.caption !== 'Hearing dates') fail(`TABLE  the cursor did not land in the new table's first header cell (${JSON.stringify(start)})`);
+  else note('Insert table: menu → dialog → a captioned table, announced, cursor in its first header cell');
+
+  // Tab between cells, Shift-Tab back, Escape then Tab out.
+  await send('Input.insertText', { text: 'Date' });
+  await key(send, 'Tab');
+  await send('Input.insertText', { text: 'Room' });
+  await key(send, 'Tab');
+  await send('Input.insertText', { text: 'May 4' });
+  const typed = await inCell();
+  await key(send, 'Tab', 8);
+  const back = await inCell();
+  if (typed?.tag !== 'TD' || typed.text !== 'May 4' || back?.text !== 'Room') fail(`TABLE  Tab/Shift-Tab did not move between cells (${JSON.stringify({ typed, back })})`);
+  await key(send, 'Escape');
+  await key(send, 'Tab');
+  // Out of the editable text: the next stop may be a control inside the page
+  // (the table's Edit caption button), as it is after a figure.
+  const left = await evaluate(send, `({ out: document.activeElement !== document.getElementById('document-text'), at: document.activeElement?.textContent?.slice(0, 30) })`);
+  if (!left.out) fail('TABLE  Escape then Tab did not leave the table (keyboard trap, WCAG 2.1.2)');
+  else note(`Tab and Shift-Tab move between cells; Escape then Tab leaves the table (to ${JSON.stringify(left.at)})`);
+
+  // Header row off: a blocker, announced. On again: gone.
+  const before = await findingCount();
+  await selectIn(`[...d.querySelectorAll('table')].find((t) => t.querySelector('caption')?.textContent.startsWith('Hearing dates')).querySelector('td p')`);
+  await sleep(200);
+  if (!(await menu('Header row'))) return;
+  const off = await findingCount();
+  const offSaid = await liveText(send);
+  if (off !== before + 1 || !/^Header row off\./.test(offSaid)) fail(`TABLE  turning the header row off should add one finding and say so (${before} -> ${off}, ${JSON.stringify(offSaid)})`);
+  const active = await evaluate(send, `document.querySelector('[aria-labelledby^=finding-] h3, h3[id^=finding-]')?.textContent ?? ''`);
+  if (!(await menu('Header row'))) return;
+  const on = await findingCount();
+  if (on !== before) fail(`TABLE  turning the header row back on should retract the finding (${off} -> ${on})`);
+  else note(`a table without header cells is a live blocker (active card: ${JSON.stringify(active)}); the header row retracts it`);
+
+  await runAxe(send, ' (table in the document)');
+  await checkTree(send, { contentTextbox: 'Document text' });
+  // Let the debounced save land: the export reloads from storage.
+  await sleep(1500);
 }
 
 // Export: the downloaded page must be exactly as accessible as the findings
@@ -977,6 +1064,9 @@ async function checkExport(send) {
     const unnamed = violations.find((v) => v.id === 'role-img-alt')?.nodes ?? 0;
     if (unnamed !== missingAlt) fail(`EXPORT  ${unnamed} unnamed images exported, but the editor showed ${missingAlt} missing alt text`);
     else note(`exported page: axe clean apart from the ${missingAlt} image(s) the editor flags as missing alt`);
+    const table = await evaluate(send, `(() => { const t = [...document.querySelectorAll('table')].find((x) => x.querySelector('caption')?.textContent === 'Hearing dates'); return t ? { th: [...t.querySelectorAll('thead th[scope=col]')].map((c) => c.textContent), rows: t.querySelectorAll('tr').length } : null; })()`);
+    if (!table || table.th.join('|') !== 'Date|Room' || table.rows !== 3) fail(`EXPORT  the table from the editor did not reach the page with its header row (${JSON.stringify(table)})`);
+    else note('the table exports with its caption and scoped header row, axe clean');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

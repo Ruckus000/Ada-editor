@@ -22,7 +22,7 @@ import {
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { removeDoc } from '../_data/sync';
-import { AltTextDialog, HeaderFooterDialog, ImageIcon, LinkDialog } from './dialogs';
+import { AltTextDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, TableCaptionDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
   clearFormatting,
@@ -30,18 +30,22 @@ import {
   editingPlugins,
   formatState,
   indent,
+  insertTable,
   makeFirstRowHeader,
   markTypes,
   nodeTypes,
   outdent,
   setMark,
+  setTableCaption,
+  tableAround,
+  tableCommands,
   toggleBold,
   toggleHeading,
   toggleItalic,
   toggleList,
   toggleUnderline,
 } from './editorCommands';
-import type { FormatState } from './editorCommands';
+import type { FormatState, NewTable } from './editorCommands';
 import { documentLanguage, withoutPageLanguage } from './editorSchema';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
@@ -53,6 +57,7 @@ import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings,
 import { exportHtml } from './exportHtml';
 import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
+import type { TableAction } from './Toolbar';
 import styles from './editor.module.css';
 
 const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green' };
@@ -109,6 +114,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [altTarget, setAltTarget] = useState<AltTarget | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkInitial, setLinkInitial] = useState('');
+  const [tableOpen, setTableOpen] = useState(false);
+  const [captionInitial, setCaptionInitial] = useState<string | null>(null);
 
   /* ---------- refs shared with ProseMirror ---------- */
   const mountRef = useRef<HTMLDivElement>(null);
@@ -119,7 +126,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // re-render, the list re-sort and the decoration rebuild on no-op edits.
   const lastRenderedRef = useRef(findings);
   const activeRef = useRef<string | null>(activeId);
-  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
+  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
   const docRegion = useRef<HTMLElement>(null);
   const findingsRegion = useRef<HTMLElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -210,6 +217,41 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       };
     };
 
+    // A real <table> whose <tbody> is the editable content, with its caption
+    // (an attribute, not text in the document) shown and editable here.
+    const tableView: NodeViewConstructor = (initialNode, _view, getPos) => {
+      let node = initialNode;
+      const dom = document.createElement('table');
+      const caption = document.createElement('caption');
+      caption.contentEditable = 'false';
+      const contentDOM = document.createElement('tbody');
+      dom.append(contentDOM);
+      const render = () => {
+        const text = String(node.attrs.caption ?? '');
+        if (!text) { caption.remove(); return; }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = styles.captionEdit!;
+        button.textContent = 'Edit caption';
+        button.addEventListener('click', () => { const pos = getPos(); if (pos !== undefined) handlersRef.current.editTableCaption(pos); });
+        caption.replaceChildren(document.createTextNode(text), button);
+        if (!caption.isConnected) dom.prepend(caption);
+      };
+      render();
+      return {
+        dom,
+        contentDOM,
+        update(next) {
+          if (next.type !== node.type) return false;
+          node = next;
+          render();
+          return true;
+        },
+        stopEvent: (event) => caption.contains(event.target as Node),
+        ignoreMutation: (m) => m.type !== 'selection' && (caption.contains(m.target) || m.target === dom),
+      };
+    };
+
     // Highlights the active finding's span, as the design does, on top of the
     // shape-carrying underline from issueUnderlinePlugin.
     const activeHighlight = new Plugin({
@@ -235,7 +277,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           activeHighlight,
         ],
       }),
-      nodeViews: { figure: figureView },
+      nodeViews: { figure: figureView, table: tableView },
       // The document's language, so spellcheck and screen readers use it here too.
       attributes: (state) => ({
         id: 'document-text',
@@ -243,6 +285,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         role: 'textbox',
         'aria-multiline': 'true',
         'aria-label': 'Document text',
+        'aria-describedby': 'table-keys-hint',
         spellcheck: 'true',
         lang: documentLanguage(state.doc),
         dir: isRtlLanguage(documentLanguage(state.doc)) ? 'rtl' : 'ltr',
@@ -490,6 +533,71 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     announce(`Image inserted. It has no alternative text yet, so it was added as a blocking finding.`);
   };
 
+  /* ---------- tables ---------- */
+  const tableSize = (state = viewRef.current?.state) => {
+    const t = state ? formatState(state).table : null;
+    return t ? `${t.rows} ${t.rows === 1 ? 'row' : 'rows'}, ${t.cols} ${t.cols === 1 ? 'column' : 'columns'}` : '';
+  };
+
+  const doInsertTable = (spec: NewTable) => {
+    const view = viewRef.current;
+    if (!view) return;
+    setTableOpen(false);
+    // Focus moves into the table once the dialog has closed (focusDocument).
+    if (!insertTable(spec)(view.state, view.dispatch)) {
+      announce('A table can’t go inside a table. Move the cursor out of this one first.');
+      return;
+    }
+    const size = `${spec.rows} ${spec.rows === 1 ? 'row' : 'rows'}, ${spec.cols} ${spec.cols === 1 ? 'column' : 'columns'}`;
+    const headed = spec.headerRow || spec.headerColumn;
+    if (!headed) {
+      // The dispatch's check added the blocker: make it the active card.
+      const around = tableAround(view.state);
+      const f = around ? findingsRef.current.find((x) => x.anchor.kind === 'table' && x.from === around.pos && x.id.startsWith('table-no-header')) : undefined;
+      if (f) { setActiveId(f.id); setFilter(null); }
+    }
+    announce(headed
+      ? `Table inserted: ${size}, with ${spec.headerRow ? 'a header row' : 'a header column'}. Tab moves between cells.`
+      : `Table inserted: ${size}, without header cells, so it was added as a blocking finding. Tab moves between cells.`);
+  };
+
+  const onTable = (action: TableAction, enabled: boolean) => {
+    const view = viewRef.current;
+    if (!view) return;
+    if (!enabled) {
+      announce(action === 'insert' ? 'A table can’t go inside a table. Move the cursor out of this one first.'
+        : action === 'splitCell' ? 'Only a merged cell can be split.'
+          : 'Put the cursor in a table first.');
+      return;
+    }
+    if (action === 'insert') { setTableOpen(true); return; }
+    if (action === 'caption') { setCaptionInitial(formatState(view.state).table?.caption ?? ''); return; }
+    const before = formatState(view.state).table;
+    run(tableCommands[action]);
+    const size = tableSize();
+    const said: Record<Exclude<TableAction, 'insert' | 'caption'>, string> = {
+      addRowBefore: `Row added above. ${size}.`,
+      addRowAfter: `Row added below. ${size}.`,
+      addColumnBefore: `Column added before. ${size}.`,
+      addColumnAfter: `Column added after. ${size}.`,
+      deleteRow: size ? `Row deleted. ${size}.` : 'Row deleted, and with it the table.',
+      deleteColumn: size ? `Column deleted. ${size}.` : 'Column deleted, and with it the table.',
+      toggleHeaderRow: before?.headerRow ? 'Header row off.' : 'Header row on.',
+      toggleHeaderColumn: before?.headerColumn ? 'Header column off.' : 'Header column on.',
+      splitCell: `Cell split. ${size}.`,
+      deleteTable: 'Table deleted.',
+    };
+    announce(`${said[action]} ${remaining(findingsRef.current)}`);
+  };
+
+  const saveCaption = (caption: string) => {
+    const view = viewRef.current;
+    setCaptionInitial(null);
+    if (!view) return;
+    setTableCaption(caption)(view.state, view.dispatch);
+    announce(caption ? `Caption saved: ${caption}.` : 'Caption removed.');
+  };
+
   const openLink = () => {
     const view = viewRef.current;
     if (!view) return;
@@ -624,6 +732,14 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   };
 
   handlersRef.current = {
+    editTableCaption: (pos) => {
+      const view = viewRef.current;
+      const table = view?.state.doc.nodeAt(pos);
+      if (!view || !table || table.type !== nodeTypes.table) return;
+      // The caption dialog edits the table the cursor is in: put it there.
+      view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(pos + 1))));
+      setCaptionInitial(String(table.attrs.caption ?? ''));
+    },
     editFigureAlt: (id) => {
       const view = viewRef.current;
       if (!view) return;
@@ -765,12 +881,15 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             }}
             onLink={openLink}
             onImage={insertImage}
+            onTable={onTable}
             onHeaderFooter={() => { setHfTab('header'); setHfOpen(true); }}
             headerFooterOpen={hfOpen}
           />
           <div className={styles.page}>
             {band('header')}
             <div ref={mountRef} />
+            {/* The editor's description: how to move through and out of a table. */}
+            <span id="table-keys-hint" className="ada-visually-hidden">In a table, Tab moves between cells. Press Escape, then Tab, to leave the table.</span>
             {band('footer')}
           </div>
           <p className={styles.wordCount}>{`${wordCount} words`}</p>
@@ -948,6 +1067,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         onSave={saveAlt}
         onClose={() => setAltTarget(null)}
       />
+      <InsertTableDialog open={tableOpen} onInsert={doInsertTable} onClose={() => setTableOpen(false)} focusDocument={() => viewRef.current?.focus()} />
+      <TableCaptionDialog open={captionInitial !== null} initial={captionInitial ?? ''} onSave={saveCaption} onClose={() => setCaptionInitial(null)} focusDocument={() => viewRef.current?.focus()} />
       <LinkDialog
         open={linkOpen}
         initial={linkInitial}

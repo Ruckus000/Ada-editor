@@ -3,8 +3,25 @@ import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
 import type { MarkType, NodeType } from 'prosemirror-model';
-import type { Command, EditorState, Plugin } from 'prosemirror-state';
-import { TableMap } from 'prosemirror-tables';
+import { Plugin, TextSelection } from 'prosemirror-state';
+import type { Command, EditorState } from 'prosemirror-state';
+import {
+  TableMap,
+  addColumnAfter,
+  addColumnBefore,
+  addRowAfter,
+  addRowBefore,
+  deleteColumn,
+  deleteRow,
+  deleteTable,
+  goToNextCell,
+  isInTable,
+  splitCell,
+  tableEditing,
+  toggleHeader,
+} from 'prosemirror-tables';
+import type { Node as PMNode } from 'prosemirror-model';
+import { firstRowIsHeader } from './tableHeaders';
 import { MAX_INDENT, documentLanguage, schema } from './editorSchema';
 
 const { nodes: N, marks: M } = schema;
@@ -68,6 +85,43 @@ export interface FormatState {
   lang: string;
   /** The document's own language. */
   docLang: string;
+  /** The table the cursor is in, or null. */
+  table: TableState | null;
+}
+
+export interface TableState {
+  rows: number;
+  cols: number;
+  headerRow: boolean;
+  headerColumn: boolean;
+  /** The cursor is in (or has selected) a merged cell that can be split. */
+  canSplit: boolean;
+  caption: string;
+}
+
+/** The table around the cursor and where it starts, or null. */
+export function tableAround(state: EditorState): { node: PMNode; pos: number } | null {
+  const { $from } = state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type === N.table) return { node: $from.node(d), pos: $from.before(d) };
+  }
+  return null;
+}
+
+function tableState(state: EditorState): TableState | null {
+  const around = tableAround(state);
+  if (!around || !isInTable(state)) return null;
+  const map = TableMap.get(around.node);
+  let headerColumn = around.node.childCount > 0;
+  around.node.forEach((row) => { if (row.firstChild?.type !== N.table_header) headerColumn = false; });
+  return {
+    rows: map.height,
+    cols: map.width,
+    headerRow: firstRowIsHeader(around.node),
+    headerColumn,
+    canSplit: splitCell(state),
+    caption: String(around.node.attrs.caption ?? ''),
+  };
 }
 
 export function formatState(state: EditorState): FormatState {
@@ -83,6 +137,7 @@ export function formatState(state: EditorState): FormatState {
     fontSize: String((markAttr(state, M.fontSize!, 'size') as number | undefined) ?? 16),
     lang: currentLang(state),
     docLang: documentLanguage(state.doc),
+    table: tableState(state),
   };
 }
 
@@ -177,10 +232,103 @@ export const makeFirstRowHeader = (tablePos: number): Command => (state, dispatc
   return true;
 };
 
+export interface NewTable {
+  rows: number;
+  cols: number;
+  headerRow: boolean;
+  headerColumn: boolean;
+  caption: string;
+}
+
+/** Insert a table at the cursor and put the cursor in its first cell. A table
+ *  can't go inside a table, so inside one this does nothing. */
+export const insertTable = (spec: NewTable): Command => (state, dispatch) => {
+  if (isInTable(state)) return false;
+  const rows: PMNode[] = [];
+  for (let r = 0; r < spec.rows; r++) {
+    const cells: PMNode[] = [];
+    for (let c = 0; c < spec.cols; c++) {
+      const header = (spec.headerRow && r === 0) || (spec.headerColumn && c === 0);
+      cells.push((header ? N.table_header! : N.table_cell!).createAndFill()!);
+    }
+    rows.push(N.table_row!.create(null, cells));
+  }
+  const table = N.table!.create({ caption: spec.caption.trim() }, rows);
+  if (dispatch) {
+    const tr = state.tr.replaceSelectionWith(table);
+    let at = -1;
+    tr.doc.descendants((node, pos) => {
+      if (at >= 0) return false;
+      if (node === table) at = pos;
+      return true;
+    });
+    // table › row › cell › paragraph: the first cell's text starts 4 in.
+    if (at >= 0) tr.setSelection(TextSelection.create(tr.doc, at + 4));
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};
+
+/** Set the caption of the table the cursor is in. */
+export const setTableCaption = (caption: string): Command => (state, dispatch) => {
+  const around = tableAround(state);
+  if (!around) return false;
+  if (dispatch) dispatch(state.tr.setNodeMarkup(around.pos, undefined, { ...around.node.attrs, caption: caption.replace(/\s+/g, ' ').trim() }));
+  return true;
+};
+
+export const tableCommands = {
+  addRowBefore,
+  addRowAfter,
+  addColumnBefore,
+  addColumnAfter,
+  deleteRow,
+  deleteColumn,
+  deleteTable,
+  // The table's first row / first column, as the menu and FormatState mean
+  // them (the library's exported toggleHeaderRow flips the row the cursor is in).
+  toggleHeaderRow: toggleHeader('row'),
+  toggleHeaderColumn: toggleHeader('column'),
+  splitCell,
+} as const;
+
+/**
+ * Tab and Shift-Tab move between table cells. At the last (first) cell they
+ * do nothing, so focus leaves the editor as usual; Escape, then Tab, leaves
+ * from any cell (WCAG 2.1.2, No Keyboard Trap). Outside a table Tab is left
+ * alone. The editor's description says so (EditorScreen).
+ */
+function tableKeys(): Plugin {
+  let escaped = false;
+  return new Plugin({
+    props: {
+      handleKeyDown(view, event) {
+        if (event.key === 'Escape' && isInTable(view.state)) {
+          escaped = true;
+          return true;
+        }
+        if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+          if (escaped) {
+            escaped = false;
+            return false;
+          }
+          if (!isInTable(view.state)) return false;
+          return goToNextCell(event.shiftKey ? -1 : 1)(view.state, view.dispatch);
+        }
+        if (event.key !== 'Shift') escaped = false;
+        return false;
+      },
+    },
+  });
+}
+
 /* ---------- plugins ---------- */
 
 export function editingPlugins(): Plugin[] {
   return [
+    // Before the keymaps, so a selection of cells is deleted as cells.
+    tableKeys(),
+    tableEditing(),
     history(),
     keymap({
       'Mod-z': undo,

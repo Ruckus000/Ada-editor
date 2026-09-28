@@ -38,6 +38,10 @@ const HIGHLIGHTS = [
 
 type CommandKey = 'bold' | 'italic' | 'underline' | 'h1' | 'h2' | 'ul' | 'ol' | 'indent' | 'outdent' | 'clear';
 
+export type TableAction =
+  | 'insert' | 'addRowBefore' | 'addRowAfter' | 'addColumnBefore' | 'addColumnAfter' | 'deleteRow' | 'deleteColumn'
+  | 'toggleHeaderRow' | 'toggleHeaderColumn' | 'caption' | 'splitCell' | 'deleteTable';
+
 /** Keep the editor's selection when a toolbar control is clicked with a mouse. */
 const keepSelection = (e: MouseEvent) => e.preventDefault();
 
@@ -50,6 +54,7 @@ const ICONS: Record<string, ReactNode> = {
   clear: <><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" /><path d="M22 21H7" /><path d="m5 11 9 9" /></>,
   image: <><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></>,
   headerFooter: <><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /></>,
+  table: <><rect x="3" y="4" width="18" height="16" rx="1.5" /><line x1="3" y1="9.5" x2="21" y2="9.5" /><line x1="3" y1="14.75" x2="21" y2="14.75" /><line x1="9" y1="4" x2="9" y2="20" /><line x1="15" y1="4" x2="15" y2="20" /></>,
   highlight: <><path d="m9 11-6 6v3h9l3-3" /><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" /></>,
 };
 
@@ -75,6 +80,7 @@ export function Toolbar({
   onLanguage,
   onLink,
   onImage,
+  onTable,
   onHeaderFooter,
   headerFooterOpen,
 }: {
@@ -88,12 +94,15 @@ export function Toolbar({
   onLanguage: (lang: string) => void;
   onLink: () => void;
   onImage: () => void;
+  /** A Table menu choice; `enabled` false when it doesn't apply where the cursor is. */
+  onTable: (action: TableAction, enabled: boolean) => void;
   onHeaderFooter: () => void;
   headerFooterOpen: boolean;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const current = useRef(0);
-  const [popover, setPopover] = useState<'text' | 'highlight' | null>(null);
+  const [popover, setPopover] = useState<'text' | 'highlight' | 'table' | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [textColor, setTextColor] = useState(TEXT_COLORS[0]!.value);
   const [highlight, setHighlight] = useState<string | null>(null);
 
@@ -144,6 +153,27 @@ export function Toolbar({
     };
   }, [popover]);
 
+  // The Table menu opens on its first item (APG menu button).
+  useEffect(() => {
+    if (popover === 'table') menuRef.current?.querySelector<HTMLElement>('[role^=menuitem]')?.focus();
+  }, [popover]);
+
+  const tableTrigger = () => barRef.current?.querySelector<HTMLElement>('[data-popover-trigger="table"]');
+  const onMenuKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const list = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role^=menuitem]') ?? [])];
+    const i = list.indexOf(e.target as HTMLElement);
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      setPopover(null);
+      tableTrigger()?.focus();
+      return;
+    }
+    const moves: Record<string, number> = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1 };
+    if (!(e.key in moves)) return;
+    e.preventDefault();
+    list[(moves[e.key]! + list.length) % list.length]?.focus();
+  };
+
   const cmd = (key: CommandKey, label: string, content: ReactNode, pressed?: boolean, extra = '') => (
     <button
       type="button"
@@ -164,6 +194,32 @@ export function Toolbar({
   // before the document's language changed) reads as the document's.
   const docLang = f?.docLang ?? 'en';
   const lang = f?.lang && primaryTag(f.lang) !== primaryTag(docLang) ? f.lang : '';
+  const t = f?.table ?? null;
+  const tableItems: ({ action: TableAction; label: string; enabled: boolean; checked?: boolean } | null)[] = [
+    { action: 'insert', label: 'Insert table…', enabled: !t },
+    null,
+    { action: 'addRowBefore', label: 'Add row above', enabled: !!t },
+    { action: 'addRowAfter', label: 'Add row below', enabled: !!t },
+    { action: 'addColumnBefore', label: 'Add column before', enabled: !!t },
+    { action: 'addColumnAfter', label: 'Add column after', enabled: !!t },
+    { action: 'deleteRow', label: 'Delete row', enabled: !!t },
+    { action: 'deleteColumn', label: 'Delete column', enabled: !!t },
+    null,
+    { action: 'toggleHeaderRow', label: 'Header row', enabled: !!t, checked: t?.headerRow ?? false },
+    { action: 'toggleHeaderColumn', label: 'Header column', enabled: !!t, checked: t?.headerColumn ?? false },
+    { action: 'caption', label: 'Caption…', enabled: !!t },
+    { action: 'splitCell', label: 'Split cell', enabled: !!t && t.canSplit },
+    null,
+    { action: 'deleteTable', label: 'Delete table', enabled: !!t },
+  ];
+  const chooseTable = (action: TableAction, enabled: boolean) => {
+    if (enabled) {
+      setPopover(null);
+      // A dialog opened from here returns focus to the menu button, not a vanished item.
+      if (action === 'insert' || action === 'caption') tableTrigger()?.focus();
+    }
+    onTable(action, enabled);
+  };
 
   return (
     <div
@@ -293,6 +349,43 @@ export function Toolbar({
       <button type="button" data-tb className={styles.tbBtn} aria-label="Insert image" onMouseDown={keepSelection} onClick={onImage}>
         <Icon name="image" />
       </button>
+      <div className={styles.popoverRoot} data-popover-root>
+        <button
+          type="button"
+          data-tb
+          data-popover-trigger="table"
+          className={styles.tbBtn}
+          aria-label="Table"
+          aria-haspopup="menu"
+          aria-expanded={popover === 'table'}
+          onMouseDown={keepSelection}
+          onClick={() => setPopover(popover === 'table' ? null : 'table')}
+          onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); setPopover('table'); } }}
+        >
+          <Icon name="table" />
+        </button>
+        {popover === 'table' ? (
+          <div ref={menuRef} className={`${styles.popover} ${styles.menu}`} role="menu" aria-label="Table" onKeyDown={onMenuKeyDown}>
+            {tableItems.map((item, i) => (item ? (
+              <button
+                key={item.action}
+                type="button"
+                tabIndex={-1}
+                className={styles.menuItem}
+                role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                {...(item.checked === undefined ? {} : { 'aria-checked': item.checked })}
+                aria-disabled={!item.enabled}
+                onMouseDown={keepSelection}
+                onClick={() => chooseTable(item.action, item.enabled)}
+              >
+                {/* The tick is drawn by CSS, so the item's name stays its label. */}
+                {item.checked === undefined ? null : <span className={styles.menuCheck} data-on={item.checked} aria-hidden="true" />}
+                {item.label}
+              </button>
+            ) : <div key={`sep-${i}`} role="separator" className={styles.menuSep} />))}
+          </div>
+        ) : null}
+      </div>
       <span className={styles.tbSpacer} />
       <button
         type="button"

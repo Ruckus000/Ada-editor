@@ -1274,6 +1274,53 @@ check('table-merged-cells: merged cells get a gentle advisory; cells are still c
   eq(linked.textBetween(g.from, g.to), 'click here', 'at the right position');
 });
 
+check('table commands: insert puts the cursor in the first cell, never nests, and header toggles mean the first row/column', () => {
+  const { insertTable, tableCommands, formatState, setTableCaption } = mod.editorCommands;
+  const { EditorState, TextSelection } = mod.pmState;
+  let state = EditorState.create({ doc: doc(para('Before')) });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 7)));
+  const run = (cmd) => { let ok = false; cmd(state, (tr) => { state = state.apply(tr); ok = true; }); return ok; };
+  assert(run(insertTable({ rows: 3, cols: 2, headerRow: true, headerColumn: false, caption: ' Dates ' })), 'inserted');
+  const t = state.doc.child(1);
+  eq(t.type.name, 'table', 'a table after the paragraph');
+  eq(t.attrs.caption, 'Dates', 'caption trimmed');
+  deepEq(t.content.content.map((r) => r.content.content.map((c) => c.type.name === 'table_header' ? 'th' : 'td')), [['th', 'th'], ['td', 'td'], ['td', 'td']], 'header row only');
+  eq(state.selection.$from.node(-1).type.name, 'table_header', 'cursor in the first cell');
+  let f = formatState(state).table;
+  deepEq({ rows: f.rows, cols: f.cols, headerRow: f.headerRow, headerColumn: f.headerColumn, canSplit: f.canSplit }, { rows: 3, cols: 2, headerRow: true, headerColumn: false, canSplit: false }, 'table state');
+  assert(!run(insertTable({ rows: 1, cols: 1, headerRow: false, headerColumn: false, caption: '' })), 'no table inside a table');
+  // Toggles act on the first row/column wherever the cursor is.
+  state = state.apply(state.tr.setSelection(TextSelection.near(state.doc.resolve(state.doc.child(0).nodeSize + t.child(0).nodeSize + 2))));
+  eq(state.selection.$from.node(-1).type.name, 'table_cell', 'cursor moved into a body cell');
+  run(tableCommands.toggleHeaderRow);
+  eq(formatState(state).table.headerRow, false, 'header row off');
+  eq(state.doc.child(1).child(1).child(0).type.name, 'table_cell', 'the body row was not turned into headers');
+  run(tableCommands.toggleHeaderColumn);
+  eq(formatState(state).table.headerColumn, true, 'header column on');
+  run(tableCommands.addRowAfter);
+  eq(formatState(state).table.rows, 4, 'row added');
+  run(setTableCaption('  New   caption '));
+  eq(state.doc.child(1).attrs.caption, 'New caption', 'caption set, spaces collapsed');
+  run(tableCommands.deleteTable);
+  eq(formatState(state).table, null, 'table deleted');
+});
+
+check('table commands: inserting in a list item puts the table beside the list, never inside it', () => {
+  const { insertTable } = mod.editorCommands;
+  const { EditorState, TextSelection } = mod.pmState;
+  const list = N.bullet_list.create(null, [N.list_item.create(null, [para('one')]), N.list_item.create(null, [para('two')])]);
+  let state = EditorState.create({ doc: doc(list) });
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 6)));
+  insertTable({ rows: 2, cols: 2, headerRow: true, headerColumn: false, caption: '' })(state, (tr) => { state = state.apply(tr); });
+  state.doc.check();
+  const top = state.doc.content.content.map((n) => n.type.name);
+  assert(top.includes('table'), `the table is a top-level block (${JSON.stringify(top)})`);
+  let nested = false;
+  state.doc.descendants((n, _pos, parent) => { if (n.type.name === 'table' && parent.type.name !== 'doc') nested = true; });
+  assert(!nested, 'never inside the list');
+  eq(state.doc.textContent.replace(/\s/g, ''), 'onetwo', 'no list text lost');
+});
+
 check('tables: a pasted HTML table keeps its caption and header cells', () => {
   const parse = (html) => mod.pm.DOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body);
   const d = parse('<table><caption> Library   hours </caption><tr><th>Day</th><th>Hours</th></tr><tr><td>Monday</td><td colspan="2">9 to 6</td></tr></table>');
