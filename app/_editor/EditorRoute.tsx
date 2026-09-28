@@ -6,12 +6,13 @@ import { useEffect, useState } from 'react';
 import type { DocSummary } from '../_data/seed';
 import { loadDoc, seedIfEmpty } from '../_data/store';
 import type { StoredDoc } from '../_data/store';
+import { isCloud } from '../_data/supabase';
 import { StatusScreen } from '../_status/StatusScreen';
 import { EditorScreen } from './EditorScreen';
 
 /**
  * Client-side data loading for the editor route (§7 step 8). Documents live in
- * localStorage, which the server cannot read — so generateStaticParams and the
+ * the browser's store (synced to the account in cloud mode), which the server cannot read — so generateStaticParams and the
  * server-side findDoc are gone. The page shell stays a server component (for
  * metadata); this component loads the stored doc after hydration and hands it
  * to the editor, or renders a not-found panel with a way back.
@@ -31,7 +32,7 @@ export function EditorRoute() {
   if (!stored) {
     return (
       <StatusScreen title="Document not found" actions={<Link href="/">Back to all documents</Link>}>
-        No document with that id is stored in this browser.
+        {isCloud ? 'There’s no document with that id in your account.' : 'No document with that id is stored in this browser.'}
       </StatusScreen>
     );
   }

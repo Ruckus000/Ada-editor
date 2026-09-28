@@ -1,0 +1,59 @@
+/* Sign-in. Ada tokens only; class prefix `signin-` (conventions reserve
+ * `ada-*` for the design system). One narrow column, 44px targets. */
+
+.signin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ada-space-4);
+  padding: var(--ada-space-6) var(--ada-space-5);
+}
+
+.signin__title {
+  margin: 0;
+  font-size: var(--ada-type-size-xl);
+  line-height: var(--ada-type-line-height-tight);
+  text-align: center;
+}
+
+.signin__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ada-space-4);
+  inline-size: 100%;
+  max-inline-size: 26rem;
+}
+
+.signin__lede { margin: 0; color: var(--ada-text-secondary); }
+
+.signin__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ada-space-2);
+  font-weight: 600;
+}
+
+.signin__field input {
+  min-height: var(--ada-target-comfortable);
+  padding-inline: var(--ada-space-3);
+  font: inherit;
+  font-weight: 400;
+  color: var(--ada-text-primary);
+  background: var(--ada-surface-raised);
+  border: 1px solid var(--ada-border-control);
+  border-radius: var(--ada-radius-md);
+}
+
+.signin__field input[aria-invalid='true'] { border-color: var(--ada-severity-blocker-fg); }
+
+.signin__error {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ada-severity-blocker-fg);
+}
+
+.signin__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ada-space-2);
+}

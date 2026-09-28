@@ -34,6 +34,11 @@ Why, specifically:
 
 ## 3. Persistence: localStorage, not a database — this is a scoping decision, stated explicitly
 
+> **Superseded 2026-09-25.** Launch added accounts (Supabase Auth, emailed
+> one-time codes) and a `public.documents` table. The localStorage store below
+> survives as the browser's working copy and as local mode (no Supabase env
+> vars); `app/_data/sync.ts` pushes it to the account. See the root README.
+
 There is no auth, no user accounts, no backend, no hosting decision made anywhere in this repo. Standing up a real database now would mean inventing an auth model this product doesn't have yet, purely to persist a handful of documents for one implicit local user. That's the premature-generality pattern the repo's own file-by-file style argues against.
 
 **Recommendation for v1:** a `app/_data/store.ts` module backed by `localStorage`, storing:
