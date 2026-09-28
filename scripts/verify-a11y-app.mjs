@@ -13,12 +13,13 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { CHROME, connect, evaluate, key, launch, shutdown, sleep, track, watchdog } from './cdp.mjs';
+import { P, R, docx } from './harness/docx.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
@@ -458,7 +459,8 @@ async function upload() {
     else note('a non-.docx upload shows a visible role=alert message');
     await runAxe(send, ' (import error shown)');
 
-    // A real .docx (pandoc's): stored, opened, announced with what was left out.
+    // A real .docx (pandoc's): stored, opened, announced. Its table arrives as a
+    // table, header row and all, so nothing is left out.
     if (!(await choose('corpus/docx/library-hours.pandoc.docx'))) return;
     let path = '';
     for (let i = 0; i < 30 && !path.startsWith('/editor/'); i++) {
@@ -469,7 +471,7 @@ async function upload() {
     page = path;
     await sleep(1500);
     const said = await liveText(send);
-    if (!/^Imported Library hours notice\. .*blocking.* 1 table flattened/.test(said)) fail(`UPLOAD  announcement must name the document, what was found and what was not imported (got ${JSON.stringify(said)})`);
+    if (!/^Imported Library hours notice\. .*blocking/.test(said) || /flattened|not imported/.test(said)) fail(`UPLOAD  announcement must name the document and what was found, and nothing was left out (got ${JSON.stringify(said)})`);
     else note(`upload announced: ${JSON.stringify(said)}`);
     const view = await evaluate(send, `({
       h1: document.querySelector('h1')?.textContent,
@@ -477,14 +479,45 @@ async function upload() {
       headings: [...document.querySelectorAll('.ProseMirror h1, .ProseMirror h2, .ProseMirror h4')].length,
       lists: document.querySelectorAll('.ProseMirror ul, .ProseMirror ol').length,
       figures: document.querySelectorAll('.ProseMirror figure').length,
+      tables: document.querySelectorAll('.ProseMirror table').length,
+      headerCells: document.querySelectorAll('.ProseMirror table th').length,
     })`);
     if (view.h1 !== 'Library hours notice' || view.headings !== 4 || view.lists !== 3 || view.figures !== 2) fail(`UPLOAD  the imported document lost structure: ${JSON.stringify(view)}`);
     else note('the imported document keeps its headings, nested lists and images in the editor');
-    if (view.notes.length !== 1 || !view.notes[0].includes('table')) fail(`UPLOAD  import notes are not visible on the page (${JSON.stringify(view.notes)})`);
-    else note('what was not carried over is visible, not only announced');
+    if (view.tables !== 1 || view.headerCells !== 2) fail(`UPLOAD  the table did not arrive as a table with its header row: ${JSON.stringify(view)}`);
+    else note('the Word table arrives as a table, with the header row Word marked');
+    if (view.notes.length) fail(`UPLOAD  nothing was left out, but notes are shown: ${JSON.stringify(view.notes)}`);
     await runAxe(send, ' (imported document)');
     // The imported h2 -> h4 jump is the file's own finding, flagged by the engine.
     await checkTree(send, { contentTextbox: 'Document text' });
+
+    // A file with something the editor can't hold (a table inside a table
+    // cell): the notes are visible, not only announced.
+    const scratch = mkdtempSync(join(tmpdir(), 'ada-upload-'));
+    const nested = join(scratch, 'nested-table.docx');
+    const cellXml = (inner) => `<w:tc>${inner}</w:tc>`;
+    writeFileSync(nested, docx({
+      title: 'Room guide',
+      body: `<w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr>${cellXml(P(R('Floor')))}${cellXml(P(R('Rooms')))}</w:tr>`
+        + `<w:tr>${cellXml(P(R('Second')))}${cellXml(`<w:tbl><w:tr>${cellXml(P(R('4B')))}${cellXml(P(R('Clinic')))}</w:tr></w:tbl><w:p/>`)}</w:tr></w:tbl>`,
+    }));
+    await send('Page.navigate', { url: `${origin}/` });
+    await sleep(1500);
+    if (!(await fromPlus(send, 'Import a Word file'))) return;
+    if (!(await choose(nested))) return;
+    path = '';
+    for (let i = 0; i < 30 && !path.startsWith('/editor/'); i++) {
+      await sleep(200);
+      path = await evaluate(send, `location.pathname`);
+    }
+    page = path;
+    await sleep(1500);
+    const nestedSaid = await liveText(send);
+    if (!/table inside a table cell flattened/.test(nestedSaid)) fail(`UPLOAD  the announcement must say what was not carried over (got ${JSON.stringify(nestedSaid)})`);
+    const notes = await evaluate(send, `[...document.querySelectorAll('[aria-labelledby=import-notes-heading] li')].map((li) => li.textContent)`);
+    rmSync(scratch, { recursive: true, force: true });
+    if (notes.length !== 1 || !notes[0].includes('table inside a table cell')) fail(`UPLOAD  import notes are not visible on the page (${JSON.stringify(notes)})`);
+    else note('what was not carried over is visible, not only announced');
 
     // Dismissing the notes keeps focus in the findings panel and survives a reload.
     if (!(await focusByName(send, 'button', 'Dismiss import notes'))) { fail('UPLOAD  no way to dismiss the import notes'); return; }
