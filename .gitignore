@@ -23,3 +23,9 @@ next-env.d.ts
 .vercel
 .serena/
 .env*
+
+# Agent skills installed by `npx skills add` (tracked in skills-lock.json).
+# Ignore the dir's contents, not the dir, so a committed project skill can
+# be re-included later with a `!.claude/skills/<name>` line.
+.claude/skills/*
+skills-lock.json
