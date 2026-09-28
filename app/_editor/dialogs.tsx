@@ -174,6 +174,64 @@ export function LinkDialog({
   );
 }
 
+/* ---------- new document ---------- */
+
+export function NewDocumentDialog({
+  open,
+  onCreate,
+  onClose,
+}: {
+  open: boolean;
+  onCreate: (title: string) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const id = useId();
+  useEffect(() => { if (open) { setValue(''); setInvalid(false); } }, [open]);
+
+  return (
+    <Shell
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="New document"
+      description="The title becomes the document’s main heading, so it starts with the structure screen readers navigate by."
+      onSubmit={(e) => {
+        e.preventDefault();
+        const title = value.trim();
+        if (title) onCreate(title);
+        else setInvalid(true);
+      }}
+      footer={
+        <>
+          <Dialog.Close className={styles.btnSubtle} type="button">Cancel</Dialog.Close>
+          <button type="submit" className={styles.btnPrimary}>Create document</button>
+        </>
+      }
+    >
+      <label className={styles.field} htmlFor={id}>
+        <span className={styles.fieldLabel}>Title</span>
+        <input
+          id={id}
+          className={styles.input}
+          type="text"
+          maxLength={200}
+          // Start in the one field this dialog is for, not on Close: Radix
+          // keeps focus that is already inside the dialog when it opens.
+          autoFocus
+          value={value}
+          aria-invalid={invalid}
+          {...(invalid ? { 'aria-describedby': `${id}-error` } : {})}
+          onChange={(e) => { setValue(e.target.value); setInvalid(false); }}
+        />
+      </label>
+      {invalid ? (
+        <p id={`${id}-error`} className={styles.fieldError} role="alert">Give the document a title.</p>
+      ) : null}
+    </Shell>
+  );
+}
+
 /* ---------- header & footer ---------- */
 
 export type Align = 'left' | 'center' | 'right';
