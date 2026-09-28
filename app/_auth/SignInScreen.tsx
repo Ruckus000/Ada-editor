@@ -59,7 +59,12 @@ export function SignInScreen() {
     requestAnimationFrame(() => codeRef.current?.focus());
   };
 
-  const onEmail = (e: FormEvent) => { e.preventDefault(); void sendCode(email.trim()); };
+  const onEmail = (e: FormEvent) => {
+    e.preventDefault();
+    const address = (emailRef.current?.value ?? '').trim();
+    setEmail(address); // kept, so "Use a different email" comes back filled in
+    void sendCode(address);
+  };
 
   const onCode = async (e: FormEvent) => {
     e.preventDefault();
@@ -96,10 +101,13 @@ export function SignInScreen() {
               type="email"
               autoComplete="email"
               required
-              value={email}
+              // Uncontrolled: the field renders before React hydrates, and a
+              // controlled value would wipe whatever was typed in the meantime
+              // (found by the e2e test). Deliberately no `name`: an Enter before
+              // hydration submits natively, and must not put the address in the URL.
+              defaultValue={email}
               aria-invalid={error?.invalid ?? false}
               {...(error ? { 'aria-describedby': 'signin-error' } : {})}
-              onChange={(e) => setEmail(e.target.value)}
             />
           </label>
           {error ? <p id="signin-error" className="signin__error" role="alert">{error.text}</p> : null}

@@ -24,7 +24,7 @@
  */
 
 import { build } from 'esbuild';
-import { spawnSync } from 'node:child_process';
+import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
 import { inflateSync } from 'node:zlib';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -275,49 +275,22 @@ const skip = (why) => {
   console.log(`  SKIPPED — ${why}. Install Java 11+ and Maven to run the conformance half.`);
 };
 
-const have = (cmd) => spawnSync(cmd, ['-version'], { stdio: 'ignore' }).error === undefined;
-const LIB = join(VERAPDF, 'lib');
-const hasJars = () => existsSync(LIB) && readdirSync(LIB).some((f) => f.startsWith('cli-'));
-
-if (!have('java')) {
-  skip('java is not installed');
+const vera = ensureVeraPdf({ verbose: VERBOSE });
+if (!vera.ok) {
+  skip(vera.why);
 } else {
-  if (!hasJars()) {
-    if (!have('mvn')) {
-      skip('veraPDF is not fetched and mvn is not installed');
-    } else {
-      console.log('  fetching veraPDF from Maven Central…');
-      const fetched = spawnSync('mvn', ['-q', '-f', join(VERAPDF, 'pom.xml'), 'dependency:copy-dependencies', `-DoutputDirectory=${LIB}`], { stdio: VERBOSE ? 'inherit' : 'pipe', encoding: 'utf8' });
-      if (fetched.status !== 0) skip(`mvn could not fetch veraPDF: ${(fetched.stderr || fetched.stdout || '').trim().split('\n').slice(-3).join(' ')}`);
-    }
+  const { results, error } = validatePdfUa([...exported.values()]);
+  if (error) failures.push(error);
+  for (const [file, result] of results) {
+    const name = [...exported].find(([, f]) => f === file)?.[0];
+    await check(`${name} ${expected.get(name).length ? `fails PDF/UA-1 on exactly ${expected.get(name).join(', ')}` : 'passes PDF/UA-1'}`, () => {
+      assert(result.failed, `no validation result (${result.status})`);
+      const want = expected.get(name);
+      assert(JSON.stringify(result.failed) === JSON.stringify(want), `veraPDF failed ${result.describe(result.failed)}; expected ${want.join(', ') || 'none'}`);
+      if (VERBOSE && result.failed.length) console.log(`         ${result.describe(result.failed)}`);
+    });
   }
-  if (hasJars()) {
-    const files = [...exported.values()];
-    const run = spawnSync('java', ['-cp', `${LIB}/*`, 'org.verapdf.apps.GreenfieldCliWrapper', '--flavour', 'ua1', '--format', 'json', ...files], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
-    let report = null;
-    try {
-      report = JSON.parse(run.stdout);
-    } catch {
-      failures.push(`veraPDF produced no report (exit ${run.status}): ${(run.stderr || '').trim().split('\n').slice(-3).join(' ')}`);
-    }
-    for (const job of report?.report?.jobs ?? []) {
-      const name = [...exported].find(([, file]) => file === job.itemDetails.name)?.[0];
-      const result = [job.validationResult].flat()[0];
-      await check(`${name} ${expected.get(name).length ? `fails PDF/UA-1 on exactly ${expected.get(name).join(', ')}` : 'passes PDF/UA-1'}`, () => {
-        assert(result, `no validation result (${job.jobEndStatus ?? 'unknown status'})`);
-        const failed = [...new Set((result.details?.ruleSummaries ?? []).map((r) => `${r.clause}-${r.testNumber}`))].sort();
-        const want = expected.get(name);
-        const describe = (ids) => ids.map((id) => {
-          const rule = result.details.ruleSummaries.find((r) => `${r.clause}-${r.testNumber}` === id);
-          return rule ? `${id} (${rule.description.slice(0, 90)}…)` : id;
-        }).join('; ') || 'none';
-        assert(JSON.stringify(failed) === JSON.stringify(want), `veraPDF failed ${describe(failed)}; expected ${want.join(', ') || 'none'}`);
-        if (VERBOSE && failed.length) console.log(`         ${describe(failed)}`);
-      });
-    }
-    const validated = report?.report?.jobs?.length ?? 0;
-    if (report && validated !== exported.size) failures.push(`veraPDF validated ${validated} of ${exported.size} exports`);
-  }
+  if (!error && results.size !== exported.size) failures.push(`veraPDF validated ${results.size} of ${exported.size} exports`);
 }
 
 if (outArg > 0) console.log(`\nPDFs kept in ${OUT}`);
