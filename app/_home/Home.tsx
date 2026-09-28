@@ -73,9 +73,9 @@ function lineWidths(id: string, n: number) {
 
 /* ---------- pieces ---------- */
 
-function Sheet({ d, lines, tilt, note }: { d: DocSummary; lines: number; tilt: number; note?: string }) {
+function Sheet({ d, lines, tilt, note, onDelete }: { d: DocSummary; lines: number; tilt: number; note?: string; onDelete?: (d: DocSummary) => void }) {
   const w = worst(d);
-  return (
+  const sheet = (
     <Link
       href={`/editor/${d.id}`}
       className="home-sheet"
@@ -93,6 +93,19 @@ function Sheet({ d, lines, tilt, note }: { d: DocSummary; lines: number; tilt: n
       </span>
       <svg className="home-sheet__chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 3 5 5-5 5" /></svg>
     </Link>
+  );
+  if (!onDelete) return sheet;
+  // Hover or focus fades a veil over the sheet with Open and Delete. Open is
+  // only a label: clicks fall through to the sheet link, so assistive tech
+  // meets one link and one button, not a duplicate Open.
+  return (
+    <div className="home-card">
+      {sheet}
+      <div className="home-card__veil">
+        <span className="home-card__open ada-button ada-button--primary" aria-hidden="true">Open</span>
+        <button type="button" className="home-card__delete ada-button ada-button--secondary" aria-label={`Delete ${d.title}`} onClick={() => onDelete(d)}>Delete</button>
+      </div>
+    </div>
   );
 }
 
@@ -479,6 +492,22 @@ export function Home() {
     // The button that had focus is gone with the sample: land on the page heading.
     requestAnimationFrame(() => document.getElementById('how-heading')?.focus());
   };
+  const [deleteError, setDeleteError] = useState('');
+  const deleteDocument = async (d: DocSummary) => {
+    if (!window.confirm(`Delete “${d.title}”? This can’t be undone.`)) return;
+    const sheetsNow = () => [...document.querySelectorAll<HTMLElement>('.home-main .home-sheet')];
+    const at = sheetsNow().findIndex((el) => el.getAttribute('href') === `/editor/${d.id}`);
+    setDeleteError('');
+    if (!(await removeDoc(d.id))) { setDeleteError(d.title); return; }
+    setDash(loadDashboardData());
+    announce(`Deleted ${d.title}.`);
+    // The Delete button went with its sheet: land on the sheet that took its
+    // place, or the empty desk's heading when none are left.
+    requestAnimationFrame(() => {
+      const left = sheetsNow();
+      (left[Math.min(Math.max(at, 0), left.length - 1)] ?? document.getElementById('how-heading'))?.focus();
+    });
+  };
 
   return (
     <div className="home">
@@ -531,6 +560,7 @@ export function Home() {
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} docs={docs} />
 
       <main className="home-main">
+        {deleteError && hasDocs ? <p role="alert" className="home-alert">“{deleteError}” couldn’t be deleted. Check your connection and try again.</p> : null}
         {mode === 'empty' ? <EmptyDesk sample={docs[0]} note={items.find((m) => m.docId === SAMPLE_ID)} onImport={openImport} onRemove={() => void removeSample()} removeError={removeError} /> : null}
 
         {mode === 'desk' ? (
@@ -540,7 +570,7 @@ export function Home() {
               <ul role="list" className="home-desk">
                 {docs.map((d, i) => (
                   <li key={d.id} style={{ '--drop': `${DESK[i]!.drop}rem` } as CSSProperties}>
-                    <Sheet d={d} lines={7} tilt={DESK[i]!.tilt} />
+                    <Sheet d={d} lines={7} tilt={DESK[i]!.tilt} onDelete={(doc) => void deleteDocument(doc)} />
                   </li>
                 ))}
               </ul>
@@ -565,6 +595,7 @@ export function Home() {
             onFilter={(f, said) => { setFilter(f); setShowAll(false); announce(said); }}
             onSort={(s) => { setSort(s.key); announce(`Sorted by ${s.said}.`); }}
             onShowAll={(n) => { setShowAll(true); announce(`Showing all ${n} documents.`); }}
+            onDelete={(doc) => void deleteDocument(doc)}
           />
         ) : null}
       </main>
@@ -602,7 +633,7 @@ function EmptyDesk({ sample, note, onImport, onRemove, removeError }: {
   );
 }
 
-function GridDesk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSort, onShowAll }: {
+function GridDesk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSort, onShowAll, onDelete }: {
   docs: DocSummary[];
   items: Item[];
   titleOf: (id: string) => string;
@@ -612,6 +643,7 @@ function GridDesk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSor
   onFilter: (f: Filter, said: string) => void;
   onSort: (s: (typeof SORTS)[number]) => void;
   onShowAll: (n: number) => void;
+  onDelete: (d: DocSummary) => void;
 }) {
   const chips = (['all', ...OPEN_SEVERITIES, 'clear'] as Filter[])
     .map((f) => ({ f, count: docs.filter((d) => has(d, f)).length }))
@@ -665,7 +697,7 @@ function GridDesk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSor
           </div>
         </div>
         <ul role="list" aria-label="Documents" className="home-grid">
-          {shown.map((d, i) => <li key={d.id}><Sheet d={d} lines={5} tilt={GRID_TILT[i % GRID_TILT.length]!} /></li>)}
+          {shown.map((d, i) => <li key={d.id}><Sheet d={d} lines={5} tilt={GRID_TILT[i % GRID_TILT.length]!} onDelete={onDelete} /></li>)}
         </ul>
         {!showAll && rows.length > PAGE ? (
           <button type="button" className="home-more" onClick={() => onShowAll(rows.length)}>{`Show all ${rows.length}`}</button>

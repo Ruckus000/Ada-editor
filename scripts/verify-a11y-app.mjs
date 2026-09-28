@@ -312,9 +312,30 @@ async function home() {
     await send('Emulation.clearDeviceMetricsOverride');
     await sleep(200);
 
+    // Deleting from a sheet: focus shows its veil, Delete is named for its
+    // document, and focus lands on the sheet that takes its place. 8 → 7
+    // documents, so the grid stays.
+    page = '/ (delete a sheet)';
+    await evaluate(send, `document.querySelector('.home-sheet[href="/editor/shelter-faq"]').focus()`);
+    await sleep(400);
+    const veil = await evaluate(send, `getComputedStyle(document.activeElement.closest('.home-card').querySelector('.home-card__veil')).opacity`);
+    if (veil !== '1') fail(`CARD  focusing a sheet did not show its Open/Delete veil (opacity ${veil})`);
+    await runAxe(send, ' (veil shown)');
+    const next = await evaluate(send, `(() => { const all = [...document.querySelectorAll('.home-main .home-sheet')].map((a) => a.getAttribute('href')); const i = all.indexOf('/editor/shelter-faq'); return all[i + 1] ?? all[i - 1]; })()`);
+    await evaluate(send, `window.confirm = () => true`);
+    if (!(await focusByName(send, 'button', 'Delete Winter Shelter Program FAQ'))) fail('CARD  no Delete button named for its document');
+    await key(send, 'Enter');
+    await sleep(800);
+    const afterCard = await evaluate(send, `({ stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-grid > li').length, focus: document.activeElement?.getAttribute('href') ?? document.activeElement?.tagName })`);
+    const cardSaid = await liveText(send);
+    if (afterCard.stored.includes('shelter-faq') || afterCard.sheets !== 7) fail(`CARD  Delete did not remove the document: ${JSON.stringify(afterCard)}`);
+    else if (afterCard.focus !== next) fail(`CARD  focus fell to ${JSON.stringify(afterCard.focus)} instead of the next sheet, ${next}`);
+    else if (!/^Deleted Winter Shelter Program FAQ\./.test(cardSaid)) fail(`CARD  deletion was not announced (got ${JSON.stringify(cardSaid)})`);
+    else note('Delete on a sheet removes it, announces it and focuses the next sheet');
+
     // 2–4 documents: the loose desk.
     page = '/ (desk)';
-    await keepDocs(send, ['hearing-notice', 'shelter-faq', 'transit-notice']);
+    await keepDocs(send, ['hearing-notice', 'transit-notice', 'zoning-variance']);
     const sheets = await evaluate(send, `document.querySelectorAll('.home-desk > li').length`);
     if (sheets !== 3 || (await evaluate(send, `!!document.querySelector('.home-grid')`))) fail(`DESK  expected 3 loose sheets and no grid, got ${sheets}`);
     else note('under five documents the desk shows loose sheets, not the grid');

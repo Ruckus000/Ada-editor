@@ -265,6 +265,58 @@ body { margin: 0; background: var(--ada-surface-sunken); }
 .home-sheet__when { font-size: var(--ada-type-size-xs); color: var(--ada-text-tertiary); }
 .home-sheet__chevron { display: none; color: var(--ada-text-tertiary); }
 
+/* A sheet with actions: hover or focus fades a veil over it, holding Open
+   (a label; clicks fall through to the sheet link) and Delete. The card lifts
+   as one, so the veil stays on its sheet. */
+.home-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  transition: translate var(--ada-motion-base) var(--ada-motion-ease);
+}
+
+.home-card > .home-sheet { flex: 1; min-width: 0; }
+.home-card .home-sheet:hover { translate: none; }
+.home-card:is(:hover, :focus-within) { translate: 0 -0.5rem; z-index: 20; }
+.home-card:is(:hover, :focus-within) .home-sheet::before { rotate: 0deg; }
+
+.home-card__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ada-space-3);
+  background: color-mix(in srgb, var(--ada-surface-canvas) 80%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ada-motion-base) var(--ada-motion-ease);
+}
+
+.home-card:is(:hover, :focus-within) .home-card__veil { opacity: 1; }
+.home-card__open,
+.home-card__delete { min-inline-size: 7rem; justify-content: center; }
+/* Hidden, Delete stays in the tab order (focus reveals it) but takes no clicks. */
+.home-card:is(:hover, :focus-within) .home-card__delete { pointer-events: auto; }
+
+/* Touch has no hover: Delete waits in the corner, no veil. */
+@media (hover: none) {
+  .home-card__veil { inset: var(--ada-space-2) var(--ada-space-2) auto auto; opacity: 1; background: none; }
+  .home-card__open { display: none; }
+  .home-card__delete { min-inline-size: 0; pointer-events: auto; }
+}
+
+/* Phone slips put the title across the top: Delete takes the chevron's place. */
+@media (hover: none) and (max-width: 39.99rem) {
+  .home-desk > li:not(:first-child) .home-card__veil { inset: 0 var(--ada-space-3) 0 auto; }
+  .home-desk > li:not(:first-child) .home-card .home-sheet { padding-inline-end: 6.5rem; }
+  .home-desk > li:not(:first-child) .home-card .home-sheet__chevron { display: none; }
+}
+
 .home-note {
   gap: 0.625rem;
   inline-size: 13.125rem;
@@ -775,6 +827,7 @@ body { margin: 0; background: var(--ada-surface-sunken); }
   .home-desk > li:not(:first-child) .home-sheet__title { grid-column: 1 / -1; order: -1; font-size: var(--ada-type-size-lg); line-height: 1.25; }
   .home-desk > li:not(:first-child) .home-sheet__when { font-size: var(--ada-type-size-sm); }
   .home-desk > li:not(:first-child) .home-sheet__chevron { display: block; }
+  .home-desk > li:not(:first-child) .home-card { translate: none; }
 
   /* Questions: a pad of sticky notes, one at a time. */
   .home-pad { display: flex; flex-direction: column; gap: 0.875rem; }
@@ -828,7 +881,8 @@ body { margin: 0; background: var(--ada-surface-sunken); }
   .home-pad__notes::before,
   .home-pad__notes::after { rotate: 0deg !important; }
   .home-sheet:hover,
-  .home-note:hover { translate: none; }
+  .home-note:hover,
+  .home-card:is(:hover, :focus-within) { translate: none; }
 }
 
 @media (forced-colors: active) {
