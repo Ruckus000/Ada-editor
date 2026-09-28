@@ -62,28 +62,33 @@ const toRow = (d: StoredDoc) => ({
 });
 
 /** Push every dirty doc. Never throws: a failure leaves the docs dirty (they
- *  survive in this browser) and shows `unsynced` until a retry lands. */
+ *  survive in this browser) and shows `unsynced` until a retry lands. One push
+ *  at a time; a caller mid-push gets the push already running. */
 function push(): Promise<void> {
   const client = getClient();
   if (!client) return Promise.resolve();
-  inFlight ??= (async () => {
-    try {
-      const docs = dirtyDocs();
-      if (!docs.length) { setStatus('saved'); return; }
-      const { error } = await client.from('documents').upsert(docs.map(toRow));
-      if (error) throw error;
-      docs.forEach(markClean);
-      if (dirtyDocs().length) schedulePush();
-      else setStatus('saved');
-    } catch (error) {
-      console.error('Sync failed', error);
-      setStatus('unsynced');
-      schedulePush(RETRY_DELAY);
-    } finally {
-      inFlight = null;
-    }
-  })();
+  // Cleared in .finally, never inside pushOnce: a push with nothing to send
+  // finishes before its first await, and a synchronous clear there would run
+  // before this assignment — leaving a settled promise here forever, and sync
+  // silently dead for the rest of the tab.
+  inFlight ??= pushOnce(client).finally(() => { inFlight = null; });
   return inFlight;
+}
+
+async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Promise<void> {
+  try {
+    const docs = dirtyDocs();
+    if (!docs.length) { setStatus('saved'); return; }
+    const { error } = await client.from('documents').upsert(docs.map(toRow));
+    if (error) throw error;
+    docs.forEach(markClean);
+    if (dirtyDocs().length) schedulePush();
+    else setStatus('saved');
+  } catch (error) {
+    console.error('Sync failed', error);
+    setStatus('unsynced');
+    schedulePush(RETRY_DELAY);
+  }
 }
 
 /**

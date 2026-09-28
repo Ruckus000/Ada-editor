@@ -14,7 +14,6 @@
 :root { color-scheme: light dark; supported-color-schemes: light dark; }
 @media (max-width: 480px) {
   .px { padding-left: 20px !important; padding-right: 20px !important; }
-  .code { font-size: 40px !important; letter-spacing: 8px !important; }
 }
 @media (prefers-color-scheme: dark) {
   .bg-page { background-color: #0E1420 !important; }
@@ -57,11 +56,11 @@
 <td style="padding:32px 0 0 0;">
 <table role="presentation" class="band" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#1A4FBF;">
 <tr>
-<td class="px" style="padding:24px 40px 0 40px;color:#FFFFFF;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:24px;mso-line-height-rule:exactly;">Six-digit code</td>
+<td class="px" style="padding:24px 40px 0 40px;color:#FFFFFF;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:16px;line-height:24px;mso-line-height-rule:exactly;">Your code</td>
 </tr>
 <tr>
 <td class="px" style="padding:4px 40px 20px 40px;">
-<p class="code" style="margin:0;color:#FFFFFF;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Courier New',monospace;font-size:48px;line-height:60px;font-weight:700;letter-spacing:12px;mso-line-height-rule:exactly;">{{ .Token }}</p>
+<p class="code" style="margin:0;color:#FFFFFF;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Courier New',monospace;font-size:40px;line-height:52px;font-weight:700;letter-spacing:8px;mso-line-height-rule:exactly;">{{ .Token }}</p>
 </td>
 </tr>
 <tr>
