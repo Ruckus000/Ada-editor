@@ -1,0 +1,53 @@
+/* Privacy notice. Ada tokens only; class prefix `privacy-`. A document-width
+ * column: this is reading, not app chrome. */
+
+.privacy {
+  max-width: var(--ada-type-measure);
+  margin: 0 auto;
+  padding: var(--ada-space-6) var(--ada-space-5);
+  color: var(--ada-text-primary);
+}
+
+.privacy h1 {
+  margin: var(--ada-space-4) 0 var(--ada-space-2);
+  font-size: var(--ada-type-size-xl);
+  line-height: var(--ada-type-line-height-tight);
+}
+
+.privacy h2 {
+  margin: var(--ada-space-6) 0 var(--ada-space-2);
+  font-size: var(--ada-type-size-lg);
+  line-height: var(--ada-type-line-height-tight);
+}
+
+.privacy p,
+.privacy ul { margin: 0 0 var(--ada-space-3); }
+
+.privacy li + li { margin-top: var(--ada-space-2); }
+
+.privacy a { color: var(--ada-focus-ring); }
+
+.privacy__updated { color: var(--ada-text-secondary); }
+
+.privacy__form { display: flex; flex-direction: column; gap: var(--ada-space-2); }
+
+.privacy__field { display: flex; flex-direction: column; gap: var(--ada-space-2); font-weight: 600; }
+
+.privacy__field textarea {
+  padding: var(--ada-space-3);
+  font: inherit;
+  font-weight: 400;
+  color: var(--ada-text-primary);
+  background: var(--ada-surface-raised);
+  border: 1px solid var(--ada-border-control);
+  border-radius: var(--ada-radius-md);
+  resize: vertical;
+}
+
+.privacy__field textarea[aria-invalid='true'] { border-color: var(--ada-severity-blocker-fg); }
+
+.privacy__hint { color: var(--ada-text-secondary); font-size: var(--ada-type-size-sm); }
+
+.privacy__error { font-weight: 600; color: var(--ada-severity-blocker-fg); }
+
+.privacy__ok { font-weight: 600; }

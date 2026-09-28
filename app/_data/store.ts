@@ -277,7 +277,7 @@ export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' |
     ...draft,
     id,
     owner: 'You',
-    targets: ['WCAG 2.1 AA', 'Section 508', 'PDF/UA'],
+    targets: ['WCAG 2.1 AA', 'Section 508'],
     lastChecked: Date.now(),
     dismissed: [],
   });

@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button, useAnnounce } from '../../design-system/primitives';
 import { getClient } from '../_data/supabase';
@@ -34,6 +35,10 @@ export function SignInScreen() {
   // A ref, not the state: two quick submits both see a stale `busy` of false
   // and would send two codes (the second then reports a rate limit).
   const busyRef = useRef(false);
+  // Read after mount, not via useSearchParams: that would opt the whole page
+  // out of static rendering for one flag.
+  const [deleted, setDeleted] = useState(false);
+  useEffect(() => { setDeleted(new URLSearchParams(window.location.search).has('deleted')); }, []);
   const codeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
@@ -82,7 +87,8 @@ export function SignInScreen() {
       <h1 className="signin__title">Sign in to Ada Editor</h1>
       {sentTo === null ? (
         <form className="signin__form" onSubmit={onEmail} noValidate>
-          <p className="signin__lede">We’ll email you a code. No password needed; your documents are saved to your account.</p>
+          {deleted ? <p className="signin__notice" role="status">Your account and its documents were deleted.</p> : null}
+          <p className="signin__lede">We’ll email you a code. No password needed; your documents are saved to your account. <Link href="/privacy">How we handle your data</Link></p>
           <label className="signin__field">
             <span>Email address</span>
             <input

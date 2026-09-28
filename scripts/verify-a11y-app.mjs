@@ -853,7 +853,30 @@ async function signIn() {
   }
 }
 
+/* ---------- privacy notice ---------- */
+
+// Public page (readable before signing up). In local mode the account actions
+// (message form, delete account) don't render: there are no accounts.
+async function privacyPage() {
+  page = '/privacy';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    await runAxe(send, '');
+    await checkTree(send);
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Privacy · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    else note(`title: ${docTitle}`);
+    if (!(await focusByName(send, 'a', 'Back to Ada Editor'))) fail('PRIVACY  no way back to the app');
+    await checkTabOrder(send);
+    await checkReflow(send);
+    await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 try {
+  await privacyPage();
   await signIn();
   await dashboard();
   await upload();

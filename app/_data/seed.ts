@@ -74,7 +74,7 @@ export const SEEDS: SeedDoc[] = [
     id: 'hearing-notice',
     title: 'Notice of Public Hearing — Draft',
     owner: 'You',
-    targets: ['WCAG 2.1 AA', 'Section 508', 'PDF/UA'],
+    targets: ['WCAG 2.1 AA', 'Section 508'],
     content: {
       title: 'Notice of Public Hearing',
       subheading: 'City Planning Commission — draft for publication',
@@ -189,7 +189,7 @@ export const SEEDS: SeedDoc[] = [
     id: 'water-quality',
     title: 'Water Quality Report 2026',
     owner: 'T. Lund',
-    targets: ['WCAG 2.1 AA', 'PDF/UA'],
+    targets: ['WCAG 2.1 AA'],
     content: {
       title: 'Water Quality Report 2026',
       subheading: 'Annual consumer confidence report',

@@ -57,3 +57,12 @@
   flex-wrap: wrap;
   gap: var(--ada-space-2);
 }
+
+.signin__lede a { color: var(--ada-focus-ring); }
+
+.signin__notice {
+  margin: 0;
+  padding: var(--ada-space-3) var(--ada-space-4);
+  border-left: 4px solid var(--ada-focus-ring);
+  background: var(--ada-surface-sunken);
+}

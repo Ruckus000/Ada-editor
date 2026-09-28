@@ -1,6 +1,6 @@
 # Ada-editor
 
-Write documents that meet WCAG 2.1 AA, Section 508 and PDF/UA.
+Write documents that meet WCAG 2.1 AA and Section 508.
 
 A writing tool that checks documents for accessibility problems as you write —
 and is honest about the limits of what a checker can know.
@@ -14,7 +14,7 @@ actually cite:
 |---|---|---|
 | **WCAG 2.1 AA** | Web and digital documents | The DOJ Title II rule (April 2024) adopts it; the de facto global baseline |
 | **Section 508** | US federal procurement | Incorporates WCAG 2.0 AA by reference; required to sell to federal agencies |
-| **PDF/UA** (ISO 14289) | Tagged PDF output | The only standard that covers PDF structure — WCAG alone does not |
+| **PDF/UA** (ISO 14289) | Tagged PDF output | **Planned, not checked yet** — the only standard that covers PDF structure, but there is no PDF output to check, so no document claims it |
 
 Every finding cites the specific success criterion it comes from. Nothing in the
 product reports "ADA compliance" as a status.

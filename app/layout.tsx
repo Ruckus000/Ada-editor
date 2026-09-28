@@ -9,7 +9,7 @@ import { Providers } from './Providers';
 // the browser — the editor, not-found, the error boundary — own it via
 // React's <title>. Server-known pages set metadata.title themselves.
 export const metadata: Metadata = {
-  description: 'Write documents that meet WCAG 2.1 AA, Section 508 and PDF/UA.',
+  description: 'Write documents that meet WCAG 2.1 AA and Section 508.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
