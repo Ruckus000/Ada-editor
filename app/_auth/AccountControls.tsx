@@ -76,7 +76,7 @@ export function AccountControls() {
       </form>
 
       <h2>Delete your account</h2>
-      <p>This deletes your account and every document in it, straight away. It can’t be undone, so export anything you want to keep first.</p>
+      <p>This deletes your account, every document in it and any messages you sent us, straight away. It can’t be undone, so export anything you want to keep first.</p>
       {deleteError ? <p className="privacy__error" role="alert">{deleteError}</p> : null}
       <div><Button variant="secondary" onClick={() => void onDelete()}>Delete my account</Button></div>
     </>
