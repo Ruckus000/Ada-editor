@@ -35,6 +35,11 @@ export default defineConfig({
         // "blank" — because there is nothing there to read. The Orca gate needs
         // the same flag for the same reason.
         launchOptions: { args: ['--force-renderer-accessibility'] },
+        // Headed. Playwright defaults to headless, which runs Chromium's
+        // headless shell: no window exists, so NVDA focused nothing and said
+        // "blank" — every run, with or without navigateToWebContent().
+        // Guidepup's own screenReaderConfig sets this; ours never did.
+        headless: false,
       },
     },
     { name: 'voiceover', testMatch: /voiceover\.spec\.ts/, use: { browserName: 'webkit' } },
