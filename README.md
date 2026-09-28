@@ -21,7 +21,7 @@ product reports "ADA compliance" as a status.
 
 ## Current state
 
-Working prototype. The dashboard and editor screens are built from the design
+Working prototype. The homepage and editor screens are built from the design
 system, and every finding is computed by
 the **real checking engine**: seventeen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on

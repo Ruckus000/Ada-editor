@@ -1200,27 +1200,9 @@ const mockStorage = (initial, { failWrites = false } = {}) => {
 
 /* ---------- dashboard aggregates: derived, never authored ---------- */
 
-check('loadDashboardData derives the side cards from real findings', () => {
-  const { docs, criteria, manualItems } = mod.store.loadDashboardData();
+check('loadDashboardData derives the homepage notes from real findings', () => {
+  const { docs, manualItems } = mod.store.loadDashboardData();
   eq(docs.length, 8, 'all eight seed docs');
-  assert(criteria.length > 0 && criteria.length <= 5, `criteria rows: ${criteria.length}`);
-  for (let i = 1; i < criteria.length; i++) {
-    assert(criteria[i - 1].count >= criteria[i].count, 'criteria sorted by count desc');
-  }
-  for (const c of criteria) {
-    assert(/^\d+\.\d+\.\d+$/.test(c.id), `criterion id shape: ${c.id}`);
-    assert(c.name.length > 0 && c.count > 0, `criterion row: ${JSON.stringify(c)}`);
-  }
-  // Failures only (blocker + violation). 1.1.1 used to lead with 6, but three of
-  // those were alt-text questions and advisories; 3.1.5 (advisory, AAA) and
-  // 1.4.1 (questions only) no longer appear at all. 1.4.3 is benefits-guide's
-  // one contrast violation.
-  deepEq(criteria, [
-    { id: '2.4.4', name: 'Link Purpose (In Context)', count: 4 },
-    { id: '1.1.1', name: 'Non-text Content', count: 3 },
-    { id: '1.3.1', name: 'Info and Relationships', count: 2 },
-    { id: '1.4.3', name: 'Contrast (Minimum)', count: 1 },
-  ], 'criteria pinned from the seeds');
   assert(manualItems.length > 0, 'manual items exist');
   const docIds = new Set(docs.map((d) => d.id));
   const keys = new Set();
@@ -1308,8 +1290,8 @@ check('cloud mode: server rows replace the cache, unpushed local edits win, acco
     store.setStoreUser('u2');
     eq(store.loadDashboardData().docs.length, 0, 'another account sees nothing of the first');
     store.seedAccount();
-    eq(store.loadDashboardData().docs.length, 8, 'a new account gets the eight samples');
-    eq(ids().length, 8, 'queued for the server');
+    deepEq(store.loadDashboardData().docs.map((d) => d.id), [store.SAMPLE_ID], 'a new account gets the one sample');
+    eq(ids().length, 1, 'queued for the server');
     store.clearStore();
     assert(![...disk.keys()].some((k) => k.startsWith('ada.docs.v1:u2')), 'sign-out leaves nothing of the account on disk');
     store.saveDoc('hearing-notice', { header: 'a closing editor flushes after sign-out' });
@@ -1868,28 +1850,6 @@ await acheck('store: createDoc gives a safe, unique id and keeps import notes', 
     delete globalThis.window;
   }
   deepEq(store.sanitizeStoredDocs([{ ...storedDocJSON('d'), importNotes: ['ok', 3, null] }])[0].importNotes, ['ok'], 'notes sanitized to strings');
-});
-
-await acheck('dashboard "Most-failed criteria" counts failures only, never questions or advisories', async () => {
-  const { store } = await import(`${pathToFileURL(TMP).href}?criteria`);
-  // No headings in six blocks (a Needs-your-call question) and dense prose (advisory, 3.1.5 is AAA).
-  const questionsOnly = doc(para(DENSE), para('Two.'), para('Three.'), para('Four.'), para('Five.'), para('Six.'));
-  const failing = doc(heading(1, 'T'), figure('img-1', ''), para(text('click here', link('https://x.org/a'))));
-  // An h2 with no h1: document-no-h1 is 2.4.10, which is AAA, so it is not an AA failure either.
-  const noH1 = doc(heading(2, 'Section'), para('Body.'));
-  mockStorage(JSON.stringify([storedDocJSON('q', { content: questionsOnly.toJSON() }), storedDocJSON('f', { content: failing.toJSON() }), storedDocJSON('h', { content: noH1.toJSON() })]));
-  try {
-    const { criteria, docs } = store.loadDashboardData();
-    const q = docs.find((d) => d.id === 'q');
-    eq(docs.find((d) => d.id === 'h').counts.advisory, 1, 'the no-h1 fixture really produces its advisory');
-    assert(q.counts.manual >= 1 && q.counts.advisory >= 1, `fixture has manual and advisory findings: ${JSON.stringify(q.counts)}`);
-    deepEq(criteria, [
-      { id: '1.1.1', name: 'Non-text Content', count: 1 },
-      { id: '2.4.4', name: 'Link Purpose (In Context)', count: 1 },
-    ], 'the blocker and the violation count; the question and the advisory do not');
-  } finally {
-    delete globalThis.window;
-  }
 });
 
 /* ---------- report ---------- */
