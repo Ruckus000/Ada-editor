@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { Dashboard } from './_dashboard/Dashboard';
+import { Home } from './_home/Home';
 
-export const metadata: Metadata = { title: 'Remediation overview · Ada Editor' };
+export const metadata: Metadata = { title: 'Your desk · Ada Editor' };
 
 export default function Page() {
-  return <Dashboard />;
+  return <Home />;
 }

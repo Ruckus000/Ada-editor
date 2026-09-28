@@ -25,7 +25,7 @@ import { dismissKeyOf } from '../_editor/findings';
 import { schema } from '../_editor/editorSchema';
 import { checkDocument } from '../_engine/check';
 import { SEEDS, buildSeedDocument } from './seed';
-import type { DocSummary } from './seed';
+import type { DocSummary, SeedDoc } from './seed';
 
 export type DocJSON = Record<string, unknown>;
 
@@ -139,10 +139,10 @@ function strings(v: unknown): string[] {
 }
 
 /** The one-time seed, built from the demo content (§7 step 7). */
-function seedDocs(): Map<string, StoredDoc> {
+function seedDocs(seeds: readonly SeedDoc[] = SEEDS): Map<string, StoredDoc> {
   const now = Date.now();
   const map = new Map<string, StoredDoc>();
-  SEEDS.forEach((seed, i) => {
+  seeds.forEach((seed, i) => {
     map.set(seed.id, {
       id: seed.id,
       title: seed.title,
@@ -205,7 +205,10 @@ export function seedIfEmpty(): void {
   if (!diskFailed && hasLocalStorage()) {
     try {
       const raw = window.localStorage.getItem(storageKey ?? '');
-      if (sanitizeStoredDocs(raw ? JSON.parse(raw) : null).length > 0) return;
+      // A stored empty list is a desk someone emptied: keep it empty. Only a
+      // first visit (nothing stored) or a payload with no usable docs reseeds.
+      const parsed: unknown = raw === null ? null : JSON.parse(raw);
+      if (Array.isArray(parsed) && (parsed.length === 0 || sanitizeStoredDocs(parsed).length > 0)) return;
     } catch {
       // corrupt: reseed below
     }
@@ -286,6 +289,16 @@ export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' |
   return { id, persisted };
 }
 
+/** Remove a document from this browser, and from what sync would push.
+ *  Cloud mode deletes on the server first (sync.ts removeDoc), then here. */
+export function deleteDoc(id: string): void {
+  const all = readAll();
+  if (!all.delete(id)) return;
+  writeAll(all);
+  const dirty = readDirty();
+  if (dirty.delete(id)) writeDirty(dirty);
+}
+
 /* ---------- cloud mode: the sync surface (see ./sync.ts) ---------- */
 
 const dirtyKey = () => `${storageKey}:dirty`;
@@ -364,10 +377,16 @@ export function applyPulled(rows: unknown): void {
   writeAll(next);
 }
 
-/** Give a new account the sample documents, queued for the server. */
+/** The one document a new account starts with: something to practise on
+ *  that is not theirs, so the homepage can still greet them as empty. */
+export const SAMPLE_ID = SEEDS[0]!.id;
+
+/** Give a new account the sample document, queued for the server. Local mode
+ *  (CI, plain `npm run dev`) keeps all eight seeds: the verification gates and
+ *  the demo rely on the full set. */
 export function seedAccount(): void {
   const all = readAll();
-  const seeds = seedDocs();
+  const seeds = seedDocs(SEEDS.slice(0, 1));
   for (const [id, doc] of seeds) if (!all.has(id)) all.set(id, doc);
   writeAll(all);
   markDirty([...seeds.keys()]);
@@ -386,17 +405,13 @@ export function clearStore(): void {
 
 export interface DashboardData {
   docs: DocSummary[];
-  /** Most-failed criteria, engine-derived — §3's "compute, don't author",
-   *  applied to the last hand-written numbers on the dashboard. Counts only
-   *  blocker and violation findings: questions and advisories are not failures. */
-  criteria: { id: string; name: string; count: number }[];
   /** Manual-severity findings across docs, in doc order: what is genuinely
    *  "waiting on a human", not a scripted demo list. */
   manualItems: { question: string; docId: string }[];
 }
 
 /**
- * Everything the dashboard renders, in one parse+check pass per doc (§3/§9.6:
+ * Everything the homepage renders, in one parse+check pass per doc (§3/§9.6:
  * recompute on load, never cache). Dismissed findings are excluded everywhere,
  * so the dashboard and the editor cannot disagree about what is open.
  */
@@ -405,7 +420,6 @@ export function loadDashboardData(): DashboardData {
   const sorted = [...readAll().values()].sort((a, b) => b.lastChecked - a.lastChecked);
   const now = Date.now();
   const docs: DocSummary[] = [];
-  const criteriaTally = new Map<string, { id: string; name: string; count: number }>();
   const manualItems: { question: string; docId: string }[] = [];
   for (const d of sorted) {
     // Unparseable or non-doc content: skip the doc rather than crash the
@@ -424,27 +438,11 @@ export function loadDashboardData(): DashboardData {
       order: docs.length,
     });
     for (const f of findings) {
-      if (f.severity === 'manual') {
-        // The card keys rows by docId+title, so keep that pair unique.
-        if (!manualItems.some((m) => m.docId === d.id && m.question === f.title)) manualItems.push({ question: f.title, docId: d.id });
-        continue;
-      }
-      // A card that says "failed" counts failures only. Needs-your-call
-      // findings are questions (listed above) and advisories sit beyond the
-      // AA target; counting them overstated conformance failures.
-      if (f.severity !== 'blocker' && f.severity !== 'violation') continue;
-      const space = f.criterion.indexOf(' ');
-      const id = space === -1 ? f.criterion : f.criterion.slice(0, space);
-      const name = space === -1 ? f.criterion : f.criterion.slice(space + 1);
-      const row = criteriaTally.get(id);
-      if (row) row.count += 1;
-      else criteriaTally.set(id, { id, name, count: 1 });
+      // The homepage keys notes by docId+title, so keep that pair unique.
+      if (f.severity === 'manual' && !manualItems.some((m) => m.docId === d.id && m.question === f.title)) manualItems.push({ question: f.title, docId: d.id });
     }
   }
-  const criteria = [...criteriaTally.values()]
-    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id))
-    .slice(0, 5);
-  return { docs, criteria, manualItems };
+  return { docs, manualItems };
 }
 
 /* ---------- pure helpers (verified by scripts/verify-rules.mjs) ---------- */

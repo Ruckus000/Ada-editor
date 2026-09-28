@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Accessibility gate for the app screens (Dashboard, Editor).
+ * Accessibility gate for the app screens (Homepage, Editor).
  *
  * verify-a11y.mjs gates the design-system primitives through the preview
  * harness. That says nothing about the screens built from them: layout,
@@ -214,9 +214,17 @@ async function openPage(path) {
   return { proc, ws, send };
 }
 
-/* ---------- dashboard ---------- */
+/* ---------- homepage ---------- */
 
-async function dashboard() {
+const visibleCount = (send, selector) => evaluate(send, `[...document.querySelectorAll(${JSON.stringify(selector)})].filter((el) => el.getClientRects().length > 0).length`);
+/** Keep only these seed documents, then reload: drives the desk's layouts. */
+const keepDocs = async (send, ids) => {
+  await evaluate(send, `localStorage.setItem('ada.docs.v1', JSON.stringify(JSON.parse(localStorage.getItem('ada.docs.v1')).filter((d) => ${JSON.stringify(ids)}.includes(d.id))))`);
+  await send('Page.reload');
+  await sleep(1200);
+};
+
+async function home() {
   page = '/';
   const { proc, ws, send } = await openPage('/');
   try {
@@ -227,55 +235,170 @@ async function dashboard() {
     await send('Page.reload');
     await sleep(1200);
 
+    // 8 seed documents: the grid layout.
+    // 8 = every seed document (app/_data/seed.ts).
+    const cards = await evaluate(send, `document.querySelectorAll('.home-grid > li').length`);
+    if (cards !== 8) fail(`GRID  expected the 8 seed documents as a grid, got ${cards}`);
     await runAxe(send, '');
     await checkTree(send);
     await checkTabOrder(send);
 
-    // Search narrows the queue and announces the result once typing pauses.
-    if (!(await focusByName(send, 'input', 'Search documents'))) fail('SEARCH  search field not found');
+    // Questions are engine-derived: the notes show real manual finding titles.
+    const calls = await evaluate(send, `document.querySelector('.home-calls')?.textContent ?? ''`);
+    if (!calls.includes('Alternative text may not describe the image')) fail('CALLS  the notes do not show an engine-derived finding title');
+    else note('"Your call" notes show engine-derived questions');
+
+    // Search opens as a modal, narrows, announces the count once, and hands focus back.
+    if (!(await focusByName(send, 'button', 'Find a document'))) fail('SEARCH  no Find a document button');
+    await key(send, 'Enter');
+    await sleep(400);
+    const inCombo = await evaluate(send, `document.activeElement?.getAttribute('role') === 'combobox' && !!document.activeElement.closest('[role=dialog]')`);
+    if (!inCombo) fail('SEARCH  focus did not move to the search field in a dialog');
+    await send('Input.insertText', { text: 'notice' });
+    await sleep(900);
+    await runAxe(send, ' (search open)');
+    const hits = await evaluate(send, `document.querySelectorAll('[role=listbox] [role=option]').length`);
+    const activeOk = await evaluate(send, `(() => { const id = document.activeElement.getAttribute('aria-activedescendant'); return !!id && document.getElementById(id)?.getAttribute('aria-selected') === 'true'; })()`);
+    if (hits < 1 || !activeOk) fail(`SEARCH  "notice" gave ${hits} options, active option wired: ${activeOk}`);
     await send('Input.insertText', { text: 'zzzz' });
     await sleep(900);
-    const rows = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
-    if (rows !== 0) fail(`SEARCH  "zzzz" left ${rows} rows`);
     const said = await liveText(send);
     if (!/0 documents match/.test(said)) fail(`AX-LIVE  search result not announced (got ${JSON.stringify(said)})`);
     else note(`search announced: ${JSON.stringify(said)}`);
-    if (!(await focusByName(send, 'button', 'Clear search and filters'))) fail('EMPTY  empty state has no recovery action');
-    await key(send, 'Enter');
-    await sleep(300);
-    const restored = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
-    // 8 = every seed document (app/_data/seed.ts).
-    if (restored !== 8) fail(`EMPTY  clearing did not restore the queue (${restored} rows)`);
-    else note('empty state recovers with one action');
+    await key(send, 'Escape');
+    await sleep(400);
+    const back = await evaluate(send, `!document.querySelector('[role=dialog]') && (document.activeElement?.textContent ?? '').includes('Find a document')`);
+    if (!back) fail('SEARCH  Escape did not close the dialog and return focus to its button');
+    else note('search modal: combobox wired, count announced, Escape returns focus');
 
-    // Severity filter is a real toggle and says what it did.
-    await focusByName(send, '.dash-sevrow', 'Needs your call');
+    // Status filter is a real toggle and says what it did.
+    await focusByName(send, '.home-chip', 'Needs your call');
     await key(send, 'Enter');
     await sleep(300);
     // 5 = the seed documents with at least one manual finding: hearing-notice,
     // health-advisory, zoning-variance, benefits-guide (its form blanks) and
     // shelter-faq (its unmarked Spanish).
-    const filtered = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
+    const filtered = await evaluate(send, `document.querySelectorAll('.home-grid > li').length`);
     const pressed = await evaluate(send, `document.activeElement.getAttribute('aria-pressed')`);
-    if (filtered !== 5 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} rows, aria-pressed=${pressed}`);
-    else note('severity filter toggles, sets aria-pressed and narrows the queue');
+    if (filtered !== 5 || pressed !== 'true') fail(`FILTER  manual filter showed ${filtered} sheets, aria-pressed=${pressed}`);
+    else note('status filter toggles, sets aria-pressed and narrows the grid');
 
-    // Side cards are engine-derived now: the manual card must show a real
-    // finding title from the seeds (not a scripted question), and the criteria
-    // card must hold 1–5 derived rows.
-    const manualCard = await evaluate(send, `document.querySelector('.dash-manual')?.textContent ?? ''`);
-    const criteriaRows = await evaluate(send, `document.querySelectorAll('.dash-criteria li').length`);
-    if (!manualCard.includes('Alternative text may not describe the image')) fail('SIDECARDS  the manual card does not show an engine-derived finding title');
-    else if (criteriaRows < 1 || criteriaRows > 5) fail(`SIDECARDS  criteria card has ${criteriaRows} rows, expected 1-5 derived rows`);
-    else note('side cards show engine-derived findings and criteria');
+    // The account button reveals Privacy (and, with accounts, Sign out).
+    await focusByName(send, 'button', 'Account');
+    await key(send, 'Enter');
+    await sleep(200);
+    if (!(await focusByName(send, 'a', 'Privacy'))) fail('ACCOUNT  the account button does not reveal Privacy');
+    // The gate builds without Supabase (local mode): no Sign out, and the menu says why.
+    const accountNote = await evaluate(send, `document.querySelector('.home-pop__note')?.textContent ?? ''`);
+    if (!accountNote.includes('No account')) fail(`ACCOUNT  local mode does not explain the missing Sign out (got ${JSON.stringify(accountNote)})`);
+    await key(send, 'Escape');
 
     await send('Page.reload');
     await sleep(1200);
     await checkReflow(send);
     await checkForcedColors(send);
+
+    // Phones: the questions become a pad showing one note at a time.
+    await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    await sleep(300);
+    const oneNote = await visibleCount(send, '.home-calls .home-note');
+    if (oneNote !== 1) fail(`PAD  expected one visible note at phone width, got ${oneNote}`);
+    await focusByName(send, 'button', 'Next question');
+    await key(send, 'Enter');
+    await sleep(300);
+    const flipped = await liveText(send);
+    if (!/^Question 2 of 3/.test(flipped)) fail(`PAD  flipping the pad was not announced (got ${JSON.stringify(flipped)})`);
+    else note('phone: one note at a time, flipping is announced');
+    await send('Emulation.clearDeviceMetricsOverride');
+    await sleep(200);
+
+    // Deleting from a sheet: focus shows its veil, Delete is named for its
+    // document, and focus lands on the sheet that takes its place. 8 → 7
+    // documents, so the grid stays.
+    page = '/ (delete a sheet)';
+    await evaluate(send, `document.querySelector('.home-sheet[href="/editor/shelter-faq"]').focus()`);
+    await sleep(400);
+    const veil = await evaluate(send, `getComputedStyle(document.activeElement.closest('.home-card').querySelector('.home-card__veil')).opacity`);
+    if (veil !== '1') fail(`CARD  focusing a sheet did not show its Open/Delete veil (opacity ${veil})`);
+    await runAxe(send, ' (veil shown)');
+    const next = await evaluate(send, `(() => { const all = [...document.querySelectorAll('.home-main .home-sheet')].map((a) => a.getAttribute('href')); const i = all.indexOf('/editor/shelter-faq'); return all[i + 1] ?? all[i - 1]; })()`);
+    await evaluate(send, `window.confirm = () => true`);
+    if (!(await focusByName(send, 'button', 'Delete Winter Shelter Program FAQ'))) fail('CARD  no Delete button named for its document');
+    await key(send, 'Enter');
+    await sleep(800);
+    const afterCard = await evaluate(send, `({ stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-grid > li').length, focus: document.activeElement?.getAttribute('href') ?? document.activeElement?.tagName })`);
+    const cardSaid = await liveText(send);
+    if (afterCard.stored.includes('shelter-faq') || afterCard.sheets !== 7) fail(`CARD  Delete did not remove the document: ${JSON.stringify(afterCard)}`);
+    else if (afterCard.focus !== next) fail(`CARD  focus fell to ${JSON.stringify(afterCard.focus)} instead of the next sheet, ${next}`);
+    else if (!/^Deleted Winter Shelter Program FAQ\./.test(cardSaid)) fail(`CARD  deletion was not announced (got ${JSON.stringify(cardSaid)})`);
+    else note('Delete on a sheet removes it, announces it and focuses the next sheet');
+
+    // 2–4 documents: the loose desk.
+    page = '/ (desk)';
+    await keepDocs(send, ['hearing-notice', 'transit-notice', 'zoning-variance']);
+    const sheets = await evaluate(send, `document.querySelectorAll('.home-desk > li').length`);
+    if (sheets !== 3 || (await evaluate(send, `!!document.querySelector('.home-grid')`))) fail(`DESK  expected 3 loose sheets and no grid, got ${sheets}`);
+    else note('under five documents the desk shows loose sheets, not the grid');
+    await runAxe(send, '');
+    await checkTree(send);
+    await checkReflow(send);
+
+    // Deleting from the editor: confirm, land on the homepage, and the doc is gone.
+    // The native confirm() is stubbed; what's under test is what follows it.
+    page = '/editor/transit-notice (delete)';
+    await send('Page.navigate', { url: `${origin}/editor/transit-notice` });
+    await sleep(1500);
+    await evaluate(send, `window.confirm = () => true`);
+    if (!(await focusByName(send, 'button', 'Delete document'))) fail('DELETE  the editor has no Delete document button');
+    await key(send, 'Enter');
+    await sleep(1500);
+    const afterDelete = await evaluate(send, `({ path: location.pathname, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-desk > li').length })`);
+    const deleted = await liveText(send);
+    if (afterDelete.path !== '/' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
+    else if (!/^Deleted Transit Service Change Notice\./.test(deleted)) fail(`DELETE  deletion was not announced (got ${JSON.stringify(deleted)})`);
+    else note('Delete document removes it, returns to the homepage and announces it');
+
+    // Only the sample: the empty desk teaches instead.
+    page = '/ (empty)';
+    await keepDocs(send, ['hearing-notice']);
+    const empty = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sample: !!document.querySelector('a[href="/editor/hearing-notice"]'), search: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Find a document')) })`);
+    if (!empty.how || !empty.sample || empty.search) fail(`EMPTY  the sample-only desk should teach, link the sample and hide search: ${JSON.stringify(empty)}`);
+    else note('a desk holding only the sample shows the how-it-works state');
+    await runAxe(send, '');
+    await checkTree(send);
+    await checkTabOrder(send);
+    await checkReflow(send);
+
+    // Removing the sample leaves a truly empty desk, which stays empty on reload.
+    page = '/ (sample removed)';
+    await evaluate(send, `window.confirm = () => true`);
+    if (!(await focusByName(send, 'button', 'Remove the sample'))) fail('REMOVE  no Remove the sample button');
+    await key(send, 'Enter');
+    await sleep(600);
+    const focusAfter = await evaluate(send, `document.activeElement?.id ?? ''`);
+    if (focusAfter !== 'how-heading') fail(`REMOVE  focus fell to ${JSON.stringify(focusAfter)} instead of the heading`);
+    await send('Page.reload');
+    await sleep(1200);
+    const gone = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sample: !!document.querySelector('a[href="/editor/hearing-notice"]'), sheets: document.querySelectorAll('.home-sheet').length })`);
+    if (!gone.how || gone.sample || gone.sheets !== 0) fail(`REMOVE  the sample came back or the empty state is wrong: ${JSON.stringify(gone)}`);
+    else note('Remove the sample leaves an empty desk that stays empty after a reload');
+    await runAxe(send, '');
+    await checkTree(send);
+    await checkReflow(send);
   } finally {
     await shutdown(send, ws, proc);
   }
+}
+
+/** Opens the + and picks an item from it. */
+async function fromPlus(send, item) {
+  if (!(await focusByName(send, 'button', 'New document'))) { fail('PLUS  no New document (+) button'); return false; }
+  await key(send, 'Enter');
+  await sleep(200);
+  if (!(await focusByName(send, 'button', item))) { fail(`PLUS  the + does not offer ${JSON.stringify(item)}`); return false; }
+  await key(send, 'Enter');
+  await sleep(400);
+  return true;
 }
 
 /* ---------- new document ---------- */
@@ -287,9 +410,7 @@ async function newDocument() {
     await evaluate(send, `localStorage.clear()`);
     await send('Page.reload');
     await sleep(1200);
-    if (!(await focusByName(send, 'button', 'New document'))) { fail('NEWDOC  no New document button'); return; }
-    await key(send, 'Enter');
-    await sleep(400);
+    if (!(await fromPlus(send, 'Create a document'))) return;
     const inDialog = await evaluate(send, `!!document.activeElement?.closest('[role=dialog]')`);
     if (!inDialog) fail('NEWDOC  focus did not move into the dialog');
     await runAxe(send, ' (new document dialog)');
@@ -319,7 +440,7 @@ async function upload() {
   const { proc, ws, send } = await openPage('/');
   const choose = async (file) => {
     const { result } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file]')` });
-    if (!result.objectId) { fail('UPLOAD  no file input behind the Upload button'); return false; }
+    if (!result.objectId) { fail('UPLOAD  no file input in the import dialog'); return false; }
     await send('DOM.setFileInputFiles', { objectId: result.objectId, files: [resolve(ROOT, file)] });
     return true;
   };
@@ -327,12 +448,12 @@ async function upload() {
     await evaluate(send, `localStorage.clear()`);
     await send('Page.reload');
     await sleep(1200);
-    if (!(await focusByName(send, 'button', 'Upload .docx'))) fail('UPLOAD  no Upload .docx button');
+    if (!(await fromPlus(send, 'Import a Word file'))) return;
 
     // A file that is not a .docx: a visible, announced message, and nothing stored.
     if (!(await choose('corpus/docx/library-hours.source.html'))) return;
     await sleep(800);
-    const alert = await evaluate(send, `document.querySelector('.dash-import-error[role=alert]')?.textContent ?? ''`);
+    const alert = await evaluate(send, `document.querySelector('[role=dialog] [role=alert]')?.textContent ?? ''`);
     if (!alert.includes('isn’t a .docx')) fail(`UPLOAD  a non-.docx file gave no visible alert (got ${JSON.stringify(alert)})`);
     else note('a non-.docx upload shows a visible role=alert message');
     await runAxe(send, ' (import error shown)');
@@ -966,7 +1087,7 @@ async function checkPdfExport(send, dir) {
 try {
   await privacyPage();
   await signIn();
-  await dashboard();
+  await home();
   await newDocument();
   await upload();
   await triage();

@@ -124,7 +124,7 @@ jobs:
       - name: Accessibility gate (axe-core + accessibility tree + keyboard)
         run: node scripts/verify-a11y.mjs --verbose
 
-      - name: App accessibility gate (Dashboard + Editor, builds the Next app)
+      - name: App accessibility gate (Homepage + Editor, builds the Next app)
         run: node scripts/verify-a11y-app.mjs --verbose
 
   # Blocking since 2026-09-23. It was non-blocking while a runner transcript read
