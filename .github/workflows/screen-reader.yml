@@ -8,13 +8,12 @@ name: screen readers
 # navigateToWebContent() and stepped the VO cursor instead of sending Tab, which
 # never moved focus under VoiceOver.
 #
-# NVDA is NON-BLOCKING (continue-on-error): it does not reach the page in CI
-# yet. It says only "blank", with or without navigateToWebContent(), so its
-# cause is undiagnosed. Its assertions are untested rather than wrong; the job
-# still runs and reports failure in the UI. Remove continue-on-error once a
-# transcript shows it reading this page. (The Orca gate in design-system.yml
-# has blocked since it was fixed to read the page in CI.) See
-# docs/design-system/screen-reader-test-plan.md.
+# NVDA BLOCKS too. It said only "blank" until the browser ran headed
+# (playwright.config.ts): headless Chromium has no window for NVDA to read.
+# Once it could read, it found three bugs the other readers missed — Escape
+# dismissed a finding, keys acted on the wrong card, and visually hidden text
+# lost its spaces ("Apply fixfor…") — and passed all four assertions (run
+# 36448190005). See docs/design-system/screen-reader-test-plan.md.
 
 # Once per PR: a feature branch runs through pull_request only, so a push to a
 # branch with an open PR no longer runs everything twice (push + pull_request).
@@ -32,7 +31,6 @@ jobs:
   nvda:
     name: NVDA (Windows)
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

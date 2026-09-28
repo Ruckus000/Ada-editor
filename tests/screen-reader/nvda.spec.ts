@@ -1,9 +1,7 @@
 /**
- * NVDA coverage. Windows only.
- *
- * NOT RUN BY THE AUTHOR — written on Linux, where NVDA does not exist. The first
- * CI run is the real test of this file; expect timing and phrasing assumptions
- * to need correction then.
+ * NVDA coverage. Windows only, so it runs in CI (screen-reader.yml), where it
+ * blocks. Written on Linux without NVDA; first passed all four in run 36448190005,
+ * after the browser was made headed (playwright.config.ts).
  */
 import { nvdaTest } from '@guidepup/playwright';
 import {

@@ -29,7 +29,10 @@ interface IssueListProps {
  *   ArrowDown / ArrowUp  move between findings (roving tabindex)
  *   Home / End           first / last finding
  *   Enter                apply the fix, when one exists
- *   Escape               dismiss the focused finding
+ *   Delete / Backspace   dismiss the focused finding
+ *   Escape               nothing: NVDA and JAWS users press it to leave focus
+ *                        mode, so it must never destroy anything (found by
+ *                        NVDA in CI, where leaving focus mode dismissed a card)
  *   Tab                  into the focused card's buttons, then out of the list
  */
 export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListProps) {
@@ -97,15 +100,21 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLUListElement>) => {
     const last = sorted.length - 1;
-    const issue = sorted[activeIndex];
+    // Act on the card that HAS focus, not on activeIndex: a card focused by
+    // click, a screen reader's cursor or script never moved the index, so
+    // Enter or dismiss once hit a different finding than the one in focus.
+    // -1: focus is on a button inside a card, which handles its own keys.
+    const here = refs.current.findIndex((node) => node === event.target);
+    const at = here === -1 ? activeIndex : here;
+    const issue = here === -1 ? undefined : sorted[here];
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        focusAt(Math.min(activeIndex + 1, last));
+        focusAt(Math.min(at + 1, last));
         break;
       case 'ArrowUp':
         event.preventDefault();
-        focusAt(Math.max(activeIndex - 1, 0));
+        focusAt(Math.max(at - 1, 0));
         break;
       case 'Home':
         event.preventDefault();
@@ -116,16 +125,19 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
         focusAt(last);
         break;
       case 'Enter':
-        if (issue?.suggestion && event.target === refs.current[activeIndex]) {
+        if (issue?.suggestion) {
           event.preventDefault();
+          setActiveIndex(at);
           restoreFocus.current = true;
           onAccept(issue);
           announce(`Applied fix for ${issue.title}. ${remaining(issue)}`);
         }
         break;
-      case 'Escape':
+      case 'Delete':
+      case 'Backspace': // the key macOS labels "delete"
         if (issue) {
           event.preventDefault();
+          setActiveIndex(at);
           restoreFocus.current = true;
           onDismiss(issue);
           announce(`Dismissed ${issue.title}. ${remaining(issue)}`);
@@ -174,6 +186,14 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
         role="list"
         aria-describedby="ada-issues-help"
         onKeyDown={handleKeyDown}
+        // The roving tab stop follows focus however it arrived, so Tab back
+        // into the list returns to the card the user was on.
+        onFocus={(event) => {
+          // React types a bubbled focus event's target as the list itself.
+          const target: EventTarget = event.target;
+          const index = refs.current.findIndex((node) => node === target);
+          if (index !== -1 && index !== activeIndex) setActiveIndex(index);
+        }}
       >
         {sorted.map((issue, index) => (
           <IssueCard
@@ -200,7 +220,7 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
 
       <p id="ada-issues-help" className="ada-visually-hidden">
         Use the up and down arrow keys to move between findings. Press Enter to
-        apply a fix, or Escape to dismiss a finding.
+        apply a fix, or Delete to dismiss a finding.
       </p>
     </section>
   );

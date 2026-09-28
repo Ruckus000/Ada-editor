@@ -10,7 +10,12 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
-  white-space: nowrap;
+  /* pre, not the usual nowrap: this box is absolutely positioned, so its edge
+   * spaces sit at line starts and ends, where nowrap collapses them. NVDA
+   * builds speech from those text runs, so " for {title}" read as "Apply
+   * fixfor…" and " (Fails Level A)" as "Blocks access(Fails…". pre keeps the
+   * spaces and still never wraps. Found by NVDA in CI. */
+  white-space: pre;
   border: 0;
 }
 
