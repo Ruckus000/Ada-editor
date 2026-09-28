@@ -35,8 +35,11 @@ cells is a blocking finding. What the editor can't hold yet (footnotes,
 decorative images, tables nested inside table cells) is listed on the document
 instead of dropped silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser,
 with the same promise as the HTML export: headings, lists, links, language
-changes and alt text are tagged from the document's own structure, and a figure
-the checker flags as missing alt text is exported without it. CI runs
+changes, alt text and tables (header cells with their scope, merged cells with
+their spans) are tagged from the document's own structure, and a figure
+the checker flags as missing alt text is exported without it. A table's header
+rows repeat on each page it runs onto; a single table row taller than a page is
+stacked cell by cell instead of drawn as a grid. CI runs
 [veraPDF](https://verapdf.org) on exports of the sample documents: clean ones
 pass PDF/UA-1, and a flagged one fails on exactly the clauses its findings name.
 The PDF embeds one font, Atkinson Hyperlegible Next, which covers Latin scripts

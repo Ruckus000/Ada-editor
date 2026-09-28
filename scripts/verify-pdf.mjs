@@ -83,6 +83,15 @@ const t = (s, marks = []) => schema.text(s, marks);
 const para = (...content) => N.paragraph.create(null, content.map((c) => (typeof c === 'string' ? t(c) : c)));
 const heading = (level, s) => N.heading.create({ level }, t(s));
 const item = (...blocks) => N.list_item.create(null, blocks);
+// A cell: a string (td), { th }, or { td|th, colspan, rowspan }; its content a string or blocks.
+const cell = (c) => {
+  const o = typeof c === 'string' ? { td: c } : c;
+  const header = 'th' in o;
+  const content = header ? o.th : o.td;
+  return (header ? N.table_header : N.table_cell).create({ colspan: o.colspan ?? 1, rowspan: o.rowspan ?? 1, colwidth: null },
+    typeof content === 'string' ? [para(content)] : content);
+};
+const table = (rows, caption = '') => N.table.create({ caption }, rows.map((r) => N.table_row.create(null, r.map(cell))));
 const PROSE = 'Residents may review the full application at the planning office during business hours, or online at any time, and may submit written comments before the hearing date.';
 const ALT = 'Site plan: the shelter sits north of the library.';
 
@@ -100,6 +109,7 @@ const featureDoc = () => N.doc.create({ lang: 'en' }, [
   N.bullet_list.create(null, [item(para('First bullet')), item(para('Second bullet'), N.ordered_list.create({ order: 3 }, [item(para('Third step')), item(para('Fourth step'))])), item(para(PROSE))]),
   N.paragraph.create({ indent: 2 }, [t(`Indented. ${PROSE}`)]),
   N.figure.create({ id: 'img-1', alt: ALT, label: 'site plan' }),
+  table([[{ th: 'Day' }, { th: 'Hours' }], ['Monday', '9 to 6'], ['Saturday', '10 to 2']], 'Library hours'),
   heading(2, 'Enough text for more pages'),
   ...Array.from({ length: 14 }, (_, i) => para(`${i + 1}. ${PROSE} ${PROSE}`)),
   heading(3, 'Last heading'),
@@ -175,7 +185,7 @@ await check('exports every construct, across pages', async () => {
   assert(text.includes('/FontFile2'), 'fonts are embedded');
   assert(!/\/BaseFont \/Helvetica/.test(text), 'no unembedded standard font');
   assert(!text.includes('/CIDSet'), 'no CIDSet (PDFKit writes an incomplete one; see omitCidSets)');
-  for (const type of ['Document', 'H1', 'H2', 'H3', 'P', 'L', 'LI', 'Lbl', 'LBody', 'Link', 'Span', 'Figure', 'Div']) {
+  for (const type of ['Document', 'H1', 'H2', 'H3', 'P', 'L', 'LI', 'Lbl', 'LBody', 'Link', 'Span', 'Figure', 'Div', 'Table', 'Caption', 'TR', 'TH', 'TD']) {
     assert(withType(objects, type).length, `a /${type} structure element`);
   }
   eq(withType(objects, 'L').filter((o) => o.includes('/ListNumbering /Decimal')).length, 1, 'the ordered list says it is numbered');
@@ -206,6 +216,67 @@ await check('exports every construct, across pages', async () => {
   eq(pagination[0], 1, 'first page: the footer repeat is an artifact, the header is content');
   eq(pagination[pagination.length - 1], 1, 'last page: the header repeat is an artifact, the footer is content');
   assert(pagination.slice(1, -1).every((n) => n === 2), 'middle pages: header and footer are both artifacts');
+});
+
+await check('tables: headers carry a scope, spans are kept, and a long table repeats its header row as an artifact', async () => {
+  const rows = [
+    [{ th: 'Program' }, { th: 'Deadline' }, { th: 'Notes' }],
+    [{ th: 'Food assistance' }, 'May 1', { td: [N.bullet_list.create(null, [item(para('Bring ID')), item(para('Bring proof of address'))])] }],
+    [{ th: 'Rent relief' }, { td: 'Rolling, reviewed monthly', colspan: 2 }],
+    [{ th: 'Utilities', rowspan: 2 }, 'June 1', PROSE],
+    ['July 1', PROSE],
+    ...Array.from({ length: 22 }, (_, i) => [{ th: `Program ${i + 1}` }, `Month ${i + 1}`, `${PROSE}`]),
+  ];
+  const result = await exportPdf(N.doc.create(null, [heading(1, 'Deadlines'), table(rows, 'Benefit deadlines')]), { title: 'Deadlines', header: '', footer: '' }, fonts);
+  assert(result.ok, `refused: ${JSON.stringify(result.missing)}`);
+  assert(result.pages >= 2, `the table runs onto a second page (got ${result.pages})`);
+  save('tables', result.bytes);
+  const { objects } = objectsOf(result.bytes);
+  eq(withType(objects, 'Table').length, 1, 'one Table');
+  eq(withType(objects, 'Caption').length, 1, 'its caption');
+  eq(withType(objects, 'TR').length, rows.length, 'a TR per row — the repeated header is not read again');
+  const ths = withType(objects, 'TH');
+  eq(ths.filter((o) => o.includes('/Scope /Column')).length, 3, 'the header row: column scope');
+  // Every body row but "July 1", whose first column is the spanning "Utilities".
+  eq(ths.filter((o) => o.includes('/Scope /Row')).length, rows.length - 2, 'a header cell starting a row: row scope');
+  assert(ths.every((o) => o.includes('/O /Table')), 'every TH owns a Table attribute dictionary');
+  assert([...objects.values()].some((o) => /\/S \/TD\b/.test(o) && o.includes('/ColSpan 2')), 'the merged cell says it spans two columns');
+  assert(ths.some((o) => o.includes('/RowSpan 2')), 'the header spanning two rows says so');
+  eq(withType(objects, 'L').length, 1, 'the list inside a cell is still a list');
+  const pages = contentStreams(result.bytes);
+  eq((pages[0].match(/\/Artifact <<\n\/Type \/Pagination\n>> BDC/g) ?? []).length, 0, 'first page: no repeated header');
+  assert(pages.slice(1).every((page) => (page.match(/\/Artifact <<\n\/Type \/Pagination\n>> BDC/g) ?? []).length === 1), 'each later page: the header row again, as a pagination artifact');
+});
+
+await check('tables: a table without header cells still exports its cells as data', async () => {
+  const result = await exportPdf(N.doc.create(null, [heading(1, 'Hours'), table([['Day', 'Hours'], ['Monday', '9 to 6']])]), { title: 'Hours', header: '', footer: '' }, fonts);
+  assert(result.ok, 'exported');
+  save('table-without-header', result.bytes);
+  const { objects } = objectsOf(result.bytes);
+  eq(withType(objects, 'TH').length, 0, 'no header cells invented');
+  eq(withType(objects, 'TD').length, 4, 'four data cells');
+});
+
+await check('no block the editor can hold is dropped from the PDF', async () => {
+  // Every block type in the schema must come out as at least one structure
+  // element: a type the exporter doesn't know would otherwise vanish silently.
+  const sample = {
+    paragraph: () => para('x'),
+    heading: () => heading(1, 'x'),
+    figure: () => N.figure.create({ id: 'img-1', alt: 'x', label: 'x' }),
+    bullet_list: () => N.bullet_list.create(null, [item(para('x'))]),
+    ordered_list: () => N.ordered_list.create(null, [item(para('x'))]),
+    table: () => table([[{ th: 'x' }], ['y']]),
+  };
+  const blockTypes = Object.values(N).filter((type) => type.isInGroup('block')).map((type) => type.name).sort();
+  eq(JSON.stringify(blockTypes), JSON.stringify(Object.keys(sample).sort()), 'every block type has a sample here — add one for a new node');
+  for (const [name, make] of Object.entries(sample)) {
+    const result = await exportPdf(N.doc.create(null, [make()]), { title: name, header: '', footer: '' }, fonts);
+    assert(result.ok, `${name} exported`);
+    const { objects } = objectsOf(result.bytes);
+    const kids = refs(/\/K \[([^\]]*)\]/.exec(withType(objects, 'Document')[0])?.[1] ?? '');
+    assert(kids.length > 0, `${name} produced no structure element — it would be dropped from the PDF`);
+  }
 });
 
 await check('a figure without alt text has no /Alt — never filled in from its label', async () => {
@@ -262,7 +333,7 @@ for (const seed of mod.seed.SEEDS) {
   const findings = mod.check.checkDocument(doc, { prose: true });
   seedClauses.set(`seed-${seed.id}`, [...new Set(findings.map((f) => CLAUSE_FOR_RULE[ruleOf(f.id)]).filter(Boolean))].sort());
 }
-const expected = new Map([['features', []], ['spanish', []], ['figure-without-alt', ['7.3-1']], ...seedClauses]);
+const expected = new Map([['features', []], ['spanish', []], ['figure-without-alt', ['7.3-1']], ['tables', []], ['table-without-header', []], ...seedClauses]);
 
 console.log('\nPDF export — PDF/UA-1 conformance (veraPDF)');
 
