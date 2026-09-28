@@ -160,14 +160,27 @@ try {
   if (atEnd === afterDown) fail('KEYBOARD  End did not jump to the last finding');
   else note('Home/End jump to first and last finding');
 
-  // Escape dismisses, and the live region reports it.
+  // Escape must NOT dismiss: NVDA and JAWS users press it to leave focus mode,
+  // and it once silently threw a finding away (NVDA in CI caught it).
   const before = await evaluate(send, `document.querySelectorAll('.ada-card').length`);
   await evaluate(send, `document.querySelector('.ada-card').focus()`);
   await key(send, 'Escape');
   await sleep(250);
-  const after = await evaluate(send, `document.querySelectorAll('.ada-card').length`);
-  if (after !== before - 1) fail(`KEYBOARD  Escape did not dismiss (${before} -> ${after})`);
-  else note('Escape dismisses the focused finding');
+  const afterEscape = await evaluate(send, `document.querySelectorAll('.ada-card').length`);
+  if (afterEscape !== before) fail(`KEYBOARD  Escape dismissed a finding (${before} -> ${afterEscape}); it must be safe to press`);
+  else note('Escape leaves the findings alone');
+
+  // Delete dismisses THE FOCUSED finding (not whichever the roving index last
+  // pointed at — End moved it to the last card above), and the live region
+  // reports it. Counting cards alone once hid dismissing the wrong one.
+  const titles = `[...document.querySelectorAll('.ada-card .ada-card__title')].map((h) => h.textContent)`;
+  const focusedTitle = await evaluate(send, `document.activeElement.querySelector('.ada-card__title')?.textContent`);
+  await key(send, 'Delete');
+  await sleep(250);
+  const left = await evaluate(send, titles);
+  if (left.length !== before - 1) fail(`KEYBOARD  Delete did not dismiss (${before} -> ${left.length})`);
+  else if (left.includes(focusedTitle)) fail(`KEYBOARD  Delete dismissed a different finding than the focused "${focusedTitle}"`);
+  else note('Delete dismisses the focused finding');
 
   const announced = await evaluate(send, `(document.querySelector('[role=status]')||{}).textContent || ''`);
   if (!announced.trim()) fail('AX-LIVE  live region stayed empty after a dismiss — the outcome was never announced');

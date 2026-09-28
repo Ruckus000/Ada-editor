@@ -48,7 +48,8 @@ but bound to a permanent region rather than a floating card.
 | `ArrowDown` / `ArrowUp` | Move between findings (roving tabindex) |
 | `Home` / `End` | First / last finding |
 | `Enter` | Apply the fix, when one exists |
-| `Escape` | Dismiss the focused finding |
+| `Delete` / `Backspace` | Dismiss the focused finding |
+| `Escape` | Nothing — deliberately |
 | `Tab` | Through each card and its buttons in order |
 
 ### What the arrow keys are, and are not
@@ -71,8 +72,14 @@ So the list is deliberately **not** a focus-trapping composite widget:
 - Every action is a real `<button>` reachable by `Tab`, in DOM order. There are
   several tab stops per card, and that is correct: a roving tabindex that hid
   the buttons from `Tab` would trade a real capability for a tidier count.
-- Arrow keys, `Home`/`End`, `Enter` and `Escape` layer on top for sighted
+- Arrow keys, `Home`/`End`, `Enter` and `Delete` layer on top for sighted
   keyboard users, who are not in browse mode and for whom they do fire.
+
+**Why dismiss is not `Escape`.** It was, until NVDA ran in CI (September 2026).
+NVDA and JAWS users press `Escape` to leave focus mode — constantly, and not as
+a request to do anything. Bound to "dismiss", it silently threw away the focused
+finding, and a dismissal persists. `Escape` means cancel or leave everywhere
+else; here it is now inert, and dismissing takes a deliberate `Delete`.
 
 `F6` region cycling is **specified but not yet implemented** — it belongs to the
 application shell, which does not exist. Tracked in the

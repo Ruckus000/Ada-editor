@@ -140,6 +140,7 @@ export const key = async (send, k, modifiers = 0) => {
     Tab: { windowsVirtualKeyCode: 9, code: 'Tab', key: 'Tab' },
     Enter: { windowsVirtualKeyCode: 13, code: 'Enter', key: 'Enter' },
     Escape: { windowsVirtualKeyCode: 27, code: 'Escape', key: 'Escape' },
+    Delete: { windowsVirtualKeyCode: 46, code: 'Delete', key: 'Delete' },
     ArrowDown: { windowsVirtualKeyCode: 40, code: 'ArrowDown', key: 'ArrowDown' },
     ArrowUp: { windowsVirtualKeyCode: 38, code: 'ArrowUp', key: 'ArrowUp' },
     ArrowRight: { windowsVirtualKeyCode: 39, code: 'ArrowRight', key: 'ArrowRight' },
