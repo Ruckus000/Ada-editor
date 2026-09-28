@@ -56,8 +56,10 @@ export interface StoredDoc {
 }
 
 /** `ada.docs.v1` in local mode; `ada.docs.v1:<uid>` per signed-in account, so
- *  a shared browser never shows one account's documents to another. */
-let storageKey = 'ada.docs.v1';
+ *  a shared browser never shows one account's documents to another. null:
+ *  cloud mode with no account attached — reads are empty and writes go
+ *  nowhere, so a late autosave after sign-out can't land anywhere. */
+let storageKey: string | null = 'ada.docs.v1';
 /** Cloud mode: the server decides seeding (sync.ts), and writes mark docs dirty. */
 let cloud = false;
 
@@ -68,7 +70,7 @@ let memoryDocs: Map<string, StoredDoc> | null = null;
 let diskFailed = false;
 /** Ids written locally but not yet confirmed by the server (cloud mode). */
 let memoryDirty: Set<string> | null = null;
-let onDirty: (() => void) | null = null;
+let onDirty: ((ids: string[]) => void) | null = null;
 
 /** Switch the store to a signed-in account's cache, or back to local mode (null). */
 export function setStoreUser(uid: string | null): void {
@@ -79,8 +81,17 @@ export function setStoreUser(uid: string | null): void {
   diskFailed = false;
 }
 
+/** Cloud mode with no account: the store holds nothing and keeps nothing. */
+export function detachStore(): void {
+  storageKey = null;
+  cloud = true;
+  memoryDocs = null;
+  memoryDirty = null;
+  diskFailed = false;
+}
+
 /** sync.ts listens here to schedule a push after each local write. */
-export function onDocsDirty(listener: (() => void) | null): void {
+export function onDocsDirty(listener: ((ids: string[]) => void) | null): void {
   onDirty = listener;
 }
 
@@ -150,6 +161,7 @@ function seedDocs(): Map<string, StoredDoc> {
 }
 
 function readAll(): Map<string, StoredDoc> {
+  if (storageKey === null) return new Map();
   if (!diskFailed && hasLocalStorage()) {
     try {
       const raw = window.localStorage.getItem(storageKey);
@@ -168,6 +180,7 @@ function readAll(): Map<string, StoredDoc> {
 
 /** Returns whether the write reached localStorage (false: this session only). */
 function writeAll(docs: Map<string, StoredDoc>): boolean {
+  if (storageKey === null) return false;
   if (!diskFailed && hasLocalStorage()) {
     try {
       window.localStorage.setItem(storageKey, JSON.stringify([...docs.values()]));
@@ -176,6 +189,10 @@ function writeAll(docs: Map<string, StoredDoc>): boolean {
       // Quota or private mode: keep the session running in memory — and stop
       // reading the stale on-disk copy, so saves stay visible this session.
       diskFailed = true;
+      // Cloud mode: the server has the truth, so drop the stale disk copy too.
+      // Left there, the next visit would reload it — dirty flags and all — and
+      // push old text over this session's edits.
+      if (cloud) removeFromDisk(storageKey, `${storageKey}:dirty`);
     }
   }
   memoryDocs = docs;
@@ -187,7 +204,7 @@ export function seedIfEmpty(): void {
   if (cloud) return; // sync.ts seeds an account once the server says it is empty
   if (!diskFailed && hasLocalStorage()) {
     try {
-      const raw = window.localStorage.getItem(storageKey);
+      const raw = window.localStorage.getItem(storageKey ?? '');
       if (sanitizeStoredDocs(raw ? JSON.parse(raw) : null).length > 0) return;
     } catch {
       // corrupt: reseed below
@@ -232,7 +249,10 @@ export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | '
   if (!existing) return;
   all.set(id, { ...existing, ...patch });
   writeAll(all);
-  markDirty([id]);
+  // lastChecked alone is bookkeeping (the editor stamps it on every open and
+  // check). Pushing a whole doc for it would put this tab's copy over newer
+  // edits made elsewhere just for viewing it.
+  if (Object.keys(patch).some((k) => k !== 'lastChecked')) markDirty([id]);
 }
 
 /** URL- and filename-safe id from a title, unique among stored docs. */
@@ -270,7 +290,17 @@ export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' |
 
 const dirtyKey = () => `${storageKey}:dirty`;
 
+function removeFromDisk(...keys: string[]): void {
+  if (!hasLocalStorage()) return;
+  try {
+    keys.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    // nothing on disk to remove
+  }
+}
+
 function readDirty(): Set<string> {
+  if (storageKey === null) return new Set();
   if (!memoryDirty && !diskFailed && hasLocalStorage()) {
     try {
       memoryDirty = new Set(strings(JSON.parse(window.localStorage.getItem(dirtyKey()) ?? '[]')));
@@ -282,6 +312,7 @@ function readDirty(): Set<string> {
 }
 
 function writeDirty(ids: Set<string>): void {
+  if (storageKey === null) return;
   memoryDirty = ids;
   if (diskFailed || !hasLocalStorage()) return;
   try {
@@ -292,11 +323,11 @@ function writeDirty(ids: Set<string>): void {
 }
 
 function markDirty(ids: string[]): void {
-  if (!cloud) return;
+  if (!cloud || storageKey === null) return;
   const dirty = readDirty();
   ids.forEach((id) => dirty.add(id));
   writeDirty(dirty);
-  onDirty?.();
+  onDirty?.(ids);
 }
 
 /** Docs the server has not confirmed yet, as they are now. */
@@ -305,13 +336,16 @@ export function dirtyDocs(): StoredDoc[] {
   return [...readDirty()].flatMap((id) => all.get(id) ?? []);
 }
 
-/** The server stored `pushed`. Clear the flag only if nothing was written since
- *  — an edit that landed mid-flight must still be pushed. */
-export function markClean(pushed: StoredDoc): void {
-  const current = readAll().get(pushed.id);
-  if (current && JSON.stringify(current) !== JSON.stringify(pushed)) return;
+/** The server stored these versions. Clear each flag only if nothing was
+ *  written since — an edit that landed mid-flight must still be pushed. */
+export function markClean(pushed: StoredDoc[]): void {
+  if (!pushed.length) return;
+  const all = readAll();
   const dirty = readDirty();
-  dirty.delete(pushed.id);
+  for (const doc of pushed) {
+    const current = all.get(doc.id);
+    if (!current || JSON.stringify(current) === JSON.stringify(doc)) dirty.delete(doc.id);
+  }
   writeDirty(dirty);
 }
 
@@ -343,17 +377,11 @@ export function hasCachedDocs(): boolean {
   return readAll().size > 0;
 }
 
-/** Sign-out: nothing of the account stays in this browser. */
+/** Sign-out: nothing of the account stays in this browser, and nothing
+ *  written afterwards (a closing editor's flush) is kept. */
 export function clearStore(): void {
-  if (hasLocalStorage()) {
-    try {
-      window.localStorage.removeItem(storageKey);
-      window.localStorage.removeItem(dirtyKey());
-    } catch {
-      // nothing on disk to clear
-    }
-  }
-  setStoreUser(null);
+  if (storageKey !== null) removeFromDisk(storageKey, dirtyKey());
+  detachStore();
 }
 
 export interface DashboardData {

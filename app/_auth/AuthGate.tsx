@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { Button } from '../../design-system/primitives';
 import { hasCachedDocs } from '../_data/store';
 import { getClient, isCloud } from '../_data/supabase';
-import { loadAccount } from '../_data/sync';
+import { attachedAccount, detachAccount, loadAccount } from '../_data/sync';
 import { StatusScreen } from '../_status/StatusScreen';
 
 /**
@@ -21,6 +21,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [attempt, setAttempt] = useState(0);
   const open = !isCloud || pathname === '/sign-in';
+
+  // The session can end or change under this tab: sign-out or sign-in in
+  // another tab (auth-js relays those between tabs), or a revoked session.
+  // Stop syncing first, so nothing of one account is written or pushed under
+  // another, then reload so no screen keeps showing the old account's work.
+  useEffect(() => {
+    const client = getClient();
+    if (!client) return;
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
+      const attached = attachedAccount();
+      const uid = session?.user.id ?? null;
+      if (!attached || uid === attached) return;
+      detachAccount();
+      window.location.assign(uid ? '/' : '/sign-in');
+    });
+    return () => { data.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     const client = getClient();

@@ -31,16 +31,21 @@ export function SignInScreen() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
+  // A ref, not the state: two quick submits both see a stale `busy` of false
+  // and would send two codes (the second then reports a rate limit).
+  const busyRef = useRef(false);
   const codeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
   const sendCode = async (address: string) => {
     const client = getClient();
     if (!client) { setError({ text: 'Sign-in isn’t set up on this copy of Ada Editor.', invalid: false }); return; }
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     const { error: failed } = await client.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } });
+    busyRef.current = false;
     setBusy(false);
     if (failed) { setError(problemFor(failed.code, 'email')); return; }
     setSentTo(address);
@@ -54,10 +59,12 @@ export function SignInScreen() {
   const onCode = async (e: FormEvent) => {
     e.preventDefault();
     const client = getClient();
-    if (!client || !sentTo || busy) return;
+    if (!client || !sentTo || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     const { error: failed } = await client.auth.verifyOtp({ email: sentTo, token: code.trim(), type: 'email' });
+    busyRef.current = false;
     setBusy(false);
     if (failed) { setError(problemFor(failed.code, 'code')); return; }
     announce('Signed in.');

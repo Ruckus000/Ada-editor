@@ -868,7 +868,7 @@ function SaveStatus() {
   const announce = useAnnounce();
   const prev = useRef(status);
   useEffect(() => {
-    if (status === 'unsynced' && prev.current !== 'unsynced') announce('Changes aren’t reaching your account. They’re kept in this browser and will sync when the connection is back.');
+    if (status === 'unsynced' && prev.current !== 'unsynced') announce('Changes aren’t reaching your account yet. They’re kept in this browser.');
     if (status === 'saved' && prev.current === 'unsynced') announce('Changes synced to your account.');
     prev.current = status;
   }, [status, announce]);

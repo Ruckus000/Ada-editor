@@ -101,10 +101,12 @@ export function Dashboard({
         importNotes: imported.notes,
       });
       const notes = [...imported.notes];
-      // In cloud mode the account still gets the document (sync pushes it from
-      // memory); only local mode loses it with the tab.
-      if (!persisted && !isCloud) {
-        notes.push('Browser storage is full or unavailable, so this document is kept for this session only.');
+      // Not on disk: local mode loses it with the tab; cloud mode keeps it only
+      // once the push lands, so say what keeps it safe until then.
+      if (!persisted) {
+        notes.push(isCloud
+          ? 'Browser storage is full, so this document isn’t kept in this browser. Keep this tab open until the editor says Saved; then it’s in your account.'
+          : 'Browser storage is full or unavailable, so this document is kept for this session only.');
         saveDoc(id, { importNotes: notes });
       }
       router.push(`/editor/${id}`);

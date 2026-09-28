@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getClient } from './supabase';
-import { applyPulled, clearStore, dirtyDocs, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
+import { applyPulled, clearStore, detachStore, dirtyDocs, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
 import type { StoredDoc } from './store';
 
 /**
@@ -8,14 +8,20 @@ import type { StoredDoc } from './store';
  * The store stays the synchronous working copy; this pulls an account's docs
  * once per sign-in and pushes whatever the store marks dirty.
  *
- * ponytail: last push wins — two devices editing the same document at once
- * overwrite each other. Upgrade: an updated_at precondition on the upsert
- * (optimistic concurrency) when people report lost edits.
+ * ponytail: last push wins. A tab pulls once per sign-in, so a document
+ * edited on another device since then is overwritten if it is also EDITED in
+ * this tab (merely opening it no longer pushes). Upgrade: an updated_at
+ * precondition on the upsert (optimistic concurrency) plus a re-pull on focus,
+ * when people report lost edits across devices.
  */
 
 // PostgREST aliases map snake_case columns onto StoredDoc's fields.
 const COLUMNS = 'id,title,owner,targets,header,footer,content,lastChecked:last_checked,dismissed,importNotes:import_notes';
 const PUSH_DELAY = 1000;
+/** PostgREST caps a response at its max-rows setting (1000 by default). The
+ *  pull pages until it holds the exact row count, advancing by what actually
+ *  arrived, so no cap can silently drop documents from the cache. */
+const PAGE = 1000;
 const RETRY_DELAY = 30_000;
 
 export type SyncStatus = 'saved' | 'saving' | 'unsynced';
@@ -38,7 +44,13 @@ export function useSyncStatus(): SyncStatus {
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let inFlight: Promise<void> | null = null;
+/** The account the store points at, and the one whose docs were pulled. They
+ *  differ only while a pull hasn't landed (offline start from the cache). */
+let attachedUid: string | null = null;
 let loadedUid: string | null = null;
+/** Docs the server refused as invalid (a CHECK, e.g. content over 2 MB): kept
+ *  in this browser, not retried until edited again — retrying can't succeed. */
+const rejected = new Set<string>();
 let loading: { uid: string; promise: Promise<void> } | null = null;
 
 function schedulePush(delay = PUSH_DELAY): void {
@@ -47,7 +59,11 @@ function schedulePush(delay = PUSH_DELAY): void {
   timer = setTimeout(() => { void push(); }, delay);
 }
 
-const toRow = (d: StoredDoc) => ({
+// owner_id is explicit, not left to the column default: if the session ever
+// belonged to a different account than the store, RLS rejects the write
+// instead of filing this account's document under the other one.
+const toRow = (d: StoredDoc, ownerId: string) => ({
+  owner_id: ownerId,
   id: d.id,
   title: d.title,
   owner: d.owner,
@@ -75,20 +91,35 @@ function push(): Promise<void> {
   return inFlight;
 }
 
+const pending = () => dirtyDocs().filter((d) => !rejected.has(d.id));
+const settle = () => setStatus(rejected.size ? 'unsynced' : 'saved');
+
 async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Promise<void> {
-  try {
-    const docs = dirtyDocs();
-    if (!docs.length) { setStatus('saved'); return; }
-    const { error } = await client.from('documents').upsert(docs.map(toRow));
-    if (error) throw error;
-    docs.forEach(markClean);
-    if (dirtyDocs().length) schedulePush();
-    else setStatus('saved');
-  } catch (error) {
-    console.error('Sync failed', error);
-    setStatus('unsynced');
-    schedulePush(RETRY_DELAY);
-  }
+  const ownerId = attachedUid;
+  const docs = pending();
+  if (!ownerId || !docs.length) { settle(); return; }
+  // One upsert per doc, so a doc the server refuses can't hold the others back.
+  const results = await Promise.all(docs.map((d) => client.from('documents').upsert(toRow(d, ownerId)).then(
+    ({ error }) => error,
+    (error: unknown) => error ?? new Error('Network error'),
+  )));
+  if (ownerId !== attachedUid) return; // signed out or switched while in flight
+  let retry = false;
+  const pushed = docs.filter((d, i) => {
+    const error = results[i];
+    if (!error) return true;
+    console.error(`Sync failed for ${d.id}`, error);
+    // SQLSTATE class 22/23 (bad data, a failed CHECK): the same row will be
+    // refused again. Anything else — network, an expired token — is retried.
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && /^2[23]/.test(code)) rejected.add(d.id);
+    else retry = true;
+    return false;
+  });
+  markClean(pushed);
+  if (retry) { setStatus('unsynced'); schedulePush(RETRY_DELAY); }
+  else if (pending().length) schedulePush();
+  else settle();
 }
 
 /**
@@ -103,12 +134,25 @@ export function loadAccount(uid: string): Promise<void> {
   // shares the pull instead of running it — and the seeding — twice.
   if (loading?.uid === uid) return loading.promise;
   const promise = (async () => {
-    setStoreUser(uid);
-    onDocsDirty(() => schedulePush());
-    const { data, error } = await client.from('documents').select(COLUMNS);
-    if (error) throw error;
-    applyPulled(data);
-    if (data.length === 0) seedAccount();
+    // Attach once: after an offline start the store already holds this
+    // account's cache (and maybe edits only in memory) — don't reset it on retry.
+    if (attachedUid !== uid) {
+      setStoreUser(uid);
+      rejected.clear();
+      onDocsDirty((ids) => { ids.forEach((id) => rejected.delete(id)); schedulePush(); });
+      attachedUid = uid;
+    }
+    const rows: unknown[] = [];
+    let total = Infinity;
+    while (rows.length < total) {
+      const { data, count, error } = await client.from('documents').select(COLUMNS, { count: 'exact' }).order('id').range(rows.length, rows.length + PAGE - 1);
+      if (error) throw error;
+      rows.push(...data);
+      total = count ?? rows.length;
+      if (!data.length) break;
+    }
+    applyPulled(rows);
+    if (rows.length === 0) seedAccount();
     loadedUid = uid;
     await push();
   })().finally(() => { loading = null; });
@@ -123,15 +167,37 @@ export async function signOut(confirmDiscard: () => boolean): Promise<boolean> {
   if (!client) return true;
   await push();
   if (dirtyDocs().length && !confirmDiscard()) return false;
-  clearTimeout(timer);
-  onDocsDirty(null);
-  await client.auth.signOut();
+  // Clear first: signOut() fires AuthGate's listener, which would detach the
+  // store before clearStore could find the account's cache to delete.
+  forget();
   clearStore();
-  loadedUid = null;
-  setStatus('saved');
+  // auth-js removes the local session even when the logout request fails
+  // (offline), so a shared computer is signed out either way.
+  await client.auth.signOut();
   return true;
 }
 
+/** The session ended or changed underneath this tab (another tab signed out
+ *  or in, the session was revoked): stop syncing and let the store go inert.
+ *  The cache stays on disk, so the same account signing back in keeps any
+ *  unpushed edits. */
+export function detachAccount(): void {
+  forget();
+  detachStore();
+}
+
+/** The account this tab's store belongs to, if any. */
+export const attachedAccount = (): string | null => attachedUid;
+
+function forget(): void {
+  clearTimeout(timer);
+  onDocsDirty(null);
+  attachedUid = null;
+  loadedUid = null;
+  rejected.clear();
+  setStatus('saved');
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { if (loadedUid) void push(); });
+  window.addEventListener('online', () => { if (attachedUid) void push(); });
 }
