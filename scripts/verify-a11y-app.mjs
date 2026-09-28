@@ -288,6 +288,9 @@ async function home() {
     await key(send, 'Enter');
     await sleep(200);
     if (!(await focusByName(send, 'a', 'Privacy'))) fail('ACCOUNT  the account button does not reveal Privacy');
+    // The gate builds without Supabase (local mode): no Sign out, and the menu says why.
+    const accountNote = await evaluate(send, `document.querySelector('.home-pop__note')?.textContent ?? ''`);
+    if (!accountNote.includes('No account')) fail(`ACCOUNT  local mode does not explain the missing Sign out (got ${JSON.stringify(accountNote)})`);
     await key(send, 'Escape');
 
     await send('Page.reload');
