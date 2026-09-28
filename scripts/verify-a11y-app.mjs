@@ -278,6 +278,37 @@ async function dashboard() {
   }
 }
 
+/* ---------- new document ---------- */
+
+async function newDocument() {
+  page = '/ (new document)';
+  const { proc, ws, send } = await openPage('/');
+  try {
+    await evaluate(send, `localStorage.clear()`);
+    await send('Page.reload');
+    await sleep(1200);
+    if (!(await focusByName(send, 'button', 'New document'))) { fail('NEWDOC  no New document button'); return; }
+    await key(send, 'Enter');
+    await sleep(400);
+    const inDialog = await evaluate(send, `!!document.activeElement?.closest('[role=dialog]')`);
+    if (!inDialog) fail('NEWDOC  focus did not move into the dialog');
+    await runAxe(send, ' (new document dialog)');
+    await key(send, 'Enter'); // empty title
+    await sleep(300);
+    const err = await evaluate(send, `document.querySelector('[role=dialog] [role=alert]')?.textContent ?? ''`);
+    if (!/title/.test(err)) fail(`NEWDOC  an empty title was not refused with a visible alert (got ${JSON.stringify(err)})`);
+    await send('Input.insertText', { text: 'Board meeting minutes' });
+    await key(send, 'Enter');
+    await sleep(2000);
+    const landed = await evaluate(send, `({ path: location.pathname, title: document.title, h1: document.querySelector('[aria-label="Document text"] h1')?.textContent ?? null })`);
+    if (landed.path !== '/editor/board-meeting-minutes') fail(`NEWDOC  did not open the new document (at ${landed.path})`);
+    else if (landed.h1 !== 'Board meeting minutes' || landed.title !== 'Board meeting minutes · Ada Editor') fail(`NEWDOC  the title is not the document's h1 and tab title (${JSON.stringify(landed)})`);
+    else note('New document asks for a title, refuses an empty one, and opens with the title as its h1');
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 /* ---------- upload a .docx ---------- */
 
 // The file never leaves the browser, so this drives the real path: a file set
@@ -879,6 +910,7 @@ try {
   await privacyPage();
   await signIn();
   await dashboard();
+  await newDocument();
   await upload();
   await triage();
   await language();

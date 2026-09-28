@@ -95,7 +95,7 @@ export const SEEDS: SeedDoc[] = [
   {
     id: 'shelter-faq',
     title: 'Winter Shelter Program FAQ',
-    owner: 'M. Okafor',
+    owner: 'You',
     targets: ['WCAG 2.1 AA'],
     content: {
       title: 'Winter Shelter Program FAQ',
@@ -115,7 +115,7 @@ export const SEEDS: SeedDoc[] = [
   {
     id: 'benefits-guide',
     title: 'Benefits Application Guide',
-    owner: 'M. Okafor',
+    owner: 'You',
     targets: ['WCAG 2.1 AA', 'Section 508'],
     content: {
       title: 'Benefits Application Guide',
@@ -155,7 +155,7 @@ export const SEEDS: SeedDoc[] = [
   {
     id: 'transit-notice',
     title: 'Transit Service Change Notice',
-    owner: 'R. Ibarra',
+    owner: 'You',
     targets: ['WCAG 2.1 AA', 'Section 508'],
     content: {
       title: 'Transit Service Change Notice',
@@ -188,7 +188,7 @@ export const SEEDS: SeedDoc[] = [
   {
     id: 'water-quality',
     title: 'Water Quality Report 2026',
-    owner: 'T. Lund',
+    owner: 'You',
     targets: ['WCAG 2.1 AA'],
     content: {
       title: 'Water Quality Report 2026',
@@ -206,7 +206,7 @@ export const SEEDS: SeedDoc[] = [
   {
     id: 'voter-deadlines',
     title: 'Voter Registration Deadlines',
-    owner: 'T. Lund',
+    owner: 'You',
     targets: ['WCAG 2.1 AA', 'Section 508'],
     content: {
       title: 'Voter Registration Deadlines',

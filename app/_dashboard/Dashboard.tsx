@@ -8,6 +8,8 @@ import { Button, Glyph, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, Sever
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { createDoc, loadDashboardData, saveDoc, seedIfEmpty } from '../_data/store';
+import { NewDocumentDialog } from '../_editor/dialogs';
+import { schema } from '../_editor/editorSchema';
 import { summaryLine } from '../_editor/findings';
 import { checkDocument } from '../_engine/check';
 import { ImportError, importDocxFile } from '../_import/importDocx';
@@ -76,6 +78,23 @@ export function Dashboard({
   const fileRef = useRef<HTMLInputElement>(null);
   const importing = useRef(false);
   const [importError, setImportError] = useState('');
+  const [newOpen, setNewOpen] = useState(false);
+
+  // A new document starts with its title as the h1: the structure the checker
+  // and screen readers rely on is there from the first keystroke.
+  const onCreate = (title: string) => {
+    const { nodes: N } = schema;
+    const content = N.doc!.create(null, [N.heading!.create({ level: 1 }, schema.text(title)), N.paragraph!.create()]);
+    const { id, persisted } = createDoc({ title, header: '', footer: '', content: content.toJSON() as Record<string, unknown>, importNotes: [] });
+    if (!persisted) {
+      saveDoc(id, { importNotes: [isCloud
+        ? 'Browser storage is full, so this document isn’t kept in this browser. Keep this tab open until the editor says Saved; then it’s in your account.'
+        : 'Browser storage is full or unavailable, so this document is kept for this session only.'] });
+    }
+    setNewOpen(false);
+    router.push(`/editor/${id}`);
+    announce(`Created ${title}.`);
+  };
 
   // Edits that never reached the server would be lost with the cache, so ask.
   const onSignOut = async () => {
@@ -194,7 +213,6 @@ export function Dashboard({
     searchRef.current?.focus();
   };
 
-  const notYet = (what: string) => () => announce(`${what} is not available in this prototype yet.`);
 
   return (
     <div className="dash" data-density={density}>
@@ -230,7 +248,6 @@ export function Dashboard({
               </button>
             ) : null}
           </label>
-          <Button variant="secondary" onClick={notYet('Re-running checks')}>Re-run checks</Button>
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>Upload .docx</Button>
           <input
             ref={fileRef}
@@ -239,11 +256,12 @@ export function Dashboard({
             hidden
             onChange={onFile}
           />
-          <Button variant="primary" onClick={notYet('Creating a document')}>New document</Button>
+          <Button variant="primary" onClick={() => setNewOpen(true)}>New document</Button>
           <Link href="/privacy" className="dash-header__link">Privacy</Link>
           {isCloud ? <Button variant="ghost" onClick={onSignOut}>Sign out</Button> : <span className="dash-avatar" aria-hidden="true">JD</span>}
         </div>
       </header>
+      <NewDocumentDialog open={newOpen} onCreate={onCreate} onClose={() => setNewOpen(false)} />
 
       <main className="dash-main">
         {importError ? <p role="alert" className="dash-import-error">{importError}</p> : null}

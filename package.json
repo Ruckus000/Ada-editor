@@ -1,6 +1,6 @@
 {
   "name": "ada-editor",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Write documents that meet WCAG 2.1 AA, Section 508 and PDF/UA.",
   "type": "module",
