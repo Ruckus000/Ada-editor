@@ -30,6 +30,7 @@ import {
   editingPlugins,
   formatState,
   indent,
+  makeFirstRowHeader,
   markTypes,
   nodeTypes,
   outdent,
@@ -215,6 +216,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       props: {
         decorations(state) {
           const f = findingsRef.current.find((x) => x.id === activeRef.current);
+          // A table finding outlines the whole table: an outline, not colour alone.
+          if (f?.anchor.kind === 'table' && state.doc.nodeAt(f.from)?.type === nodeTypes.table && f.from + state.doc.nodeAt(f.from)!.nodeSize === f.to) {
+            return DecorationSet.create(state.doc, [Decoration.node(f.from, f.to, { class: styles.activeTable!, 'data-severity': f.severity })]);
+          }
           if (!f || f.anchor.kind !== 'text' || f.to <= f.from) return null;
           return DecorationSet.create(state.doc, [Decoration.inline(f.from, f.to, { class: styles.activeMark!, 'data-severity': f.severity })]);
         },
@@ -547,6 +552,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     } else if (f.fix?.kind === 'lang') {
       if (f.from >= f.to || f.to > view.state.doc.content.size) return;
       tr = view.state.tr.addMark(f.from, f.to, markTypes.lang!.create({ lang: f.fix.lang }));
+    } else if (f.fix?.kind === 'tableHeaderRow') {
+      let made: Transaction | undefined;
+      if (!makeFirstRowHeader(f.from)(view.state, (t) => { made = t; }) || !made) return;
+      tr = made;
     } else {
       tr = view.state.tr.insertText(f.suggestion, f.from, f.to);
     }
@@ -570,9 +579,13 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       setHfOpen(true);
       return;
     }
+    // A table: the cursor goes into its first cell, where the Table menu works.
+    if (f.anchor.kind === 'table' && view.state.doc.nodeAt(f.from)?.type !== nodeTypes.table) return;
     const selection = f.anchor.kind === 'figure'
       ? NodeSelection.create(view.state.doc, f.from)
-      : TextSelection.create(view.state.doc, f.from, f.to);
+      : f.anchor.kind === 'table'
+        ? TextSelection.near(view.state.doc.resolve(f.from + 1))
+        : TextSelection.create(view.state.doc, f.from, f.to);
     view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
     view.focus();
   };
@@ -854,12 +867,14 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               </div>
               <h3 id={`finding-${active.id}`} className={styles.cardTitle}>{active.title}</h3>
               <p className={styles.cardBody}>{active.explanation}</p>
-              {active.fix?.kind === 'lang' || active.fix?.kind === 'docLang' ? (
+              {active.fix?.kind === 'lang' || active.fix?.kind === 'docLang' || active.fix?.kind === 'tableHeaderRow' ? (
                 // Nothing is replaced, so no struck-through diff: the text stays, marked.
                 <p className={styles.diff}>
                   {active.fix.kind === 'lang'
                     ? `Suggested change: mark it as ${active.suggestion}`
-                    : `Suggested change: set the document language to ${active.suggestion}`}
+                    : active.fix.kind === 'docLang'
+                      ? `Suggested change: set the document language to ${active.suggestion}`
+                      : 'Suggested change: make the first row a header row'}
                 </p>
               ) : active.suggestion !== undefined ? (
                 <p className={styles.diff}>
@@ -880,7 +895,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                 {/* Document-level findings have no range to navigate to (§6): Dismiss only. */}
                 {active.anchor.kind === 'document' ? null : (
                   <button type="button" className={active.suggestion !== undefined ? styles.btnSubtle : styles.btnPrimary} onClick={() => onGoTo(active)}>
-                    {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : 'Go to text'}
+                    {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : active.anchor.kind === 'table' ? 'Go to table' : 'Go to text'}
                   </button>
                 )}
                 <button type="button" className={styles.btnGhost} onClick={() => onDismiss(active)}>Dismiss</button>

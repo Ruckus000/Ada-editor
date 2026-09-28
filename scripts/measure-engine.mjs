@@ -34,12 +34,12 @@ const CORPUS = resolve(ROOT, 'corpus');
 const TMP = resolve(HERE, '.parity-bundle.mjs');
 const VERBOSE = process.argv.includes('--verbose');
 
-/** §5: not ported — no table node in the schema, no language field in the model. */
-// The spike's document-language ("no language declared") can't happen in the
-// engine, where every document has one; the engine's rule of that id instead
-// checks the declared language against the text, and the English corpus is
-// English, so it fires zero times there.
-const DEFERRED = new Set(['table-no-header', 'document-language']);
+/** §5: not ported. The spike's document-language ("no language declared")
+ *  can't happen in the engine, where every document has one; the engine's rule
+ *  of that id instead checks the declared language against the text, and the
+ *  English corpus is English, so it fires zero times there. (table-no-header
+ *  was deferred here too until the schema had tables.) */
+const DEFERRED = new Set(['document-language']);
 
 /**
  * Explained divergences. Each entry pins exact per-(doc, rule) counts for both
@@ -117,7 +117,8 @@ function spikeFindings(source, name) {
 }
 
 const ruleOf = (finding) => {
-  const hit = ENGINE_RULE_IDS.find((r) => finding.id === r || finding.id.startsWith(`${r}:`));
+  // An empty snippet gives a bare id, numbered when repeated (`rule#2`, check.ts stableId).
+  const hit = ENGINE_RULE_IDS.find((r) => finding.id === r || finding.id.startsWith(`${r}:`) || finding.id.startsWith(`${r}#`));
   if (hit) return hit;
   // img-alt-missing keeps the legacy `img-alt-${figureId}` id (check.ts stableId).
   if (finding.id.startsWith('img-alt-')) return 'img-alt-missing';

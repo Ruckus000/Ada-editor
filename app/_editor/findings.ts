@@ -14,11 +14,14 @@ export type Section = 'header' | 'footer';
  * and get an inline underline; figures are addressed by id because their
  * position shifts, header/footer findings live outside the document, and
  * `document` findings (e.g. no top-level heading) belong to the document as a
- * whole — no range, no underline, nowhere to navigate to.
+ * whole — no range, no underline, nowhere to navigate to. `table` findings
+ * cover a whole table node (from..to is the node); they are structural, so
+ * they are rechecked on every edit rather than carried.
  */
 export type Anchor =
   | { kind: 'text' }
   | { kind: 'figure'; figureId: string }
+  | { kind: 'table' }
   | { kind: 'section'; section: Section }
   | { kind: 'document' };
 
@@ -38,7 +41,9 @@ export type FindingFix =
   /** Mark the range as being in another language (a BCP 47 tag). */
   | { kind: 'lang'; lang: string }
   /** Set the document's own language (a BCP 47 tag). */
-  | { kind: 'docLang'; lang: string };
+  | { kind: 'docLang'; lang: string }
+  /** Make the table's first row header cells. */
+  | { kind: 'tableHeaderRow' };
 
 export interface EditorFinding extends Issue {
   severity: OpenSeverity;

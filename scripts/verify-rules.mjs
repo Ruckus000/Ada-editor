@@ -201,8 +201,8 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 17 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 17, 'rule count');
+check('RULES ports the 19 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 19, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
@@ -211,7 +211,7 @@ check('RULES ports the 17 rules with the §8.1 structural/prose split', () => {
   deepEq(RULES.map((r) => r.id).sort(), [
     'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
-    'link-text-raw-url', 'long-sentence', 'reading-level',
+    'link-text-raw-url', 'long-sentence', 'reading-level', 'table-merged-cells', 'table-no-header',
   ], 'rule ids');
 });
 
@@ -1225,6 +1225,53 @@ check('tables: the HTML export gives headers a scope, keeps spans and the captio
   // A header row whose cell spans into the body can't be a thead.
   const spanning = page(doc(table([[{ th: 'A', rowspan: 2 }, { th: 'B' }], ['b1']])));
   eq(spanning.querySelector('thead'), null, 'a header spanning into the body keeps the table in one tbody');
+});
+
+check('table-no-header: a table without header cells blocks, and the fix makes row one a header row', () => {
+  const { checkDocument } = mod.check;
+  const found = (d) => checkDocument(d, { prose: false }).filter((f) => f.id.startsWith('table-no-header'));
+  const plain = doc(heading(1, 'Hours'), table([['Day', 'Hours'], ['Monday', '9 to 6']]));
+  const [f] = found(plain);
+  assert(f, 'a headerless table is flagged');
+  eq(found(plain).length, 1, 'once per table');
+  eq(f.severity, 'blocker', 'blocker, as in the spike');
+  eq(f.criterion, '1.3.1 Info and Relationships', 'criterion');
+  eq(f.anchor.kind, 'table', 'anchored on the table');
+  const at = plain.child(0).nodeSize;
+  eq(f.from, at, 'from: the table node');
+  eq(f.to, at + plain.child(1).nodeSize, 'to: the end of the table node');
+  eq(f.excerpt, 'Day Hours Monday 9 to 6', 'excerpt: the table text, cells apart');
+  deepEq(f.fix, { kind: 'tableHeaderRow' }, 'fix offered');
+  eq(f.suggestion, 'first row as header row', 'the card has something to apply');
+  // One header cell anywhere passes (the spike's rule), and a header column alone counts.
+  eq(found(doc(table([['Day', { th: 'Hours' }], ['Monday', '9 to 6']]))).length, 0, 'any th passes');
+  eq(found(doc(table([[{ th: 'Monday' }, '9 to 6'], [{ th: 'Tuesday' }, '9 to 6']]))).length, 0, 'a header column passes');
+  eq(found(doc(table([['Only', 'row']])))[0]?.fix, undefined, 'a one-row table: no header row to suggest');
+  // Apply: the first row becomes header cells and the finding is gone.
+  const state = mod.pmState.EditorState.create({ doc: plain });
+  let next;
+  assert(mod.editorCommands.makeFirstRowHeader(f.from)(state, (tr) => { next = state.apply(tr); }), 'the fix applies');
+  deepEq(next.doc.child(1).child(0).content.content.map((c) => c.type.name), ['table_header', 'table_header'], 'row one is header cells');
+  eq(next.doc.child(1).child(1).child(0).type.name, 'table_cell', 'row two untouched');
+  eq(found(next.doc).length, 0, 'finding retracted');
+  // A stale Apply (no table there any more) does nothing.
+  assert(!mod.editorCommands.makeFirstRowHeader(0)(state), 'no table at the position: no-op');
+});
+
+check('table-merged-cells: merged cells get a gentle advisory; cells are still checked inside tables', () => {
+  const { checkDocument } = mod.check;
+  const findings = (d) => checkDocument(d, { prose: false });
+  const merged = doc(heading(1, 'Deadlines'), table([[{ th: 'Program' }, { th: 'Deadline' }], [{ td: 'Food and rent', colspan: 2 }]]));
+  const m = findings(merged).filter((f) => f.id.startsWith('table-merged-cells'));
+  eq(m.length, 1, 'merged cells flagged once');
+  eq(m[0].severity, 'advisory', 'advisory, never blocking');
+  eq(m[0].fix, undefined, 'no automatic fix');
+  eq(findings(doc(heading(1, 'x'), table([[{ th: 'A' }, { th: 'B' }], ['a', 'b']]))).filter((f) => f.id.startsWith('table-')).length, 0, 'a simple headed table is clean');
+  // A generic link inside a cell is flagged, at its own position.
+  const linked = doc(heading(1, 'x'), table([[{ th: 'Form' }], [{ td: [para(text('click here', link('https://x.org')))] }]]));
+  const g = findings(linked).find((f) => f.id.startsWith('link-text-generic'));
+  assert(g, 'a paragraph inside a cell is checked');
+  eq(linked.textBetween(g.from, g.to), 'click here', 'at the right position');
 });
 
 check('tables: a pasted HTML table keeps its caption and header cells', () => {

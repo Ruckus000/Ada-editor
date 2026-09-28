@@ -4,6 +4,7 @@ import { keymap } from 'prosemirror-keymap';
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
 import type { MarkType, NodeType } from 'prosemirror-model';
 import type { Command, EditorState, Plugin } from 'prosemirror-state';
+import { TableMap } from 'prosemirror-tables';
 import { MAX_INDENT, documentLanguage, schema } from './editorSchema';
 
 const { nodes: N, marks: M } = schema;
@@ -153,6 +154,26 @@ export const clearFormatting: Command = (state, dispatch) => {
     return true;
   });
   dispatch(tr);
+  return true;
+};
+
+/* ---------- tables ---------- */
+
+/** "Apply fix" for table-no-header: the table at `tablePos` gets header cells
+ *  across its first row. Does nothing if no table is there any more. */
+export const makeFirstRowHeader = (tablePos: number): Command => (state, dispatch) => {
+  const table = state.doc.nodeAt(tablePos);
+  if (!table || table.type !== N.table) return false;
+  const map = TableMap.get(table);
+  const cells = map.cellsInRect({ left: 0, top: 0, right: map.width, bottom: 1 });
+  if (dispatch) {
+    const tr = state.tr;
+    for (const rel of cells) {
+      const cell = table.nodeAt(rel)!;
+      if (cell.type !== N.table_header) tr.setNodeMarkup(tablePos + 1 + rel, N.table_header, cell.attrs);
+    }
+    dispatch(tr);
+  }
   return true;
 };
 

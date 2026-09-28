@@ -449,6 +449,8 @@
 .prose :global(.ada-underline[data-severity='manual'])    { text-decoration-color: var(--as-manual); }
 
 .activeMark { border-radius: 2px; }
+/* The active finding is a whole table: outlined, so it isn't colour alone. */
+.prose .activeTable { outline: 3px solid var(--as-focus); outline-offset: 3px; }
 .activeMark[data-severity='blocker']   { background: var(--as-blocker-bg); }
 .activeMark[data-severity='violation'] { background: var(--as-violation-bg); }
 .activeMark[data-severity='advisory']  { background: var(--as-advisory-bg); }

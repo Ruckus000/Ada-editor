@@ -5,9 +5,10 @@
  * traversal layer changed (querySelectorAll → PM node walks), which is what
  * gives exact from/to positions in the coordinate space Issue already requires.
  *
- * One of the spike's 13 rules is deliberately absent (§5 of
- * docs/audit/checking-engine-plan.md): `table-no-header` (the schema has no
- * table node). The spike's `document-language` ("no language declared")
+ * `table-no-header` was deferred until the schema had tables (§5 of
+ * docs/audit/checking-engine-plan.md); it now runs on whole tables in
+ * `summarizeTable`, beside the engine-only `table-merged-cells`. The spike's
+ * `document-language` ("no language declared")
  * can't happen here: every document has a language (the doc node's `lang`,
  * English by default). The engine's `document-language` instead checks the
  * declared language against the text.
@@ -43,6 +44,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { FindingFix } from '../_editor/findings';
 import { schema } from '../_editor/editorSchema';
+import { hasHeaderCell, hasMergedCells, tableText } from '../_editor/tableHeaders';
 import {
   COLOUR_REFERENCE,
   COLOUR_WORDS,
@@ -109,6 +111,11 @@ export const RULES: readonly RuleInfo[] = [
   // Engine-only. Manual: a blank only fails if the document must be filled in
   // digitally, which only its author knows.
   { id: 'form-blank', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  // Structural: turning on a header row must retract it at once.
+  { id: 'table-no-header', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  // Engine-only. Advisory: merged cells aren't a failure, but a table the
+  // editor can't give explicit header links to deserves a human check.
+  { id: 'table-merged-cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
@@ -127,6 +134,8 @@ export type RawAnchor =
   /** Absolute document positions (cross-block rules already know them). */
   | { kind: 'docRange'; from: number; to: number }
   | { kind: 'figure'; figureId: string }
+  /** The whole table node (check.ts knows where it sits). */
+  | { kind: 'table' }
   | { kind: 'document' };
 
 export interface RawFinding {
@@ -657,6 +666,43 @@ function languageFindings(entries: readonly BlockEntry[], pageLang: string): Raw
 /* ---------- cross-block rules ---------- */
 
 /** `pageLang` is the document's language, for the language rules. */
+/**
+ * Rules on a whole table. The cells' own paragraphs are ordinary blocks and go
+ * through `summarizeBlock` like any other; these only judge the grid.
+ */
+export function summarizeTable(node: PMNode): RawFinding[] {
+  const out: RawFinding[] = [];
+  const snippet = tableText(node).slice(0, 50);
+  // Port of the spike: any header cell anywhere passes.
+  if (!hasHeaderCell(node)) {
+    out.push({
+      ruleId: 'table-no-header',
+      severity: 'blocker',
+      criterion: crit('table-no-header'),
+      title: 'Table has no header cells',
+      explanation: 'Without header cells a screen reader cannot say which column or row a value belongs to.',
+      snippet,
+      hint: 'Make the first row a header row',
+      // A one-row table has no data under a header row, so there is nothing to suggest.
+      ...(node.childCount >= 2 ? { fix: { kind: 'tableHeaderRow' } as const } : {}),
+      anchor: { kind: 'table' },
+    });
+  }
+  if (hasMergedCells(node)) {
+    out.push({
+      ruleId: 'table-merged-cells',
+      severity: 'advisory',
+      criterion: crit('table-merged-cells'),
+      title: 'Table has merged cells',
+      explanation: 'Screen readers can lose track of which header a merged cell belongs to, and this editor can’t link cells to their headers directly. If you can, split merged cells or break the table into simpler tables; otherwise check it with a screen reader.',
+      snippet,
+      hint: 'Simplify the table, or check it with a screen reader',
+      anchor: { kind: 'table' },
+    });
+  }
+  return out;
+}
+
 export function crossBlockFindings(entries: readonly BlockEntry[], pageLang = 'en'): RawFinding[] {
   const out: RawFinding[] = languageFindings(entries, pageLang);
 
