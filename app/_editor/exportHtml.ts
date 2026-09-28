@@ -70,7 +70,7 @@ export function exportHtml(doc: PMNode, meta: { title: string; header: string; f
   dom.body.append(main);
   if (meta.footer.trim()) dom.body.append(el('footer', meta.footer));
 
-  // ponytail: no print stylesheet or PDF — the page prints through the
-  // browser. Tagged PDF/UA output is its own project.
+  // ponytail: no print stylesheet — the page prints through the browser.
+  // Tagged PDF/UA output is exportPdf.ts.
   return `<!doctype html>\n${dom.documentElement.outerHTML}`;
 }

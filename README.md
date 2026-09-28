@@ -14,7 +14,7 @@ actually cite:
 |---|---|---|
 | **WCAG 2.1 AA** | Web and digital documents | The DOJ Title II rule (April 2024) adopts it; the de facto global baseline |
 | **Section 508** | US federal procurement | Incorporates WCAG 2.0 AA by reference; required to sell to federal agencies |
-| **PDF/UA** (ISO 14289) | Tagged PDF output | **Planned, not checked yet** — the only standard that covers PDF structure, but there is no PDF output to check, so no document claims it |
+| **PDF/UA** (ISO 14289) | Tagged PDF output | The only standard that covers PDF structure. **Export PDF** writes PDF/UA-1, and CI validates it with veraPDF: clean sample documents pass, flagged ones fail on exactly the clauses their findings name. Documents don't list it as a target, because what is validated is the exporter, not each document |
 
 Every finding cites the specific success criterion it comes from. Nothing in the
 product reports "ADA compliance" as a status.
@@ -31,7 +31,16 @@ and whatever the checker flags is still wrong in the export). **Upload .docx**
 imports an existing Word file in the browser (the file itself is never
 uploaded) and checks it like any other document; what the editor can't hold yet
 (tables, footnotes, decorative images) is listed on the document instead of
-dropped silently. There is no PDF output and no PDF upload yet.
+dropped silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser,
+with the same promise as the HTML export: headings, lists, links, language
+changes and alt text are tagged from the document's own structure, and a figure
+the checker flags as missing alt text is exported without it. CI runs
+[veraPDF](https://verapdf.org) on exports of the sample documents: clean ones
+pass PDF/UA-1, and a flagged one fails on exactly the clauses its findings name.
+The PDF embeds one font, Atkinson Hyperlegible Next, which covers Latin scripts
+only; a document with Greek, Cyrillic, Hebrew, Arabic or CJK text is refused
+with the characters listed, never drawn as empty boxes. There is no PDF upload
+yet.
 
 **Accounts and storage.** People sign in with an emailed one-time code
 (Supabase Auth), and documents are saved to their account in Supabase
@@ -58,12 +67,15 @@ documents in this browser's localStorage only, exactly as before accounts.
 
 ```bash
 npm install
-npm run verify     # typecheck, verifier tests, engine gate, token gate, accessibility gates (Node 22)
+npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates (Node 22)
 npm run preview    # serve the live preview at http://127.0.0.1:8080
 ```
 
 `node scripts/verify-tokens.mjs --verbose` and `node scripts/palette-ceiling.mjs`
-run with no dependencies at all.
+run with no dependencies at all. The PDF gate's conformance half needs Java 11+
+and Maven (it fetches veraPDF from Maven Central on first run); without them it
+checks the PDF's structure only and says so. `npm run pdf -- --out pdfs` keeps
+the exported PDFs for a look in a real reader.
 
 ## Is the form right?
 

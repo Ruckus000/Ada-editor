@@ -549,6 +549,7 @@
 .glyph[data-severity='manual']    { color: var(--as-manual); }
 
 .importNotes { margin: 10px 0 14px; padding-left: 18px; font-size: 13px; line-height: 1.5; color: var(--as-text); }
+.pdfNotice { margin: 10px 0 14px; font-size: 13px; line-height: 1.5; color: var(--as-text); }
 
 .summaryLine {
   margin: 12px 0 0;
