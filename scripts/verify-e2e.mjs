@@ -60,6 +60,17 @@ if (!stack?.API_URL) {
   startedHere = true;
   stack = stackStatus();
 }
+// Always bring the database up to the latest migrations: a running stack may
+// predate them, and even a fresh `supabase start` restores the volume a
+// previous `supabase stop` kept — without applying anything new. Either way the
+// test would check today's code against yesterday's database.
+if (stack?.API_URL) {
+  const migrated = supabase(['migration', 'up', '--local']);
+  if (migrated.status !== 0) {
+    console.error(`supabase migration up failed:\n${(migrated.stderr ?? '') + (migrated.stdout ?? '')}`);
+    process.exit(1);
+  }
+}
 const API = stack?.API_URL;
 const KEY = stack?.PUBLISHABLE_KEY ?? stack?.ANON_KEY;
 const SERVICE = stack?.SERVICE_ROLE_KEY ?? stack?.SECRET_KEY;
@@ -231,7 +242,8 @@ async function signIn(send, email) {
   if (!code) return null;
   await typeInto(send, 'input[autocomplete="one-time-code"]', code);
   await key(send, 'Enter');
-  const landed = await waitFor(send, `location.pathname === '/' && document.querySelectorAll('.dash-rows > li').length`, 20_000);
+  // Signed in = the desk homepage rendered its documents (or its empty desk).
+  const landed = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
   if (!landed) { fail(`SIGNIN  did not reach the dashboard (at ${await evaluate(send, 'location.pathname')})`); return null; }
   return evaluate(send, `(() => {
     const k = Object.keys(localStorage).find((n) => /^sb-.*-auth-token$/.test(n));
@@ -270,10 +282,50 @@ async function downloadPdf(send, dir, docId) {
 /* ---------- scenarios ---------- */
 
 const A = address('a');
-const EDITED = 'transit-notice'; // edited below; not one of the PDF comparisons
+const SAMPLE = 'hearing-notice'; // the one sample a new account gets (store.ts SAMPLE_ID)
+const SYNCED = 'e2e-sync-document';
+const CLEAN = 'e2e-clean-document';
 let uid = null;
 
-// 1–5 in one browser: sign up, edit, restore, offline, cross-tab sign-out.
+/** Documents on the homepage: sheet links (not "Your call" notes). */
+const sheetIds = (send) => evaluate(send,
+  `[...document.querySelectorAll('a.home-sheet')].map((a) => a.getAttribute('href').replace('/editor/', ''))`);
+
+async function goHome(send) {
+  await go(send, '/');
+  return waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+}
+
+/** + (New document) → Create a document → title → the new document's editor. */
+async function createDocument(send, title, id) {
+  if (!(await clickButton(send, 'New document'))) { fail('NEWDOC  no + (New document) button'); return false; }
+  await sleep(200);
+  if (!(await clickButton(send, 'Create a document'))) { fail('NEWDOC  the + menu has no Create a document'); return false; }
+  await waitFor(send, `document.activeElement?.closest('[role=dialog]') && document.activeElement.tagName === 'INPUT'`);
+  await send('Input.insertText', { text: title });
+  await key(send, 'Enter');
+  if (!(await waitFor(send, `location.pathname === '/editor/${id}' && !!document.getElementById('document-text')`))) {
+    fail(`NEWDOC  creating "${title}" did not open /editor/${id}`);
+    return false;
+  }
+  return true;
+}
+
+/** Delete from the editor; checks it asked, where it lands, and what it says. */
+async function deleteFromEditor(send, id, title) {
+  await go(send, `/editor/${id}`);
+  await waitFor(send, `!!document.getElementById('document-text')`);
+  await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
+  if (!(await clickButton(send, 'Delete document'))) { fail(`DELETE  no Delete document button on ${id}`); return false; }
+  const home = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main')`, 15_000);
+  const said = await waitFor(send, `(document.querySelector('[role=status]')?.textContent ?? '').startsWith('Deleted ${title}')`, 5_000);
+  const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
+  if (!asked.some((q) => q.includes('can’t be undone'))) { fail(`DELETE  deleting ${id} did not ask first (asked ${JSON.stringify(asked)})`); return false; }
+  if (!home || !said) { fail(`DELETE  deleting ${id} did not return home announcing "Deleted ${title}."`); return false; }
+  return true;
+}
+
+// Browser 1, a new account: sign up, edit, restore, offline, cross-tab sign-out.
 async function firstBrowser() {
   const browser = await openBrowser();
   const { send } = browser.tab;
@@ -281,30 +333,38 @@ async function firstBrowser() {
     page = 'sign up';
     uid = await signIn(send, A);
     if (!uid) return;
+    const onDesk = await sheetIds(send);
+    const sampleOnly = await evaluate(send, `!!document.querySelector('.home-how')`);
     const rows = await docsOf(uid);
-    const shown = await evaluate(send, `document.querySelectorAll('.dash-rows > li').length`);
-    if (rows.length !== 8 || shown !== 8) fail(`SEED  expected the 8 samples on screen and on the server (screen ${shown}, server ${rows.length})`);
-    else note('a new account signs up with an emailed code and gets the 8 samples, on screen and on the server');
-    if (rows.some((r) => r.targets.includes('PDF/UA'))) fail('SEED  a sample claims PDF/UA');
+    if (!sampleOnly || JSON.stringify(onDesk) !== JSON.stringify([SAMPLE])) fail(`SEED  a new account should see only the sample on an empty desk (layout ${sampleOnly ? 'sample-only' : 'other'}, sheets ${JSON.stringify(onDesk)})`);
+    else if (rows.length !== 1 || rows[0].id !== SAMPLE) fail(`SEED  the server should hold just the sample (has ${JSON.stringify(rows.map((r) => r.id))})`);
+    else note('a new account signs up with an emailed code and gets the one sample, on screen and on the server');
+    if (rows.some((r) => r.targets.includes('PDF/UA'))) fail('SEED  the sample claims PDF/UA');
+    let seeded = false;
+    for (let i = 0; i < 25 && !seeded; i++) {
+      seeded = Boolean((await db.auth.admin.getUserById(uid)).data?.user?.user_metadata?.sample_seeded);
+      if (!seeded) await sleep(200);
+    }
+    if (!seeded) fail('SEED  the account was not marked sample_seeded, so removing the sample could bring it back');
 
     page = 'opening is not editing';
-    const before = await docOf(uid, 'water-quality');
-    await go(send, '/editor/water-quality');
+    const before = await docOf(uid, SAMPLE);
+    await go(send, `/editor/${SAMPLE}`);
     await waitFor(send, `!!document.getElementById('document-text')`);
     await sleep(3000); // longer than the push delay
-    const after = await docOf(uid, 'water-quality');
+    const after = await docOf(uid, SAMPLE);
     if (after?.updated_at !== before?.updated_at) fail('SYNC  opening a document without editing pushed it (could overwrite newer edits from another device)');
     else note('opening a document without editing pushes nothing');
 
     page = 'edit syncs';
-    await go(send, `/editor/${EDITED}`);
-    await waitFor(send, `!!document.getElementById('document-text')`);
-    await typeAtEnd(send, ' E2E synced edit.');
-    const synced = await waitForRow(uid, EDITED, (r) => contentHas(r, 'E2E synced edit.'));
+    await goHome(send);
+    if (!(await createDocument(send, 'E2E sync document', SYNCED))) return;
+    await typeAtEnd(send, 'E2E synced edit.');
+    const synced = await waitForRow(uid, SYNCED, (r) => contentHas(r, 'E2E synced edit.'));
     const status = await waitFor(send, `[...document.querySelectorAll('header span')].some((s) => s.textContent.trim() === 'Saved')`, 10_000);
-    if (!contentHas(synced, 'E2E synced edit.')) fail('SYNC  a typed edit never reached the server');
+    if (!contentHas(synced, 'E2E synced edit.')) fail('SYNC  a new document’s typed text never reached the server');
     else if (!status) fail(`SYNC  the edit reached the server but the status reads ${JSON.stringify(await saveStatus(send))}`);
-    else note('a typed edit reaches the server and the status reads Saved');
+    else note('a document made from the + menu, and what is typed in it, reach the server; the status reads Saved');
 
     page = 'restored from the server';
     await evaluate(send, `Object.keys(localStorage).filter((k) => k.startsWith('ada.docs.v1')).forEach((k) => localStorage.removeItem(k))`);
@@ -319,14 +379,14 @@ async function firstBrowser() {
     await typeAtEnd(send, ' E2E offline edit.');
     const unsynced = await waitFor(send, `[...document.querySelectorAll('header span')].some((s) => s.textContent.trim() === 'Not synced — kept in this browser')`, 12_000);
     const told = await waitFor(send, `(document.querySelector('[role=status]')?.textContent ?? '').includes('aren’t reaching your account')`, 5_000);
-    const leaked = contentHas(await docOf(uid, EDITED), 'E2E offline edit.');
+    const leaked = contentHas(await docOf(uid, SYNCED), 'E2E offline edit.');
     if (!unsynced) fail(`OFFLINE  status reads ${JSON.stringify(await saveStatus(send))}, not "Not synced — kept in this browser"`);
     else if (!told) fail('OFFLINE  losing the connection was not announced');
     else if (leaked) fail('OFFLINE  the edit reached the server while offline (emulation not in effect)');
     else note('offline: the edit stays in the browser, the status says so, and it is announced');
     const offlineAt = Date.now();
     await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-    const back = await waitForRow(uid, EDITED, (r) => contentHas(r, 'E2E offline edit.'), 40_000);
+    const back = await waitForRow(uid, SYNCED, (r) => contentHas(r, 'E2E offline edit.'), 40_000);
     const savedAgain = await waitFor(send, `[...document.querySelectorAll('header span')].some((s) => s.textContent.trim() === 'Saved')`, 5_000);
     if (!contentHas(back, 'E2E offline edit.')) fail('OFFLINE  back online, the offline edit never reached the server');
     else if (!savedAgain) fail('OFFLINE  the offline edit synced but the status did not return to Saved');
@@ -335,16 +395,17 @@ async function firstBrowser() {
     page = 'cross-tab sign-out';
     const other = await openTab(browser.target);
     const second = await prepare(other);
-    await go(second.send, '/');
-    if (!(await waitFor(second.send, `[...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Sign out')`, 20_000))) {
-      fail('TABS  the second tab never showed Sign out');
+    await goHome(second.send);
+    await clickButton(second.send, 'Account');
+    if (!(await waitFor(second.send, `[...document.querySelectorAll('.home-pop__panel button')].some((b) => b.textContent.trim() === 'Sign out')`, 5_000))) {
+      fail('TABS  the Account menu has no Sign out');
     } else {
       await clickButton(second.send, 'Sign out');
       const left = await waitFor(send, `location.pathname === '/sign-in'`, 15_000);
       const storage = await evaluate(send, `Object.keys(localStorage)`);
       if (!left) fail(`TABS  signing out in another tab left this tab at ${await evaluate(send, 'location.pathname')}`);
       else if (storage.some((k) => k.startsWith('ada.docs.v1') || /^sb-.*-auth-token$/.test(k))) fail(`TABS  signed out, but the browser still holds ${JSON.stringify(storage)}`);
-      else note('signing out in one tab takes the other tab out of the account, and nothing is left in the browser');
+      else note('Sign out (Account menu) in one tab takes the other tab out of the account, and nothing is left in the browser');
     }
     // Close only this tab's socket: Browser.close (shutdown) would end the whole browser.
     second.ws.close();
@@ -353,7 +414,8 @@ async function firstBrowser() {
   }
 }
 
-// 6–7 in a fresh browser: returning sign-in, PDF export, message, deletion.
+// Browser 2, the same account returning: PDF export, deletion, the sample,
+// the message form, account deletion.
 async function secondBrowser() {
   const browser = await openBrowser();
   const { send } = browser.tab;
@@ -364,26 +426,21 @@ async function secondBrowser() {
     if (!again) return;
     if (again !== uid) fail('SIGNIN  signing in again created a different account');
     const rows = await docsOf(again);
-    if (rows.length !== 8) fail(`SEED  a returning account has ${rows.length} documents; samples were seeded again or lost`);
-    else note('signing in again reaches the same account, with nothing seeded twice');
-    if (!contentHas(rows.find((r) => r.id === EDITED), 'E2E offline edit.')) fail('SYNC  the other browser’s edits are missing in a fresh one');
+    const onDesk = (await sheetIds(send)).sort();
+    const want = [SYNCED, SAMPLE].sort();
+    if (JSON.stringify(rows.map((r) => r.id).sort()) !== JSON.stringify(want) || JSON.stringify(onDesk) !== JSON.stringify(want)) {
+      fail(`SEED  a returning account should have ${JSON.stringify(want)} (server ${JSON.stringify(rows.map((r) => r.id))}, desk ${JSON.stringify(onDesk)})`);
+    } else note('signing in again reaches the same account, both documents on the desk, nothing seeded twice');
+    if (!contentHas(rows.find((r) => r.id === SYNCED), 'E2E offline edit.')) fail('SYNC  the other browser’s edits are missing in a fresh one');
 
     page = 'export PDF';
-    await go(send, '/');
-    await waitFor(send, `document.querySelectorAll('.dash-rows > li').length`);
-    await clickButton(send, 'New document');
-    await waitFor(send, `document.activeElement?.closest('[role=dialog]') && document.activeElement.tagName === 'INPUT'`);
-    await send('Input.insertText', { text: 'E2E clean document' });
-    await key(send, 'Enter');
-    if (!(await waitFor(send, `location.pathname === '/editor/e2e-clean-document' && !!document.getElementById('document-text')`))) {
-      fail('PDF  New document did not open the document');
-    } else {
+    if (await createDocument(send, 'E2E clean document', CLEAN)) {
       await typeAtEnd(send, 'This document has one heading and one paragraph.');
       await sleep(700); // the editor's local save debounce
-      const clean = await downloadPdf(send, dir, 'e2e-clean-document');
-      await go(send, '/editor/hearing-notice');
+      const clean = await downloadPdf(send, dir, CLEAN);
+      await go(send, `/editor/${SAMPLE}`);
       await waitFor(send, `!!document.getElementById('document-text')`);
-      const flagged = await downloadPdf(send, dir, 'hearing-notice');
+      const flagged = await downloadPdf(send, dir, SAMPLE);
       if (clean && flagged) {
         const vera = ensureVeraPdf({ verbose: VERBOSE });
         if (!vera.ok) {
@@ -392,14 +449,48 @@ async function secondBrowser() {
         } else {
           const { results, error } = validatePdfUa([clean, flagged]);
           if (error) fail(`PDF  ${error}`);
-          const want = new Map([[clean, []], [flagged, ['7.3-1', '7.4.2-1']]]);
-          for (const [file, expected] of want) {
+          const expected = new Map([[clean, []], [flagged, ['7.3-1', '7.4.2-1']]]);
+          for (const [file, clauses] of expected) {
             const got = results.get(file)?.failed;
-            if (JSON.stringify(got) !== JSON.stringify(expected)) fail(`PDF  ${file.split('/').pop()} failed ${JSON.stringify(got)}; expected ${JSON.stringify(expected)}`);
+            if (JSON.stringify(got) !== JSON.stringify(clauses)) fail(`PDF  ${file.split('/').pop()} failed ${JSON.stringify(got)}; expected ${JSON.stringify(clauses)}`);
           }
-          if (!failures.some((f) => f.includes('PDF  '))) note('a signed-in export is PDF/UA-1: a clean document passes, and hearing-notice fails on exactly 7.3-1 and 7.4.2-1');
+          if (!failures.some((f) => f.includes('PDF  '))) note(`a signed-in export is PDF/UA-1: a clean document passes, and ${SAMPLE} fails on exactly 7.3-1 and 7.4.2-1`);
         }
       }
+    }
+
+    page = 'delete documents';
+    let deletedBoth = true;
+    for (const [id, title] of [[CLEAN, 'E2E clean document'], [SYNCED, 'E2E sync document']]) {
+      if (!(await deleteFromEditor(send, id, title))) { deletedBoth = false; continue; }
+      const row = await docOf(uid, id);
+      if (row) { fail(`DELETE  ${id} is still on the server`); deletedBoth = false; }
+    }
+    await send('Page.reload');
+    await waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+    await sleep(2500); // a push, had anything been queued, would land by now
+    const resurrected = (await docsOf(uid)).map((r) => r.id).filter((id) => id === CLEAN || id === SYNCED);
+    if (resurrected.length) fail(`DELETE  deleted documents came back through sync: ${JSON.stringify(resurrected)}`);
+    else if (deletedBoth) note('deleting from the editor asks first, announces it, and the documents stay gone after a reload');
+
+    page = 'remove the sample';
+    await goHome(send);
+    const emptyDesk = await evaluate(send, `!!document.querySelector('.home-how')`);
+    await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
+    if (!emptyDesk || !(await clickButton(send, 'Remove the sample'))) {
+      fail('SAMPLE  with only the sample left, the empty desk has no Remove the sample');
+    } else {
+      const gone = await waitFor(send, `document.querySelectorAll('.home-sheet').length === 0 && document.activeElement?.id === 'how-heading'`, 10_000);
+      const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
+      const serverRows = (await docsOf(uid)).length;
+      await send('Page.reload');
+      await waitFor(send, `!!document.querySelector('.home-how')`, 20_000);
+      await sleep(2500);
+      const afterReload = { screen: (await sheetIds(send)).length, server: (await docsOf(uid)).length };
+      if (!asked.some((q) => q.includes('can’t be undone'))) fail(`SAMPLE  removing the sample did not ask first (asked ${JSON.stringify(asked)})`);
+      else if (!gone || serverRows !== 0) fail(`SAMPLE  removing the sample left ${serverRows} rows, or focus did not reach the heading`);
+      else if (afterReload.screen || afterReload.server) fail(`SAMPLE  the sample came back after a reload (${JSON.stringify(afterReload)})`);
+      else note('Remove the sample asks first, empties the desk, and the sample does not come back after a reload');
     }
 
     page = 'privacy';
@@ -413,6 +504,7 @@ async function secondBrowser() {
     else if (messages.length !== 1 || messages[0].email !== A) fail(`PRIVACY  expected one message from ${A}, found ${JSON.stringify(messages)}`);
     else note('a message is stored once, from the signed-in address');
 
+    await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
     await clickButton(send, 'Delete my account');
     const deleted = await waitFor(send, `location.pathname === '/sign-in' && location.search.includes('deleted') && document.querySelector('.signin__notice')?.textContent`, 20_000);
     const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
@@ -420,9 +512,9 @@ async function secondBrowser() {
     const leftDocs = (await docsOf(uid)).length;
     const leftMessages = ((await db.from('contact_messages').select('id').eq('user_id', uid)).data ?? []).length
       + ((await db.from('contact_messages').select('id').eq('email', A)).data ?? []).length;
-    if (!asked.some((q) => q.includes('can’t be undone'))) fail(`DELETE  deletion was not confirmed first (asked ${JSON.stringify(asked)})`);
-    else if (!deleted) fail('DELETE  did not land on sign-in with the deleted notice');
-    else if (user?.user || leftDocs || leftMessages) fail(`DELETE  left behind: user ${!!user?.user}, ${leftDocs} documents, ${leftMessages} messages`);
+    if (!asked.some((q) => q.includes('can’t be undone'))) fail(`ACCOUNT  deleting the account was not confirmed first (asked ${JSON.stringify(asked)})`);
+    else if (!deleted) fail('ACCOUNT  did not land on sign-in with the deleted notice');
+    else if (user?.user || leftDocs || leftMessages) fail(`ACCOUNT  left behind: user ${!!user?.user}, ${leftDocs} documents, ${leftMessages} messages`);
     else note('deleting the account asks first, then removes the user, its documents and its messages');
   } finally {
     tidy(dir);
