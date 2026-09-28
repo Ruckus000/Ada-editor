@@ -71,6 +71,13 @@ npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gat
 npm run preview    # serve the live preview at http://127.0.0.1:8080
 ```
 
+`npm run e2e` (needs Docker) runs the account path end to end against a **local**
+Supabase stack (`supabase/config.toml`, started and stopped for you): sign-in by
+emailed code read from the stack's mail catcher, sync, offline and back, sign-out
+from another tab, a signed-in PDF export through veraPDF, the message form,
+account deletion, and `supabase/tests/rls.sql`. It never touches the hosted
+project. CI runs it on every PR.
+
 `node scripts/verify-tokens.mjs --verbose` and `node scripts/palette-ceiling.mjs`
 run with no dependencies at all. The PDF gate's conformance half needs Java 11+
 and Maven (it fetches veraPDF from Maven Central on first run); without them it

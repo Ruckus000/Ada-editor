@@ -7,9 +7,9 @@ name: design system
 on:
   push:
     branches: [main]
-    paths: ['design-system/**', 'app/**', 'public/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'app/**', 'public/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', 'supabase/**', '.github/workflows/design-system.yml']
   pull_request:
-    paths: ['design-system/**', 'app/**', 'public/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.github/workflows/design-system.yml']
+    paths: ['design-system/**', 'app/**', 'public/**', 'next.config.ts', 'scripts/**', 'package.json', 'package-lock.json', 'tsconfig.json', 'supabase/**', '.github/workflows/design-system.yml']
   workflow_dispatch:
 
 jobs:
@@ -67,6 +67,40 @@ jobs:
 
       - name: PDF export gate (structure + veraPDF PDF/UA-1)
         run: node scripts/verify-pdf.mjs --verbose
+
+  # The account path end to end, against a local Supabase stack in Docker
+  # (supabase/config.toml): sign-in by emailed code (read from Mailpit), sync,
+  # offline, cross-tab sign-out, a signed-in PDF export through veraPDF, the
+  # message form, account deletion, and supabase/tests/rls.sql. The other jobs
+  # build in local mode and never reach any of this.
+  e2e:
+    name: End-to-end (local Supabase)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: scripts/verapdf/pom.xml
+
+      - run: npm ci
+      - name: Install Chromium for the e2e test
+        run: npx --yes playwright@1.49.0 install --with-deps chromium
+
+      # --keep-stack: the runner is discarded anyway, and the containers must
+      # outlive a failure for the log step below.
+      - name: End-to-end test (starts the local stack)
+        run: node scripts/verify-e2e.mjs --verbose --keep-stack
+
+      - name: Supabase container logs
+        if: failure()
+        run: for c in $(docker ps -a --filter name=supabase_ --format '{{.Names}}'); do echo "=== $c"; docker logs --tail 80 "$c" 2>&1; done
 
   accessibility:
     runs-on: ubuntu-latest
