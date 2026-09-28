@@ -74,7 +74,13 @@ const freePort = () =>
     });
   });
 
-export const launch = async (pageUrl) => {
+/**
+ * `profileDir` (optional): a fresh --user-data-dir, for tests that must start
+ * signed out with empty storage. The browser then opens on about:blank and the
+ * caller navigates (Page.navigate) — the argv navigation on a fresh profile
+ * never commits (see below), and a redirecting page would miss the URL match.
+ */
+export const launch = async (pageUrl, { profileDir } = {}) => {
   // A free port, not the old random draw in 9222–10221: a collision there let
   // a leftover browser answer /json/list, and the gate would silently test the
   // wrong page. No --user-data-dir: this Chrome's headless first run on a
@@ -82,10 +88,12 @@ export const launch = async (pageUrl) => {
   // about:blank while /json/list already reports the URL), so the default —
   // already-initialized — profile stays.
   const port = await freePort();
+  const openUrl = profileDir ? 'about:blank' : pageUrl;
   const proc = spawn(CHROME, [
     '--headless', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
     '--force-color-profile=srgb', '--disable-extensions',
-    `--remote-debugging-port=${port}`, pageUrl,
+    ...(profileDir ? [`--user-data-dir=${profileDir}`, '--no-first-run', '--no-default-browser-check'] : []),
+    `--remote-debugging-port=${port}`, openUrl,
   ], { stdio: 'ignore' });
   track(proc);
 
@@ -97,12 +105,23 @@ export const launch = async (pageUrl) => {
       // The URL match is the readiness AND ownership signal: the tab must have
       // committed the requested navigation, so a not-yet-loaded page or some
       // other instance on this port fails loudly instead of testing nothing.
-      const target = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl && t.url === pageUrl);
+      const target = list.find((t) => t.type === 'page' && t.webSocketDebuggerUrl && t.url === openUrl);
       if (target) return { proc, target };
     } catch { /* not up yet */ }
   }
   proc.kill('SIGKILL'); // SIGTERM is ignored by Chrome for Testing on macOS
   throw new Error(`Chromium did not expose a debugging target for ${pageUrl}`);
+};
+
+/**
+ * A second tab in the same browser (same profile, so shared localStorage and
+ * BroadcastChannel), opened at about:blank for the caller to navigate.
+ */
+export const openTab = async (target) => {
+  const port = new URL(target.webSocketDebuggerUrl).port;
+  const res = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: 'PUT' });
+  if (!res.ok) throw new Error(`Could not open a second tab (${res.status})`);
+  return res.json();
 };
 
 export const connect = async (target) => {
