@@ -42,7 +42,7 @@ export default function Page() {
       <p>Like any web service, they keep short-lived technical logs, which include IP addresses.</p>
 
       <h2>How long we keep it</h2>
-      <p>Until you delete your account. Deleting it removes your account and every document in it straight away.</p>
+      <p>Until you delete your account. Deleting it removes your account, every document in it and any messages you sent us, straight away.</p>
 
       <h2>Your choices</h2>
       <ul>

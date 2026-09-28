@@ -89,8 +89,7 @@ do $$ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
--- A deletes their account: A and A's documents go, B is untouched, and A's
--- message stays without its link.
+-- A deletes their account: A, A's documents and A's messages go; B is untouched.
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated", "email": "rls-a@test.invalid"}';
 select public.delete_my_account();
@@ -99,7 +98,7 @@ do $$ begin
   if exists (select 1 from auth.users where id = '00000000-0000-0000-0000-00000000000a') then raise exception 'A still exists'; end if;
   if exists (select 1 from public.documents where owner_id = '00000000-0000-0000-0000-00000000000a') then raise exception 'A''s documents survived'; end if;
   if not exists (select 1 from public.documents where owner_id = '00000000-0000-0000-0000-00000000000b') then raise exception 'B''s documents were deleted'; end if;
-  if not exists (select 1 from public.contact_messages where message = 'A asks a question' and user_id is null) then raise exception 'A''s message lost or still linked'; end if;
+  if exists (select 1 from public.contact_messages where message = 'A asks a question') then raise exception 'A''s message survived'; end if;
 end $$;
 
 select 'rls ok' as result;
