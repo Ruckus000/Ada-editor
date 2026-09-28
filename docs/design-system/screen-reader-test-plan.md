@@ -248,6 +248,21 @@ fail when the fix is reverted. Note it must activate a **button inside** the
 card: an earlier version pressed `Escape` on the card itself and passed even
 with the fix removed, because React can reuse the `<li>` node.
 
-**Still unverified:** NVDA and JAWS. Orca and VoiceOver are real screen readers
+**NVDA, verified September 2026** (CI run 36448190005, now blocking). It first
+had to run against a headed browser — headless Chromium has no window, so NVDA
+said only "blank". Reading for real, it found three bugs Orca, VoiceOver and the
+tree gates had all passed:
+
+- `Escape` dismissed the focused finding. NVDA and JAWS users press `Escape` to
+  leave focus mode, so they would throw findings away without meaning to.
+  Dismiss is now `Delete`; `Escape` is inert in the list.
+- Enter and dismiss acted on the roving index, not the focused card, so a card
+  reached by click or screen-reader cursor could have a different finding acted
+  on. Keys now act on the focused card.
+- Visually hidden text lost its edge spaces (`white-space: nowrap` on an
+  absolutely positioned box), so NVDA read "Apply fixfor…" and "Blocks
+  access(Fails…". Chrome's computed names were right; NVDA reads the text runs.
+
+**Still unverified:** JAWS. Orca and VoiceOver are real screen readers
 consuming the real platform accessibility API, but browse-mode behaviour differs
 between implementations, and step 6 (keyboard trap) was not exercised.
