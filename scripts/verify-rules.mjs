@@ -1656,6 +1656,33 @@ await acheck('images: keys are SHA-256, and only well-formed keys get through', 
   deepEq(imageKeysOf(content, [{ image: other }, null, { image: '../x' }]).sort(), [key, other].sort(), 'figures at any depth and section images, once each, bad keys dropped');
 });
 
+check('images: large photos are shrunk to 2400 px on the longer side, never enlarged', () => {
+  const { targetSize, MAX_IMAGE_SIDE } = mod.imageFormat;
+  eq(MAX_IMAGE_SIDE, 2400, 'the cap');
+  deepEq(targetSize(4032, 3024), { width: 2400, height: 1800 }, 'landscape phone photo');
+  deepEq(targetSize(3024, 4032), { width: 1800, height: 2400 }, 'portrait');
+  deepEq(targetSize(640, 480), { width: 640, height: 480 }, 'already small: unchanged');
+  deepEq(targetSize(100000, 3), { width: 2400, height: 1 }, 'never below one pixel');
+});
+
+check('images: a shrunk copy replaces the original in figures and bands', () => {
+  const { remapImageKeys } = mod.imageFormat;
+  const [big, kept, small] = ['a'.repeat(64), 'b'.repeat(64), 'c'.repeat(64)];
+  const map = new Map([[big, { key: small, width: 2400, height: 1800 }]]);
+  const content = doc(
+    N.figure.create({ id: 'img-1', alt: 'Photo', image: big, width: 4032, height: 3024 }),
+    table([[{ td: [N.figure.create({ id: 'img-2', image: big, width: 4032, height: 3024 })] }]]),
+    N.figure.create({ id: 'img-3', image: kept, width: 10, height: 10 }),
+  ).toJSON();
+  const bands = [{ id: 'header-img-1', alt: 'Logo', image: big, width: 4032, height: 3024 }, null, { id: 'f', alt: '', image: '../x', width: 1, height: 1 }];
+  const out = remapImageKeys(content, bands, map);
+  const figs = [];
+  schema.nodeFromJSON(out.content).descendants((n) => { if (n.type.name === 'figure') figs.push([n.attrs.id, n.attrs.image, n.attrs.width, n.attrs.height, n.attrs.alt]); });
+  deepEq(figs, [['img-1', small, 2400, 1800, 'Photo'], ['img-2', small, 2400, 1800, ''], ['img-3', kept, 10, 10, '']], 'at any depth; others and alt untouched');
+  deepEq(out.sections, [{ id: 'header-img-1', alt: 'Logo', image: small, width: 2400, height: 1800 }, null, bands[2]], 'band images too; a bad key left as it was');
+  eq(content.content[0].attrs.image, big, 'the input is not changed');
+});
+
 check('images: a figure keeps its picture through the clipboard; a hostile key is dropped', () => {
   const key = 'a'.repeat(64);
   const f = N.figure.create({ id: 'img-1', alt: 'Map', label: 'map', image: key, width: 640, height: 480 });
@@ -2017,16 +2044,19 @@ await acheck('import: pictures the editor can’t show stay placeholders, each k
   eq(r.images.size, 0, 'nothing to store');
 });
 
-await acheck('import: a picture over 10 MB stays a placeholder, stored or deflated', async () => {
-  const big = new Uint8Array(10 * 1024 * 1024 + 1);
-  big.set(png(1, 1));
+await acheck('import: a picture over 10 MB comes in (to be shrunk); over 40 MB stays a placeholder', async () => {
+  const withPng = (n) => { const b = new Uint8Array(n); b.set(png(1, 1)); return b; };
+  const figOf = (r) => { let fig; r.content.descendants((n) => { if (n.type.name === 'figure') fig = n.attrs; }); return fig; };
+  // Stored: the zip itself is capped at 25 MB, so only a picture under that fits.
   for (const method of [0, 8]) {
-    const r = await importDocx(docx({ body: P(blipDrawing('rB', 'Huge')), docRels: [rel('rB', 'image', 'media/big.png')], parts: [media('big.png', big, { method })] }), 'x.docx', parseXml);
-    let fig;
-    r.content.descendants((n) => { if (n.type.name === 'figure') fig = n.attrs; });
-    eq(fig?.image, null, `method ${method}: no picture`);
-    deepEq(r.notes, ['1 image too large to bring in (over 10 MB) kept as a placeholder.'], `method ${method}: said so`);
+    const r = await importDocx(docx({ body: P(blipDrawing('rB', 'Big')), docRels: [rel('rB', 'image', 'media/big.png')], parts: [media('big.png', withPng(12 * 1024 * 1024), { method })] }), 'x.docx', parseXml);
+    assert(mod.imageFormat.validImageKey(figOf(r)?.image), `method ${method}: a 12 MB picture comes in`);
+    eq(r.images.size, 1, `method ${method}: to store (after shrinking)`);
+    deepEq(r.notes, [], `method ${method}: nothing to say`);
   }
+  const r = await importDocx(docx({ body: P(blipDrawing('rB', 'Huge')), docRels: [rel('rB', 'image', 'media/big.png')], parts: [media('big.png', withPng(40 * 1024 * 1024 + 1), { method: 8 })] }), 'x.docx', parseXml);
+  eq(figOf(r)?.image, null, 'over 40 MB: no picture');
+  deepEq(r.notes, ['1 image too large to bring in kept as a placeholder.'], 'over 40 MB: said so');
 });
 
 await acheck('import: the header and footer bring their first picture, with its alt; more are noted', async () => {

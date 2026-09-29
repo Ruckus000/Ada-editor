@@ -923,6 +923,7 @@ async function editor() {
 
     await tables(send, findingCount);
     await images(send, findingCount);
+    await dropAndShrink(send, findingCount);
 
     await checkReflow(send);
     await checkForcedColors(send);
@@ -1115,6 +1116,52 @@ async function images(send, findingCount) {
   }
 }
 
+// Drag and drop, and large photos: files dropped on the page land where
+// they're dropped (several in order), a dropped file that isn't a picture is
+// refused out loud, and a photo over 2400 px is stored shrunk, and says so.
+async function dropAndShrink(send, findingCount) {
+  const b64 = (bytes) => Buffer.from(bytes).toString('base64');
+  // A drop at the end of the first paragraph, as the browser sends one.
+  const drop = (files) => evaluate(send, `(() => {
+    const d = document.getElementById('document-text');
+    const p = d.querySelector(':scope > p');
+    p.scrollIntoView({ block: 'center' });
+    const r = p.getBoundingClientRect();
+    const dt = new DataTransfer();
+    for (const [name, type, data] of ${JSON.stringify(files)}) dt.items.add(new File([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], name, { type }));
+    d.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true, clientX: r.right - 2, clientY: r.bottom - 4 }));
+  })()`);
+  const afterFirst = (n) => evaluate(send, `(() => { const out = []; let el = document.querySelector('#document-text > p'); for (let i = 0; i < ${n}; i++) { el = el?.nextElementSibling; out.push(el?.matches('[data-figure-id]') ? el.querySelector('[role=img]').getAttribute('aria-label') : el?.tagName); } return out; })()`);
+  const settle = async (want) => { for (let i = 0; i < 40; i++) { if ((await findingCount()) === want) return true; await sleep(200); } return false; };
+
+  let findings = await findingCount();
+  await drop([['dropped-one.png', 'image/png', b64(png(60, 40))], ['dropped-two.png', 'image/png', b64(png(40, 60))]]);
+  const landed = (await settle(findings + 2)) && await afterFirst(2);
+  const said = await liveText(send);
+  if (!landed || !/^dropped-one, no alternative text/.test(landed[0]) || !/^dropped-two, no alternative text/.test(landed[1])) fail(`DROP  two dropped pictures did not land, in order, where they were dropped (${JSON.stringify(landed)})`);
+  else if (!/^Image inserted: dropped-two\. It has no alternative text yet/.test(said)) fail(`DROP  the drop was not announced (got ${JSON.stringify(said)})`);
+  else note('dropped pictures land where they are dropped, in order, each flagged for alt text, announced');
+  await runAxe(send, ' (dropped images)');
+
+  findings = await findingCount();
+  const figures = await evaluate(send, `document.querySelectorAll('#document-text [data-figure-id]').length`);
+  await drop([['notes.txt', 'text/plain', b64(Buffer.from('not a picture'))]]);
+  await sleep(500);
+  const alert = await evaluate(send, `[...document.querySelectorAll('[role=alert]')].map((a) => a.textContent).join(' ')`);
+  if (!alert.includes('isn’t a PNG, JPEG, GIF or WebP') || (await evaluate(send, `document.querySelectorAll('#document-text [data-figure-id]').length`)) !== figures) fail(`DROP  a dropped text file was not refused visibly (${JSON.stringify(alert)})`);
+  else note('a dropped file that isn’t a picture is refused with a visible alert, and nothing is inserted');
+
+  // 3000×2000: stored at 2400×1600, and the announcement says it was resized.
+  await drop([['big-photo.png', 'image/png', b64(png(3000, 2000))]]);
+  await settle(findings + 1);
+  await sleep(300);
+  const big = await evaluate(send, `(() => { const f = [...document.querySelectorAll('#document-text [data-figure-id]')].find((x) => x.querySelector('[role=img]')?.getAttribute('aria-label')?.startsWith('big-photo')); const img = f?.querySelector('img'); return img ? { natural: img.naturalWidth, h: img.naturalHeight } : null; })()`);
+  const resized = await liveText(send);
+  if (big?.natural !== 2400 || big?.h !== 1600) fail(`SHRINK  a 3000×2000 picture was not stored at 2400×1600 (${JSON.stringify(big)})`);
+  else if (!/^Image inserted: big-photo, resized to 2400 by 1600 pixels\./.test(resized)) fail(`SHRINK  the resize was not announced (got ${JSON.stringify(resized)})`);
+  else note('a picture over 2400 px is stored at 2400 px on its longer side, and the announcement says so');
+}
+
 // Export: the downloaded page must be exactly as accessible as the findings
 // say, and a hostile title from localStorage (a trust boundary) must stay
 // text. Last step of editor(): it navigates away from the editor.
@@ -1168,7 +1215,7 @@ async function checkExport(send) {
     const table = await evaluate(send, `(() => { const t = [...document.querySelectorAll('table')].find((x) => x.querySelector('caption')?.textContent === 'Hearing dates'); return t ? { th: [...t.querySelectorAll('thead th[scope=col]')].map((c) => c.textContent), rows: t.querySelectorAll('tr').length } : null; })()`);
     if (!table || table.th.join('|') !== 'Date|Room' || table.rows !== 3) fail(`EXPORT  the table from the editor did not reach the page with its header row (${JSON.stringify(table)})`);
     else note('the table exports with its caption and scoped header row, axe clean');
-    const picture = await evaluate(send, `(() => { const img = document.querySelector('figure.image img'); return img ? { data: img.getAttribute('src').startsWith('data:image/png;base64,'), alt: img.getAttribute('alt'), natural: img.naturalWidth } : null; })()`);
+    const picture = await evaluate(send, `(() => { const img = [...document.querySelectorAll('figure.image img')].find((i) => i.getAttribute('alt') === 'Chart of weekly visits'); return img ? { data: img.getAttribute('src').startsWith('data:image/png;base64,'), alt: img.getAttribute('alt'), natural: img.naturalWidth } : null; })()`);
     if (!picture?.data || picture.alt !== 'Chart of weekly visits' || picture.natural !== 120) fail(`EXPORT  the inserted picture did not export with its alt text (${JSON.stringify(picture)})`);
     else note('the inserted picture exports inside the page, with the alt text added in the editor');
     const logo = await evaluate(send, `document.querySelector('header img')?.getAttribute('alt') ?? null`);

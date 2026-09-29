@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Fragment, Slice } from 'prosemirror-model';
 import type { Node as PMNode } from 'prosemirror-model';
+import { dropCursor } from 'prosemirror-dropcursor';
 import { EditorState, NodeSelection, Plugin, TextSelection } from 'prosemirror-state';
 import type { Command, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
@@ -60,7 +61,8 @@ import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import type { TableAction } from './Toolbar';
 import { ImageError, acquireUrl, putImage, releaseUrl } from '../_data/images';
 import { imageKeys, resolveForHtml, resolveForPdf } from './exportImages';
-import { IMAGE_MIMES, MAX_IMAGE_BYTES, sniffImage, validImageKey } from '../_data/imageFormat';
+import { IMAGE_MIMES, MAX_IMAGE_BYTES, MAX_SOURCE_BYTES, sniffImage, validImageKey } from '../_data/imageFormat';
+import { UnreadableImage, prepareImage } from './prepareImage';
 import styles from './editor.module.css';
 
 const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green' };
@@ -131,7 +133,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // re-render, the list re-sort and the decoration rebuild on no-op edits.
   const lastRenderedRef = useRef(findings);
   const activeRef = useRef<string | null>(activeId);
-  const handlersRef = useRef({ insertImageFile: async (_file: File) => {}, editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
+  const handlersRef = useRef({ insertImageFiles: async (_files: File[]) => {}, refuseImage: () => {}, editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
   const docRegion = useRef<HTMLElement>(null);
   const findingsRegion = useRef<HTMLElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -321,6 +323,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         doc: initial,
         plugins: [
           ...editingPlugins(),
+          // Where a dragged picture (or text) will land.
+          dropCursor({ color: 'var(--as-primary)', width: 2 }),
           issueUnderlinePlugin(() => findingsRef.current.filter((f) => f.anchor.kind === 'text' && f.to > f.from)),
           activeHighlight,
         ],
@@ -341,11 +345,25 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       // Pasted or copied images get fresh ids: a copy of an image in this document
       // would otherwise share its id, and alt-text edits would hit the wrong one.
       // Pasted text loses any mark for the document's own language.
-      // A pasted image file (a screenshot) goes the same way as a chosen one.
+      // Pasted image files (a screenshot) go the same way as chosen ones.
       handlePaste(_view, event) {
-        const file = [...(event.clipboardData?.files ?? [])].find((f) => (IMAGE_MIMES as readonly string[]).includes(f.type));
-        if (!file) return false;
-        void handlersRef.current.insertImageFile(file);
+        const files = [...(event.clipboardData?.files ?? [])].filter((f) => (IMAGE_MIMES as readonly string[]).includes(f.type));
+        if (!files.length) return false;
+        void handlersRef.current.insertImageFiles(files);
+        return true;
+      },
+      // Files dropped on the page land where they're dropped. A drag within
+      // the document, or of text, is ProseMirror's own. A dropped file that
+      // isn't a picture is refused out loud rather than opened by the browser.
+      handleDrop(dropView, event, _slice, moved) {
+        const all = [...(event.dataTransfer?.files ?? [])];
+        if (moved || !all.length) return false;
+        event.preventDefault();
+        const files = all.filter((f) => f.type === '' || (IMAGE_MIMES as readonly string[]).includes(f.type));
+        if (!files.length) { handlersRef.current.refuseImage(); return true; }
+        const at = dropView.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (at) dropView.dispatch(dropView.state.tr.setSelection(TextSelection.near(dropView.state.doc.resolve(at.pos))));
+        void handlersRef.current.insertImageFiles(files);
         return true;
       },
       transformPasted(slice, pasteView) {
@@ -599,21 +617,21 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     imageInputRef.current?.click();
   };
 
-  const insertImageFile = async (file: File) => {
+  const insertImageFile = async (file: File, clearError = true) => {
     const view = viewRef.current;
     if (!view) return;
-    setImageError('');
+    if (clearError) setImageError('');
     try {
-      if (file.size > MAX_IMAGE_BYTES) throw new ImageError('size', 'That image is over 10 MB. Use a smaller copy.');
+      if (file.size > MAX_SOURCE_BYTES) throw new ImageError('size', 'That image is over 40 MB. Use a smaller copy.');
       const bytes = new Uint8Array(await file.arrayBuffer());
       if (sniffImage(bytes)?.kind !== 'image') throw new ImageError('type', 'That file isn’t a PNG, JPEG, GIF or WebP image.');
-      // Its header can be right and the rest broken: make sure it draws.
-      try {
-        (await createImageBitmap(new Blob([bytes as BlobPart]))).close();
-      } catch {
-        throw new ImageError('type', 'That image couldn’t be read. It may be damaged.');
-      }
-      const stored = await putImage(bytes);
+      // Decoding also proves it draws: its header can be right and the rest broken.
+      const prepared = await prepareImage(bytes).catch((e: unknown) => {
+        throw e instanceof UnreadableImage ? new ImageError('type', 'That image couldn’t be read. It may be damaged.') : e;
+      });
+      if (prepared.bytes.length > MAX_IMAGE_BYTES) throw new ImageError('size', 'That image is still over 10 MB after shrinking. Use a smaller copy.');
+      const stored = await putImage(prepared.bytes);
+      const resized = prepared.resized ? `, resized to ${stored.width} by ${stored.height} pixels` : '';
       const section = imageTarget.current;
       imageTarget.current = null;
       if (section) {
@@ -621,7 +639,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         updateSection(section, { image: { id: sid, alt: '', image: stored.key, width: stored.width, height: stored.height } });
         const old = sectionsRef.current[section].image;
         setFindings([...findingsRef.current.filter((f) => f.id !== `img-alt-${old?.id}`), imageFinding(sid, `${section} image`, { kind: 'section', section })]);
-        announce(`Image added to the ${section}. It has no alternative text yet, so it was added as a blocking finding.`);
+        announce(`Image added to the ${section}${resized}. It has no alternative text yet, so it was added as a blocking finding.`);
         return;
       }
       const n = ++imageSeq.current;
@@ -633,11 +651,20 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       setActiveId(`img-alt-${id}`);
       setFilter(null);
       current.focus();
-      announce(`Image inserted: ${label}. It has no alternative text yet, so it was added as a blocking finding.`);
+      announce(`Image inserted: ${label}${resized}. It has no alternative text yet, so it was added as a blocking finding.`);
     } catch (error) {
       // Shown, and read out once by role="alert".
       setImageError(error instanceof ImageError ? error.message : 'That image couldn’t be added.');
     }
+  };
+
+  /** Several at once (a drop, a paste), in order, each after the last; into
+   *  the document, never a header or footer band. */
+  const insertImageFiles = async (files: File[]) => {
+    imageTarget.current = null;
+    setImageError('');
+    // A refusal stays shown while the rest go in.
+    for (const file of files) await insertImageFile(file, false);
   };
 
   /* ---------- tables ---------- */
@@ -840,7 +867,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   };
 
   handlersRef.current = {
-    insertImageFile,
+    insertImageFiles,
+    refuseImage: () => setImageError('That file isn’t a PNG, JPEG, GIF or WebP image.'),
     editTableCaption: (pos) => {
       const view = viewRef.current;
       const table = view?.state.doc.nodeAt(pos);

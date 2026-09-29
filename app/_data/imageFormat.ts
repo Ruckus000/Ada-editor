@@ -9,8 +9,20 @@
 export const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const;
 export type ImageMime = (typeof IMAGE_MIMES)[number];
 
-/** 10 MB, the same limit the storage bucket enforces. */
+/** 10 MB, the same limit the storage bucket enforces: what is stored. */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/** 40 MB: the largest file taken in, before a large photo is shrunk. */
+export const MAX_SOURCE_BYTES = 40 * 1024 * 1024;
+
+/** The longest side, in pixels, a stored image keeps. */
+export const MAX_IMAGE_SIDE = 2400;
+
+/** `width`×`height` scaled down (never up) so the longer side is at most `max`. */
+export function targetSize(width: number, height: number, max = MAX_IMAGE_SIDE): { width: number; height: number } {
+  const scale = Math.min(1, max / Math.max(width, height));
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
 
 /** An image's key: the SHA-256 of its bytes, lowercase hex. */
 const IMAGE_KEY = /^[0-9a-f]{64}$/;
@@ -152,4 +164,29 @@ export function imageKeysOf(content: unknown, sections: readonly unknown[] = [])
     if (key) keys.add(key);
   }
   return [...keys];
+}
+
+export interface Remapped { key: string; width: number; height: number }
+
+/** Content JSON and section images with each image key in `map` swapped for
+ *  its replacement (a shrunk copy): key, width and height. Untrusted JSON,
+ *  walked defensively; anything else is copied as it was. */
+export function remapImageKeys<C, S>(content: C, sections: readonly S[], map: ReadonlyMap<string, Remapped>): { content: C; sections: S[] } {
+  const swap = <T extends { image?: unknown; width?: unknown; height?: unknown }>(attrs: T): T => {
+    const key = validImageKey(attrs.image);
+    const next = key ? map.get(key) : undefined;
+    return next ? { ...attrs, image: next.key, width: next.width, height: next.height } : attrs;
+  };
+  const walk = (node: unknown, depth: number): unknown => {
+    if (depth > 200 || typeof node !== 'object' || node === null || Array.isArray(node)) return node;
+    const n = node as { type?: unknown; attrs?: Record<string, unknown>; content?: unknown };
+    let out: Record<string, unknown> = { ...n };
+    if (n.type === 'figure' && n.attrs && typeof n.attrs === 'object') out.attrs = swap(n.attrs);
+    if (Array.isArray(n.content)) out = { ...out, content: n.content.map((c) => walk(c, depth + 1)) };
+    return out;
+  };
+  return {
+    content: walk(content, 0) as C,
+    sections: sections.map((s) => (s && typeof s === 'object' ? swap(s as S & { image?: unknown }) : s)),
+  };
 }

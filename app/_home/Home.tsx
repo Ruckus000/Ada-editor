@@ -13,6 +13,9 @@ import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc, signOut } from '../_data/sync';
 import { putImage } from '../_data/images';
+import { MAX_IMAGE_BYTES, remapImageKeys } from '../_data/imageFormat';
+import type { Remapped } from '../_data/imageFormat';
+import { prepareImage } from '../_editor/prepareImage';
 import { NewDocumentDialog } from '../_editor/dialogs';
 import { schema } from '../_editor/editorSchema';
 import { summaryLine } from '../_editor/findings';
@@ -452,17 +455,30 @@ export function Home() {
     try {
       const imported = await importDocxFile(file);
       const findings = checkDocument(imported.content, { prose: true });
-      // The pictures first, so a document is never saved (or synced) ahead of them.
+      // The pictures first, so a document is never saved (or synced) ahead of
+      // them. Large photos are shrunk as they would be if inserted, and the
+      // document then refers to the shrunk copy.
       let unsaved = 0;
-      for (const image of imported.images.values()) await putImage(image.bytes).catch(() => { unsaved++; });
+      const shrunk = new Map<string, Remapped>();
+      for (const [key, image] of imported.images) {
+        try {
+          const prepared = await prepareImage(image.bytes);
+          if (prepared.bytes.length > MAX_IMAGE_BYTES) { unsaved++; continue; }
+          const stored = await putImage(prepared.bytes);
+          if (stored.key !== key) shrunk.set(key, stored);
+        } catch {
+          unsaved++;
+        }
+      }
       const imageNote = unsaved ? [`${unsaved === 1 ? '1 image' : `${unsaved} images`} couldn’t be saved in this browser, so ${unsaved === 1 ? 'it shows' : 'they show'} as unavailable.`] : [];
+      const { content, sections: [headerImage, footerImage] } = remapImageKeys(imported.content.toJSON() as Record<string, unknown>, [imported.headerImage, imported.footerImage], shrunk);
       const { id, persisted } = createDoc({
         title: imported.title,
         header: imported.header,
         footer: imported.footer,
-        headerImage: imported.headerImage,
-        footerImage: imported.footerImage,
-        content: imported.content.toJSON() as Record<string, unknown>,
+        headerImage: headerImage ?? null,
+        footerImage: footerImage ?? null,
+        content,
         importNotes: [...imported.notes, ...imageNote],
       });
       const notes = [...imported.notes, ...imageNote];
