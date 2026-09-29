@@ -44,13 +44,19 @@ export interface ImportedDoc {
   header: string;
   footer: string;
   content: PMNode;
-  /** The pictures the content's figures refer to, by key. */
+  /** The pictures the content's figures and bands refer to, by key. */
   images: Map<string, ImportedImage>;
+  /** The first picture in Word's default header and footer. */
+  headerImage: BandImage | null;
+  footerImage: BandImage | null;
   /** Plain-language notes about what the editor could not hold. */
   notes: string[];
 }
 
 export type ParseXml = (xml: string) => Document;
+
+/** A header or footer picture (store.ts SectionImage). */
+export interface BandImage { id: string; alt: string; image: string | null; width: number | null; height: number | null }
 
 const MESSAGES = {
   notDocx: 'This file isn’t a .docx. If it’s an older .doc file or a password-protected document, save it in Word as a Word Document (.docx) without a password and try again.',
@@ -192,11 +198,29 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
   const blocks = walker.blocks(body);
 
   const sectPr = child(body, 'w:sectPr');
-  const band = async (tag: 'w:headerReference' | 'w:footerReference') => {
+  const bandNotes: string[] = [];
+  // A band's text, as before, and its first picture (a logo) with its alt.
+  const band = async (tag: 'w:headerReference' | 'w:footerReference'): Promise<{ text: string; image: BandImage | null }> => {
+    const section = tag === 'w:headerReference' ? 'header' : 'footer';
     const ref = sectPr && kids(sectPr).find((k) => k.tagName === tag && (val(k, 'w:type') ?? 'default') === 'default');
     const rel = ref ? rels.get(val(ref, 'r:id') ?? '') : undefined;
     const doc = rel && !rel.external ? await xml(rel.target) : null;
-    return doc ? bandText(doc.documentElement, styles, numbering) : '';
+    if (!doc || !rel) return { text: '', image: null };
+    const bandRels = await relsOf(rel.target);
+    const bandWalker = new Walker(bandRels, styles, numbering, await loadMedia(zip, bandRels, images, budget));
+    const blocks = bandWalker.blocks(doc.documentElement);
+    const text = blocks.map((b) => b.node.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ').slice(0, MAX_BAND);
+    const figures: PMNode[] = [];
+    for (const b of blocks) b.node.descendants((n) => { if (n.type.name === 'figure') figures.push(n); });
+    for (const b of blocks) if (b.node.type.name === 'figure') figures.push(b.node);
+    const first = figures.find((f) => f.attrs.image);
+    const extra = figures.filter((f) => f.attrs.image && f !== first).length;
+    if (extra) bandNotes.push(`Only the first image in the ${section} was kept; ${extra === 1 ? '1 more was' : `${extra} more were`} left out.`);
+    bandNotes.push(...bandWalker.notes());
+    return {
+      text,
+      image: first ? { id: `${section}-img-1`, alt: String(first.attrs.alt ?? ''), image: first.attrs.image as string, width: first.attrs.width as number | null, height: first.attrs.height as number | null } : null,
+    };
   };
 
   const coreTitle = core ? (first(core.documentElement, 'dc:title')?.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
@@ -205,13 +229,17 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
   // report wrong titles — offer a rename on the editor screen.
   const title = (coreTitle || fileName.replace(/\.docx$/i, '').trim() || 'Untitled document').slice(0, MAX_TITLE);
 
+  const header = await band('w:headerReference');
+  const footer = await band('w:footerReference');
   return {
     title,
-    header: await band('w:headerReference'),
-    footer: await band('w:footerReference'),
+    header: header.text,
+    footer: footer.text,
+    headerImage: header.image,
+    footerImage: footer.image,
     content: assemble(blocks),
     images,
-    notes: walker.notes(),
+    notes: [...walker.notes(), ...bandNotes],
   };
 }
 
@@ -908,12 +936,6 @@ function runLanguage(lang: Element | null, text: string): string | null {
 
 function withLink(marks: readonly Mark[], href: string): readonly Mark[] {
   return schema.marks.link!.create({ href }).addToSet(marks);
-}
-
-/** Header/footer text, read by the same walk as the body (text boxes once, fields as shown). */
-function bandText(root: Element, styles: Styles, numbering: Numbering): string {
-  return new Walker(new Map(), styles, numbering).blocks(root)
-    .map((b) => b.node.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ').slice(0, MAX_BAND);
 }
 
 /* ---------- assembly ---------- */

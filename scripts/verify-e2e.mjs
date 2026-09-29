@@ -268,7 +268,7 @@ async function waitForObject(uid, key, timeout = 15_000) {
   return false;
 }
 const docsOf = async (uid) => (await db.from('documents').select('id, content, updated_at, targets').eq('owner_id', uid)).data ?? [];
-const docOf = async (uid, id) => (await db.from('documents').select('content, updated_at').eq('owner_id', uid).eq('id', id).single()).data;
+const docOf = async (uid, id) => (await db.from('documents').select('content, updated_at, header_image').eq('owner_id', uid).eq('id', id).single()).data;
 const contentHas = (row, text) => JSON.stringify(row?.content ?? {}).includes(text);
 
 /** Wait until the server's copy of a doc satisfies `test`. */
@@ -397,6 +397,17 @@ async function firstBrowser() {
       if (!stored) fail(`IMAGE  the inserted picture never reached the account's bucket at ${uid}/${PICTURE_KEY}`);
       else if (!contentHas(row, PICTURE_KEY) || !keys.includes(PICTURE_KEY)) fail(`IMAGE  the document row does not refer to its picture (image_keys ${JSON.stringify(keys)})`);
       else note('an inserted picture uploads to the private bucket under the account, and the row names it');
+      // The same picture as the header logo: saved in the row's header_image.
+      await evaluate(send, `document.querySelector('[role=toolbar] button[aria-label="Edit header and footer"]')?.click()`);
+      await waitFor(send, `[...document.querySelectorAll('[role=dialog] button')].some((b) => b.textContent.includes('Insert logo or image in header'))`, 5_000);
+      await clickButton(send, 'Insert logo or image in header');
+      await sleep(200);
+      const { result: again } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file][aria-label="Choose an image"]')` });
+      await send('DOM.setFileInputFiles', { objectId: again.objectId, files: [pictureFile] });
+      const withLogo = await waitForRow(uid, SYNCED, (r) => r?.header_image?.image === PICTURE_KEY);
+      if (withLogo?.header_image?.image !== PICTURE_KEY) fail(`IMAGE  the header logo never reached the row's header_image (${JSON.stringify(withLogo?.header_image)})`);
+      else note('a header logo is saved with the document in the account (header_image)');
+      await key(send, 'Escape');
     }
     tidy(pictureDir);
 

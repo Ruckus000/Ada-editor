@@ -1071,6 +1071,45 @@ async function images(send, findingCount) {
     if (!(await focusByName(send, '[role=dialog] button', 'Save alt text'))) { fail('IMAGE  no Save alt text button'); return; }
     await key(send, 'Enter');
     await sleep(1500);
+
+    // A header logo: the same picker from the header/footer dialog, kept
+    // with the document, flagged until it has alt text, and its alt text kept.
+    const bandImg = () => evaluate(send, `(() => { const art = document.querySelector('[data-edge=header] [role=img]'); const img = art?.querySelector('img'); return art ? { name: art.getAttribute('aria-label'), natural: img?.naturalWidth ?? 0 } : null; })()`);
+    const findingsBeforeLogo = await findingCount();
+    if (!(await focusByName(send, '[role=toolbar] button', 'Edit header and footer'))) { fail('IMAGE  no header and footer button'); return; }
+    await key(send, 'Enter');
+    await sleep(400);
+    if (!(await focusByName(send, '[role=dialog] button', 'Insert logo or image in header'))) { fail('IMAGE  the header dialog has no Insert logo button'); return; }
+    await key(send, 'Enter');
+    await sleep(200);
+    if (!(await choose(chart))) return;
+    await key(send, 'Escape');
+    await sleep(1500);
+    const logo = await bandImg();
+    if (logo?.natural !== 120 || !/header image, no alternative text/.test(logo.name) || (await findingCount()) !== findingsBeforeLogo + 1) fail(`IMAGE  the header logo did not show, flagged (${JSON.stringify(logo)})`);
+    await send('Page.reload');
+    await sleep(2000);
+    const kept = await bandImg();
+    if (kept?.natural !== 120 || (await findingCount()) !== findingsBeforeLogo + 1) fail(`IMAGE  the header logo, or its finding, did not survive a reload (${JSON.stringify(kept)})`);
+    else note('a header logo shows in the band, flagged until it has alt text, and survives a reload');
+    if (!(await focusByName(send, '[role=toolbar] button', 'Edit header and footer'))) return;
+    await key(send, 'Enter');
+    await sleep(400);
+    if (!(await focusByName(send, '[role=dialog] button', 'Add header image alt text'))) { fail('IMAGE  no Add header image alt text button'); return; }
+    await key(send, 'Enter');
+    await sleep(400);
+    if (!(await focusByName(send, '[role=dialog] textarea', ''))) { fail('IMAGE  no alt text field for the header image'); return; }
+    await send('Input.insertText', { text: 'City seal' });
+    await focusByName(send, '[role=dialog] button', 'Save alt text');
+    await key(send, 'Enter');
+    await sleep(300);
+    await key(send, 'Escape');
+    await sleep(1500);
+    await send('Page.reload');
+    await sleep(2000);
+    const labelled = await bandImg();
+    if (labelled?.name !== 'City seal' || (await findingCount()) !== findingsBeforeLogo) fail(`IMAGE  the header logo's alt text was not kept across a reload (${JSON.stringify(labelled)})`);
+    else note('the header logo’s alt text is saved with the document and clears its finding');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -1132,6 +1171,9 @@ async function checkExport(send) {
     const picture = await evaluate(send, `(() => { const img = document.querySelector('figure.image img'); return img ? { data: img.getAttribute('src').startsWith('data:image/png;base64,'), alt: img.getAttribute('alt'), natural: img.naturalWidth } : null; })()`);
     if (!picture?.data || picture.alt !== 'Chart of weekly visits' || picture.natural !== 120) fail(`EXPORT  the inserted picture did not export with its alt text (${JSON.stringify(picture)})`);
     else note('the inserted picture exports inside the page, with the alt text added in the editor');
+    const logo = await evaluate(send, `document.querySelector('header img')?.getAttribute('alt') ?? null`);
+    if (logo !== 'City seal') fail(`EXPORT  the header logo did not export with its alt text (${JSON.stringify(logo)})`);
+    else note('the header logo exports in the page’s <header>, with its alt text');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

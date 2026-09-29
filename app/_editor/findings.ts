@@ -142,6 +142,20 @@ export function imageIdFloor(doc: PMNode, dismissed: Iterable<string> = []): num
   return max;
 }
 
+/** The missing-alt findings of a document's header and footer images, less
+ *  the ones dismissed: they aren't in the document, so the engine can't see them. */
+export function sectionFindings(images: { headerImage: { id: string; alt: string } | null; footerImage: { id: string; alt: string } | null }, dismissed: Iterable<string> = []): EditorFinding[] {
+  const skip = new Set(dismissed);
+  const out: EditorFinding[] = [];
+  for (const section of ['header', 'footer'] as const) {
+    const image = section === 'header' ? images.headerImage : images.footerImage;
+    if (!image || image.alt.trim()) continue;
+    const f = imageFinding(image.id, `${section} image`, { kind: 'section', section });
+    if (!skip.has(dismissKeyOf(f))) out.push(f);
+  }
+  return out;
+}
+
 export function imageFinding(imageId: string, label: string, anchor: Anchor, at = 0): EditorFinding {
   return {
     id: `img-alt-${imageId}`,

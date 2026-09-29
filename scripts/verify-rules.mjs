@@ -1221,6 +1221,26 @@ check('images: the HTML export embeds each picture; missing alt stays missing; n
   deepEq(placeholders.map((f) => f.getAttribute('aria-label')), ['Floor plan', 'Site plan'], 'no bytes to hand, or none at all: the placeholder');
 });
 
+check('images: header and footer images are sanitised, flagged when unlabelled, and exported', () => {
+  const { sectionImageOf } = mod.store;
+  const key = 'd'.repeat(64);
+  deepEq(sectionImageOf({ id: 'header-img-3', alt: 'Seal', image: key, width: 40, height: 20 }), { id: 'header-img-3', alt: 'Seal', image: key, width: 40, height: 20 }, 'a good one passes');
+  eq(sectionImageOf({ id: '../x', alt: '' }), null, 'a bad id is dropped');
+  deepEq(sectionImageOf({ id: 'footer-img-1', alt: 5, image: '../../etc', width: -1 }), { id: 'footer-img-1', alt: '', image: null, width: null, height: null }, 'bad fields become empty');
+  eq(sectionImageOf('header-img-1'), null, 'not an object');
+  const { sectionFindings } = mod.editorFindings;
+  const images = { headerImage: { id: 'header-img-1', alt: '' }, footerImage: { id: 'footer-img-2', alt: 'Seal' } };
+  deepEq(sectionFindings(images).map((f) => [f.id, f.anchor.section]), [['img-alt-header-img-1', 'header']], 'an unlabelled header image is a finding; a labelled footer one isn’t');
+  eq(sectionFindings(images, ['img-alt-header-img-1']).length, 0, 'a dismissal holds');
+  const { exportHtml } = mod.exportHtml;
+  const page = parseHTML(exportHtml(doc(para('x')), { title: 't', header: 'City Hall', footer: 'Footer', headerImage: { alt: 'City seal', image: key, width: 40, height: 20 }, footerImage: { alt: '', image: 'e'.repeat(64), width: null, height: null } },
+    parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document, new Map([[key, { src: 'data:image/png;base64,AA==' }]]))).document;
+  const img = page.querySelector('header img');
+  deepEq([img?.getAttribute('alt'), img?.getAttribute('src'), page.querySelector('header').textContent.trim()], ['City seal', 'data:image/png;base64,AA==', 'City Hall'], 'the header: its picture, then its text');
+  const placeholder = page.querySelector('footer [role=img]');
+  assert(placeholder && !placeholder.hasAttribute('aria-label'), 'a footer picture with no bytes and no alt: an unnamed placeholder, as flagged');
+});
+
 check('tables: the HTML export gives headers a scope, keeps spans and the caption', () => {
   const { exportHtml } = mod.exportHtml;
   const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
@@ -2007,6 +2027,27 @@ await acheck('import: a picture over 10 MB stays a placeholder, stored or deflat
     eq(fig?.image, null, `method ${method}: no picture`);
     deepEq(r.notes, ['1 image too large to bring in (over 10 MB) kept as a placeholder.'], `method ${method}: said so`);
   }
+});
+
+await acheck('import: the header and footer bring their first picture, with its alt; more are noted', async () => {
+  const logo = png(24, 12);
+  const band = (tag, rId, alt) => `<?xml version="1.0"?><w:${tag} ${NS}>${P(blipDrawing(rId, alt) + R(' City Hall'))}${P(blipDrawing(rId, 'Seal again'))}</w:${tag}>`;
+  const r = await importDocx(docx({
+    body: P(R('Body')) + '<w:sectPr><w:headerReference w:type="default" r:id="rH"/><w:footerReference w:type="default" r:id="rF"/></w:sectPr>',
+    docRels: [rel('rH', 'header', 'header1.xml'), rel('rF', 'footer', 'footer1.xml')],
+    parts: [
+      ['word/header1.xml', band('hdr', 'rL', 'City seal')],
+      ['word/_rels/header1.xml.rels', rels(rel('rL', 'image', 'media/logo.png'))],
+      ['word/footer1.xml', `<?xml version="1.0"?><w:ftr ${NS}>${P(R('Page footer'))}</w:ftr>`],
+      media('logo.png', logo),
+    ],
+  }), 'x.docx', parseXml);
+  eq(r.header, 'City Hall', 'the header text as before');
+  deepEq([r.headerImage?.id, r.headerImage?.alt, r.headerImage?.width, r.headerImage?.height], ['header-img-1', 'City seal', 24, 12], 'the logo with its alt and size');
+  assert(r.headerImage?.image && r.images.has(r.headerImage.image), 'its picture is handed back to be stored');
+  eq(r.footerImage, null, 'no footer picture');
+  eq(r.footer, 'Page footer', 'the footer text');
+  assert(r.notes.includes('Only the first image in the header was kept; 1 more was left out.'), `the second picture is noted (${JSON.stringify(r.notes)})`);
 });
 
 await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {

@@ -20,7 +20,7 @@ import type { StoredDoc } from './store';
  */
 
 // PostgREST aliases map snake_case columns onto StoredDoc's fields.
-const COLUMNS = 'id,title,owner,targets,header,footer,content,lastChecked:last_checked,dismissed,importNotes:import_notes';
+const COLUMNS = 'id,title,owner,targets,header,footer,headerImage:header_image,footerImage:footer_image,content,lastChecked:last_checked,dismissed,importNotes:import_notes';
 const PUSH_DELAY = 1000;
 /** PostgREST caps a response at its max-rows setting (1000 by default). The
  *  pull pages until it holds the exact row count, advancing by what actually
@@ -78,8 +78,10 @@ const toRow = (d: StoredDoc, ownerId: string) => ({
   last_checked: d.lastChecked,
   dismissed: d.dismissed,
   import_notes: d.importNotes,
+  header_image: d.headerImage,
+  footer_image: d.footerImage,
   // Which images the document uses: what a deletion checks before removing one.
-  image_keys: imageKeysOf(d.content),
+  image_keys: imageKeysOf(d.content, [d.headerImage, d.footerImage]),
   updated_at: new Date().toISOString(),
 });
 
@@ -108,7 +110,7 @@ async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Prom
   // Its images first: if they can't be uploaded, the doc waits with them.
   const results = await Promise.all(docs.map(async (d) => {
     try {
-      await uploadPending(imageKeysOf(d.content));
+      await uploadPending(imageKeysOf(d.content, [d.headerImage, d.footerImage]));
     } catch (error) {
       return error ?? new Error('Network error');
     }
@@ -196,7 +198,8 @@ export async function removeDoc(id: string): Promise<boolean> {
   if (!ownerId) return false;
   // Let any push in flight land first, or its upsert could recreate the row.
   await push();
-  const keys = imageKeysOf(loadDoc(id)?.content);
+  const gone = loadDoc(id);
+  const keys = imageKeysOf(gone?.content, [gone?.headerImage, gone?.footerImage]);
   const { error } = await client.from('documents').delete().eq('owner_id', ownerId).eq('id', id).then(
     (result) => result,
     (failure: unknown) => ({ error: failure ?? new Error('Network error') }),
@@ -223,7 +226,7 @@ async function removeUnused(ownerId: string, keys: string[]): Promise<void> {
   if (error) return;
   const used = new Set<string>();
   for (const row of (data ?? []) as { image_keys?: string[] }[]) for (const k of row.image_keys ?? []) used.add(k);
-  for (const d of allDocs()) for (const k of imageKeysOf(d.content)) used.add(k);
+  for (const d of allDocs()) for (const k of imageKeysOf(d.content, [d.headerImage, d.footerImage])) used.add(k);
   await removeRemote(ownerId, keys.filter((k) => !used.has(k)));
 }
 

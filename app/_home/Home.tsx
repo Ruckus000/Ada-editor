@@ -460,6 +460,8 @@ export function Home() {
         title: imported.title,
         header: imported.header,
         footer: imported.footer,
+        headerImage: imported.headerImage,
+        footerImage: imported.footerImage,
         content: imported.content.toJSON() as Record<string, unknown>,
         importNotes: [...imported.notes, ...imageNote],
       });

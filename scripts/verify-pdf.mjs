@@ -128,7 +128,7 @@ const featureDoc = () => N.doc.create({ lang: 'en' }, [
   heading(3, 'Last heading'),
   para('The end.'),
 ]);
-const FEATURE_META = { title: 'Exporter feature sheet', header: 'City Planning Commission\nDraft for publication', footer: 'Questions? Call 311.' };
+const FEATURE_META = { title: 'Exporter feature sheet', header: 'City Planning Commission\nDraft for publication', footer: 'Questions? Call 311.', headerImage: { alt: 'City seal', image: keyOf(CHART), width: 40, height: 30 } };
 
 /* ---------- reading the file ---------- */
 
@@ -214,8 +214,8 @@ await check('exports every construct, across pages', async () => {
   assert(annots.some((o) => o.includes('/Contents (the hearing agenda)')), 'an annotation describes its link (PDF/UA 7.18.5)');
   assert(/\/Tabs \/S/.test(text), 'tab order follows the structure');
   const figures = withType(objects, 'Figure');
-  eq(figures.length, 4, 'a Figure per figure: two pictures and two placeholders');
-  for (const alt of [ALT, 'Chart of weekly visits', 'Photo of the library entrance', 'Floor plan']) {
+  eq(figures.length, 5, 'a Figure per figure (two pictures, two placeholders) and the header logo, read once');
+  for (const alt of [ALT, 'Chart of weekly visits', 'Photo of the library entrance', 'Floor plan', 'City seal']) {
     assert(figures.some((f) => f.includes(`/Alt (${alt})`)), `a figure carries its alt text: ${alt}`);
   }
   const xobjects = [...objects.values()].filter((o) => o.includes('/Subtype /Image'));
@@ -233,6 +233,8 @@ await check('exports every construct, across pages', async () => {
   assert(first && /\/S \/Div\b/.test(first), 'the header comes first in reading order');
   assert(last && /\/S \/Div\b/.test(last), 'the footer comes last in reading order');
   eq(withType(objects, 'Div').length, 2, 'the header and footer are read once each, not per page');
+  const headerKids = refs(/\/K \[([^\]]*)\]/.exec(first)?.[1] ?? '').map((id) => objects.get(id) ?? '');
+  assert(/\/S \/Figure\b/.test(headerKids[0] ?? '') && headerKids[0].includes('/Alt (City seal)'), 'the header reads its logo first, with its alt text, then its text');
   const pages = contentStreams(result.bytes);
   eq(pages.length, result.pages, 'one content stream per page');
   const pagination = pages.map((page) => (page.match(/\/Artifact <<\n\/Type \/Pagination\n>> BDC/g) ?? []).length);
