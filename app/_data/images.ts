@@ -190,12 +190,58 @@ export async function pendingKeys(): Promise<string[]> {
   return (rows ?? []).filter((r) => r.pending).map((r) => r.key);
 }
 
-/** Delete these keys from the account's bucket (best effort). */
-export async function removeRemote(uid: string, keys: readonly string[]): Promise<void> {
+/** Delete these keys from the account's bucket (best effort). False if the
+ *  bucket refused or couldn't be reached. */
+export async function removeRemote(uid: string, keys: readonly string[]): Promise<boolean> {
   const client = getClient();
-  if (!client || !keys.length) return;
-  const { error } = await client.storage.from(BUCKET).remove(keys.map((k) => `${uid}/${k}`));
-  if (error) console.error('Image delete failed', error);
+  if (!client) return false;
+  for (let i = 0; i < keys.length; i += 1000) {
+    const { error } = await client.storage.from(BUCKET).remove(keys.slice(i, i + 1000).map((k) => `${uid}/${k}`));
+    if (error) { console.error('Image delete failed', error); return false; }
+  }
+  return true;
+}
+
+/** The account's stored images and when each was uploaded (ms), or null if
+ *  the listing failed. Anything in the folder that isn't a key is left out. */
+export async function listRemote(uid: string): Promise<{ key: string; uploaded: number }[] | null> {
+  const client = getClient();
+  if (!client) return null;
+  const found: { key: string; uploaded: number }[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await client.storage.from(BUCKET).list(uid, { limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } });
+    if (error) return null;
+    for (const f of data ?? []) {
+      const key = validImageKey(f.name);
+      const uploaded = f.created_at ? Date.parse(f.created_at) : NaN;
+      if (key && Number.isFinite(uploaded)) found.push({ key, uploaded });
+    }
+    if (!data || data.length < 1000) return found;
+  }
+}
+
+/** Owe these keys to the bucket again, where this browser still has them: an
+ *  image swept from the bucket that an undo here brings back is re-uploaded
+ *  with the document, instead of saved as a key with nothing behind it. */
+export async function markPending(keys: readonly string[]): Promise<void> {
+  if (!cloud || scope === null || scope === 'local') return;
+  for (const key of keys) {
+    const row = await readRow(key).catch(() => undefined);
+    if (row && !row.pending) await writeRow({ ...row, pending: true }).catch(() => undefined);
+  }
+}
+
+/* When this browser last swept the account's folder (sync.ts), so it happens
+   once a day rather than on every page load. Lost storage only means an
+   earlier sweep. */
+const sweptKey = (uid: string) => `ada.images.swept.${uid}`;
+
+export function sweptAt(uid: string): number {
+  try { return Number(window.localStorage.getItem(sweptKey(uid))) || 0; } catch { return 0; }
+}
+
+export function markSwept(uid: string): void {
+  try { window.localStorage.setItem(sweptKey(uid), String(Date.now())); } catch { /* a sweep tomorrow is harmless */ }
 }
 
 /** Empty the account's whole folder. False if any of it couldn't be removed. */
@@ -214,6 +260,7 @@ export async function purgeFolder(uid: string): Promise<boolean> {
 /** Forget an account's images in this browser (sign-out, account deletion). */
 export async function clearImageScope(uid: string): Promise<void> {
   if (scope === uid) releaseAll();
+  try { window.localStorage.removeItem(sweptKey(uid)); } catch { /* nothing kept */ }
   const keys = await request<IDBValidKey[]>('readonly', (s) => s.index('scope').getAllKeys(uid)).catch(() => []);
   for (const k of keys ?? []) await request('readwrite', (s) => s.delete(k)).catch(() => undefined);
 }

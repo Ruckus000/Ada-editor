@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { getClient } from './supabase';
 import { allDocs, applyPulled, clearStore, deleteDoc, detachStore, dirtyDocs, loadDoc, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
 import { imageKeysOf } from './imageFormat';
-import { clearImageScope, pendingKeys, purgeFolder, removeRemote, uploadPending } from './images';
+import { clearImageScope, listRemote, markPending, markSwept, pendingKeys, purgeFolder, removeRemote, sweptAt, uploadPending } from './images';
 import type { StoredDoc } from './store';
 
 /**
@@ -27,6 +27,11 @@ const PUSH_DELAY = 1000;
  *  arrived, so no cap can silently drop documents from the cache. */
 const PAGE = 1000;
 const RETRY_DELAY = 30_000;
+const DAY = 24 * 60 * 60 * 1000;
+/** An image the sweep may remove was uploaded at least this long ago. */
+const SWEEP_GRACE = 7 * DAY;
+/** Keys per "which rows use these?" query, keeping its URL short. */
+const KEY_BATCH = 100;
 
 export type SyncStatus = 'saved' | 'saving' | 'unsynced';
 
@@ -180,6 +185,7 @@ export function loadAccount(uid: string): Promise<void> {
     }
     loadedUid = uid;
     await push();
+    void sweepImages(uid);
   })().finally(() => { loading = null; });
   loading = { uid, promise };
   return promise;
@@ -216,18 +222,65 @@ export async function removeDoc(id: string): Promise<boolean> {
 /**
  * After a deletion: remove the deleted document's images that nothing else
  * uses, on the server or still only in this browser. Best effort; an image
- * left behind is removed with the account. (Images taken out of a document by
- * editing stay until then too: undo can bring them back.)
+ * left behind is removed by the next sweep (sweepImages), or with the account.
  */
 async function removeUnused(ownerId: string, keys: string[]): Promise<void> {
   const client = getClient();
   if (!client || !keys.length) return;
-  const { data, error } = await client.from('documents').select('image_keys').overlaps('image_keys', keys);
-  if (error) return;
+  const onServer = await keysOnServer(keys);
+  if (!onServer) return;
+  const inUse = keysInUse();
+  await removeRemote(ownerId, keys.filter((k) => !onServer.has(k) && !inUse.has(k)));
+}
+
+/** Every key a document in this browser uses: all of the account's, as pulled,
+ *  plus edits not yet pushed. */
+function keysInUse(): Set<string> {
   const used = new Set<string>();
-  for (const row of (data ?? []) as { image_keys?: string[] }[]) for (const k of row.image_keys ?? []) used.add(k);
   for (const d of allDocs()) for (const k of imageKeysOf(d.content, [d.headerImage, d.footerImage])) used.add(k);
-  await removeRemote(ownerId, keys.filter((k) => !used.has(k)));
+  return used;
+}
+
+/** Which of `keys` a document row on the server uses, asked now rather than
+ *  taken from the pull. Null if the server couldn't answer. */
+async function keysOnServer(keys: readonly string[]): Promise<Set<string> | null> {
+  const client = getClient();
+  if (!client) return null;
+  const used = new Set<string>();
+  for (let i = 0; i < keys.length; i += KEY_BATCH) {
+    const { data, error } = await client.from('documents').select('image_keys').overlaps('image_keys', keys.slice(i, i + KEY_BATCH));
+    if (error) return null;
+    for (const row of (data ?? []) as { image_keys?: string[] }[]) for (const k of row.image_keys ?? []) used.add(k);
+  }
+  return used;
+}
+
+/**
+ * Images taken out of a document by editing stay in the bucket, so that undo
+ * can bring them back; this removes them later. Once a day per browser, after
+ * sign-in's pull and push: an image no document uses (on the server, or still
+ * only in this browser), uploaded more than a week ago. The week covers
+ * another device between uploading a picture and saving the document that
+ * uses it. An editor left open here that undoes its way back to a swept image
+ * re-uploads it (markPending). Best effort: a failure waits for tomorrow.
+ */
+async function sweepImages(ownerId: string): Promise<void> {
+  if (Date.now() - sweptAt(ownerId) < DAY) return;
+  const stored = await listRemote(ownerId);
+  if (!stored || ownerId !== attachedUid) return;
+  const cutoff = Date.now() - SWEEP_GRACE;
+  const inUse = keysInUse();
+  const candidates = stored.filter((o) => o.uploaded < cutoff && !inUse.has(o.key)).map((o) => o.key);
+  if (candidates.length) {
+    // Another device may have saved a document using one of them since the pull.
+    const onServer = await keysOnServer(candidates);
+    if (!onServer || ownerId !== attachedUid) return;
+    const now = keysInUse(); // and this tab, since the listing
+    const unused = candidates.filter((k) => !onServer.has(k) && !now.has(k));
+    if (unused.length && !(await removeRemote(ownerId, unused))) return;
+    await markPending(unused);
+  }
+  markSwept(ownerId);
 }
 
 /** Resolves false when edits never reached the server and the person chose
@@ -236,8 +289,10 @@ export async function signOut(confirmDiscard: () => boolean): Promise<boolean> {
   const client = getClient();
   if (!client) return true;
   await push();
-  // Images not yet uploaded are unsaved work too.
-  if ((dirtyDocs().length || (await pendingKeys()).length) && !confirmDiscard()) return false;
+  // Images a document uses and not yet uploaded are unsaved work too.
+  const inUse = keysInUse();
+  const unsavedImages = (await pendingKeys()).some((k) => inUse.has(k));
+  if ((dirtyDocs().length || unsavedImages) && !confirmDiscard()) return false;
   const uid = attachedUid;
   // Clear first: signOut() fires AuthGate's listener, which would detach the
   // store before clearStore could find the account's cache to delete.

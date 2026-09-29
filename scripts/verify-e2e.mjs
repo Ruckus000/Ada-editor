@@ -486,6 +486,29 @@ async function secondBrowser() {
     const drawn = await waitFor(send, `(document.querySelector('#document-text [role=img] img')?.naturalWidth ?? 0) === 64`, 20_000);
     if (!drawn) fail('IMAGE  a fresh browser did not download and show the picture from the account');
     else note('a fresh browser downloads the picture from the account’s bucket and shows it');
+
+    page = 'image sweep';
+    // Edited out of every document and over a week old: the sweep removes it.
+    // Unused but new (another device mid-save), or old but in use: both stay.
+    const [oldStray, newStray] = ['a'.repeat(64), 'b'.repeat(64)];
+    for (const key of [oldStray, newStray]) {
+      const { error } = await db.storage.from('images').upload(`${uid}/${key}`, PICTURE, { contentType: 'image/png' });
+      if (error) fail(`SWEEP  could not stage ${key.slice(0, 4)}…: ${error.message}`);
+    }
+    psql(`update storage.objects set created_at = now() - interval '8 days' where bucket_id = 'images' and name in ('${uid}/${oldStray}', '${uid}/${PICTURE_KEY}');`);
+    await evaluate(send, `localStorage.removeItem('ada.images.swept.${uid}')`);
+    await send('Page.reload');
+    let swept = false;
+    for (let i = 0; i < 40 && !swept; i++) {
+      swept = !(await objectExists(uid, oldStray));
+      if (!swept) await sleep(300);
+    }
+    if (!swept) fail('SWEEP  an old image no document uses is still in the bucket after sign-in');
+    else if (!(await objectExists(uid, newStray))) fail('SWEEP  an unused image uploaded moments ago was removed (another device may be about to save it)');
+    else if (!(await objectExists(uid, PICTURE_KEY))) fail('SWEEP  removed an old image a document still uses');
+    else if (!(await evaluate(send, `!!localStorage.getItem('ada.images.swept.${uid}')`))) fail('SWEEP  the sweep did not record itself, so it would run on every page load');
+    else note('the sweep removes an old image no document uses, and keeps a new one and one in use');
+    await db.storage.from('images').remove([`${uid}/${newStray}`]);
     await goHome(send);
 
     page = 'export PDF';
@@ -590,6 +613,13 @@ async function secondBrowser() {
     tidy(dir);
     await browser.close();
   }
+}
+
+/** SQL as postgres in the stack's own database; throws if it fails. */
+function psql(sql) {
+  const run = spawnSync('docker', ['exec', '-i', 'supabase_db_ada-editor', 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tA'], { input: sql, encoding: 'utf8' });
+  if (run.status !== 0) throw new Error(`psql failed: ${(run.stderr || run.stdout).trim()}`);
+  return run.stdout;
 }
 
 // 8: the database rules, in the stack's own Postgres.

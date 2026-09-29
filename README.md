@@ -64,7 +64,10 @@ connection returns. Images live outside the document: a figure stores the
 SHA-256 of its bytes, and the bytes go to the account's private `images`
 bucket at `<user id>/<key>` (storage policies limit each account to its own
 folder; `supabase/migrations/20260930120000_images.sql`), cached in the
-browser's IndexedDB. Local mode keeps them in IndexedDB only. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
+browser's IndexedDB. Deleting a document removes the images no other document
+uses; an image edited out of every document stays (undo can bring it back)
+until a once-a-day sweep after sign-in removes it, a week or more after its
+upload (`sweepImages` in `app/_data/sync.ts`). Local mode keeps them in IndexedDB only. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
 set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
 documents in this browser's localStorage only, exactly as before accounts.
 
