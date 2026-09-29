@@ -863,7 +863,9 @@
   color: var(--as-text-subtlest);
 }
 
-.imageMeta { flex: 1; min-width: 0; }
+/* A real basis: squeezed beside the two buttons, the alt text went one word to
+   a line. Too narrow for all three, the buttons wrap below instead. */
+.imageMeta { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
 
 .dashedBtn {
   display: inline-flex;
