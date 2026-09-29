@@ -29,8 +29,9 @@ export default function Page() {
         <li>
           The images you add to your documents, stored privately in your account: only you can open
           them. Deleting a document deletes the images no other document of yours uses, and deleting your
-          account deletes all of them. An image you take out of a document stays with your account until
-          you delete the account, so that undo can bring it back.
+          account deletes all of them. An image you take out of a document is kept for a while, so that
+          undo can bring it back, then deleted the next time you use Ada Editor once no document of yours
+          uses it and it was added at least a week ago.
         </li>
         <li>A sign-in session, stored in your browser so you stay signed in.</li>
         <li>Messages you send us from this page, with your email address, so we can reply.</li>
