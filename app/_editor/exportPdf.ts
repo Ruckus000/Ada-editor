@@ -3,7 +3,7 @@ import { toBytes } from 'pdfkit/output';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { TableMap } from 'prosemirror-tables';
 import type { Rect } from 'prosemirror-tables';
-import { documentLanguage, safeHref } from './editorSchema';
+import { ALIGN_FRACTION, SIZE_FRACTION, documentLanguage, figureAlign, figureSize, safeHref } from './editorSchema';
 import { headerScope, leadingHeaderRows } from './tableHeaders';
 import { validImageKey } from '../_data/imageFormat';
 import { isForeignTo, isUsableLangTag } from '../_engine/textHelpers';
@@ -521,22 +521,25 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
       const alt = String(node.attrs.alt ?? '');
       const picture = pictureOf(node);
       if (picture) {
-        // Its own size (CSS px), no wider than the column, no taller than a
-        // page (half a page in a table cell, whose row can't break).
+        // Its chosen share of the column, or its own size (CSS px) no wider
+        // than the column; no taller than a page (half a page in a table
+        // cell, whose row can't break); placed as aligned.
         const natW = (Number(node.attrs.width) || picture.displayW) * PT;
         const natH = (Number(node.attrs.height) || picture.displayH) * PT;
-        let w = Math.min(natW, width);
+        const size = figureSize(node.attrs.size);
+        let w = size ? width * SIZE_FRACTION[size] : Math.min(natW, width);
         let h = (w * natH) / natW;
         const maxH = (contentBottom - contentTop) / (breaks ? 1 : 2);
         if (h > maxH) { h = maxH; w = (h * natW) / natH; }
         openBlock(FIGURE_MARGIN);
         if (breaks && y + h > contentBottom && !atTop()) newPage();
         const top = y;
+        const x = left + (width - w) * ALIGN_FRACTION[figureAlign(node.attrs.align)];
         y += h;
         pendingMargin = FIGURE_MARGIN;
         // No alt means no /Alt, exactly as the checker reported.
-        const figure: Elem = { type: 'Figure', options: { bbox: [left, top, left + w, top + h], ...(alt.trim() ? { alt } : {}) }, children: [] };
-        figure.children.push({ kind: 'image', page, x: left, top, width: w, height: h, image: picture.image });
+        const figure: Elem = { type: 'Figure', options: { bbox: [x, top, x + w, top + h], ...(alt.trim() ? { alt } : {}) }, children: [] };
+        figure.children.push({ kind: 'image', page, x, top, width: w, height: h, image: picture.image });
         return [figure];
       }
       const text = `Image: ${String(node.attrs.label ?? '')}`;

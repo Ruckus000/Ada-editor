@@ -1,7 +1,7 @@
 import { DOMSerializer } from 'prosemirror-model';
 import type { DOMOutputSpec, Node as PMNode } from 'prosemirror-model';
 import { TableMap } from 'prosemirror-tables';
-import { documentLanguage, schema } from './editorSchema';
+import { FIGURE_SIZES, SIZE_FRACTION, documentLanguage, figureAlign, figureSize, schema } from './editorSchema';
 import { headerScope, leadingHeaderRows } from './tableHeaders';
 import { validImageKey } from '../_data/imageFormat';
 import { isRtlLanguage } from '../_engine/textHelpers';
@@ -18,6 +18,9 @@ ${[1, 2, 3, 4, 5, 6].map((n) => `h${n} { font-size: ${HEADING_PX[n]}px; font-wei
 figure.placeholder { margin: 1.5rem 0; padding: 3rem 1rem; border: 2px dashed currentColor; text-align: center; }
 figure.image { margin: 1.5rem 0; }
 figure.image img { display: block; max-width: 100%; height: auto; }
+${FIGURE_SIZES.map((size) => `figure.size-${size} img { width: ${SIZE_FRACTION[size] * 100}%; }`).join('\n')}
+figure.align-center img { margin-inline: auto; }
+figure.align-right img { margin-inline-start: auto; }
 header img, footer img { max-height: 4rem; width: auto; max-width: 100%; vertical-align: middle; }
 table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
 th, td { border: 1px solid currentColor; padding: 0.25rem 0.5rem; text-align: start; vertical-align: top; overflow-wrap: anywhere; }
@@ -75,7 +78,9 @@ function serializerFor(dom: Document, images: HtmlImages): DOMSerializer {
         // unlabelled as the checker reported, never papered over or hidden.
         if (image) {
           const size = node.attrs.width && node.attrs.height ? { width: String(node.attrs.width), height: String(node.attrs.height) } : {};
-          return ['figure', { class: 'image' }, ['img', { src: image.src, ...size, ...(alt ? { alt } : {}) }]];
+          const layout = [figureSize(node.attrs.size), figureAlign(node.attrs.align)];
+          const classes = ['image', ...(layout[0] ? [`size-${layout[0]}`] : []), `align-${layout[1]}`].join(' ');
+          return ['figure', { class: classes }, ['img', { src: image.src, ...size, ...(alt ? { alt } : {}) }]];
         }
         // No picture to hand (a placeholder, or bytes this browser can't get).
         return ['figure', { class: 'placeholder', role: 'img', 'aria-label': alt }, `Image: ${node.attrs.label as string}`];

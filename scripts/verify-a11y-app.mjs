@@ -924,6 +924,7 @@ async function editor() {
     await tables(send, findingCount);
     await images(send, findingCount);
     await dropAndShrink(send, findingCount);
+    await pictureLayout(send);
 
     await checkReflow(send);
     await checkForcedColors(send);
@@ -1160,6 +1161,41 @@ async function dropAndShrink(send, findingCount) {
   if (big?.natural !== 2400 || big?.h !== 1600) fail(`SHRINK  a 3000×2000 picture was not stored at 2400×1600 (${JSON.stringify(big)})`);
   else if (!/^Image inserted: big-photo, resized to 2400 by 1600 pixels\./.test(resized)) fail(`SHRINK  the resize was not announced (got ${JSON.stringify(resized)})`);
   else note('a picture over 2400 px is stored at 2400 px on its longer side, and the announcement says so');
+}
+
+// Size and position: the dialog (native radios in labelled groups) sets a
+// picture's width as a share of the column and its alignment, announced,
+// kept across a reload.
+async function pictureLayout(send) {
+  const art = () => evaluate(send, `(() => { const f = [...document.querySelectorAll('#document-text [data-figure-id]')].find((x) => x.querySelector('[role=img]')?.getAttribute('aria-label')?.startsWith('dropped-one')); const a = f?.querySelector('[role=img]'); const img = a?.querySelector('img'); if (!img) return null; const ar = a.getBoundingClientRect(), ir = img.getBoundingClientRect(); return { size: a.dataset.size ?? null, align: a.dataset.align, share: Math.round((ir.width / ar.width) * 100), rightGap: Math.round(ar.right - ir.right) }; })()`);
+  const before = await art();
+  if (before?.align !== 'center' || before.size !== null) fail(`LAYOUT  a new picture should be Original and centred (${JSON.stringify(before)})`);
+  if (!(await focusByName(send, '#document-text button', 'Size and position for dropped-one'))) { fail('LAYOUT  no Size and position button on the picture'); return; }
+  await key(send, 'Enter');
+  await sleep(400);
+  const dialog = await evaluate(send, `(() => { const d = document.querySelector('[role=dialog]'); return d ? { title: d.querySelector('h2')?.textContent, legends: [...d.querySelectorAll('fieldset > legend')].map((l) => l.textContent), checked: [...d.querySelectorAll('input[type=radio]:checked')].map((r) => r.value) } : null; })()`);
+  if (dialog?.title !== 'Size and position' || dialog.legends.join('|') !== 'Size|Alignment' || dialog.checked.join('|') !== 'original|center') fail(`LAYOUT  the dialog should offer Size and Alignment groups, starting at Original, Centre (${JSON.stringify(dialog)})`);
+  await runAxe(send, ' (size and position dialog)');
+  // By keyboard: the radios move with the arrow keys, as native radios do.
+  if (!(await focusByName(send, '[role=dialog] input[type=radio]', ''))) { fail('LAYOUT  no radio to focus'); return; }
+  await key(send, 'ArrowDown'); // Small
+  await key(send, 'ArrowDown'); // Medium
+  await evaluate(send, `document.querySelector('[role=dialog] input[value=center]').focus()`);
+  await key(send, 'ArrowDown'); // Right
+  if (!(await focusByName(send, '[role=dialog] button', 'Save'))) { fail('LAYOUT  no Save button'); return; }
+  await key(send, 'Enter');
+  await sleep(500);
+  const after = await art();
+  const said = await liveText(send);
+  if (after?.size !== 'medium' || after.align !== 'right' || Math.abs(after.share - 50) > 2 || Math.abs(after.rightGap) > 2) fail(`LAYOUT  Medium, right did not lay the picture out at half the width against the right (${JSON.stringify(after)})`);
+  else if (said !== 'dropped-one: medium, right.') fail(`LAYOUT  the change was not announced (got ${JSON.stringify(said)})`);
+  else note('Size and position sets half the width and right alignment, by keyboard, announced');
+  await sleep(1500);
+  await send('Page.reload');
+  await sleep(2000);
+  const kept = await art();
+  if (kept?.size !== 'medium' || kept.align !== 'right') fail(`LAYOUT  size and position did not survive a reload (${JSON.stringify(kept)})`);
+  else note('size and position are saved with the document');
 }
 
 // Export: the downloaded page must be exactly as accessible as the findings

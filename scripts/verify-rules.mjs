@@ -1219,6 +1219,16 @@ check('images: the HTML export embeds each picture; missing alt stays missing; n
   assert(!imgs[1].hasAttribute('alt'), 'no alt means no alt attribute, never alt="" (which would hide it)');
   const placeholders = [...page.querySelectorAll('main figure.placeholder')];
   deepEq(placeholders.map((f) => f.getAttribute('aria-label')), ['Floor plan', 'Site plan'], 'no bytes to hand, or none at all: the placeholder');
+  deepEq([...page.querySelectorAll('main figure.image')].map((f) => f.className), ['image align-center', 'image align-center'], 'Original, centred: no size class');
+  const laid = parseHTML(exportHtml(doc(
+    N.figure.create({ id: 'img-1', alt: 'Chart', image: a, width: 640, height: 480, size: 'medium', align: 'right' }),
+    N.figure.create({ id: 'img-2', alt: 'Photo', image: b, size: 'full', align: 'left' }),
+  ), { title: 't', header: '', footer: '' }, empty(), images)).document;
+  deepEq([...laid.querySelectorAll('main figure.image')].map((f) => f.className), ['image size-medium align-right', 'image size-full align-left'], 'size and alignment as classes');
+  const css = laid.querySelector('style').textContent;
+  for (const rule of ['figure.size-small img { width: 25%; }', 'figure.size-medium img { width: 50%; }', 'figure.size-large img { width: 75%; }', 'figure.size-full img { width: 100%; }', 'figure.align-center img { margin-inline: auto; }', 'figure.align-right img { margin-inline-start: auto; }']) {
+    assert(css.includes(rule), `the page's stylesheet lays them out: ${rule}`);
+  }
 });
 
 check('images: header and footer images are sanitised, flagged when unlabelled, and exported', () => {
@@ -1683,6 +1693,22 @@ check('images: a shrunk copy replaces the original in figures and bands', () => 
   eq(content.content[0].attrs.image, big, 'the input is not changed');
 });
 
+check('images: size and alignment survive the clipboard; anything else becomes the default', () => {
+  const key = 'a'.repeat(64);
+  const trip = (node) => {
+    const dom = mod.pm.DOMSerializer.fromSchema(schema).serializeNode(node, { document: parseHTML('<!doctype html><html><body></body></html>').document });
+    return mod.pm.DOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${dom.outerHTML}</body></html>`).document.body).firstChild.attrs;
+  };
+  const back = trip(N.figure.create({ id: 'img-1', image: key, width: 640, height: 480, size: 'medium', align: 'right' }));
+  deepEq([back.size, back.align], ['medium', 'right'], 'medium, right');
+  const plain = trip(N.figure.create({ id: 'img-2', image: key }));
+  deepEq([plain.size, plain.align], [null, 'center'], 'the defaults: Original, centred');
+  const hostile = mod.pm.DOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body><figure data-figure-id="img-9" data-image="${key}" data-size="huge" data-align="javascript:x"></figure></body></html>`).document.body).firstChild;
+  deepEq([hostile.attrs.size, hostile.attrs.align], [null, 'center'], 'unknown values become the defaults');
+  const { figureSize, figureAlign } = mod.editorSchema;
+  deepEq([figureSize('full'), figureSize({}), figureAlign('left'), figureAlign(7)], ['full', null, 'left', 'center'], 'stored values are validated where they are read');
+});
+
 check('images: a figure keeps its picture through the clipboard; a hostile key is dropped', () => {
   const key = 'a'.repeat(64);
   const f = N.figure.create({ id: 'img-1', alt: 'Map', label: 'map', image: key, width: 640, height: 480 });
@@ -2057,6 +2083,22 @@ await acheck('import: a picture over 10 MB comes in (to be shrunk); over 40 MB s
   const r = await importDocx(docx({ body: P(blipDrawing('rB', 'Huge')), docRels: [rel('rB', 'image', 'media/big.png')], parts: [media('big.png', withPng(40 * 1024 * 1024 + 1), { method: 8 })] }), 'x.docx', parseXml);
   eq(figOf(r)?.image, null, 'over 40 MB: no picture');
   deepEq(r.notes, ['1 image too large to bring in kept as a placeholder.'], 'over 40 MB: said so');
+});
+
+await acheck('import: a picture keeps its width on the page (as a size) and its paragraph’s alignment', async () => {
+  const pic = png(800, 600);
+  const sized = (rId, alt, cx) => drawing(`<wp:extent cx="${cx}" cy="1"/><wp:docPr id="1" name="p" descr="${alt}"/>`, `<pic:pic><pic:blipFill><a:blip r:embed="${rId}"/></pic:blipFill></pic:pic>`);
+  // A4-ish: 11906 twips wide less 1440 each side = 9026 twips = 601.7 px of text.
+  const sect = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>';
+  const px = (n) => Math.round(n * 9525);
+  const r = await importDocx(docx({
+    body: P(sized('rP', 'Half', px(300)), '<w:jc w:val="center"/>') + P(sized('rP', 'Own size', px(600)), '<w:jc w:val="right"/>') + P(sized('rP', 'Quarter', px(150))) + P(blipDrawing('rP', 'No extent'), '<w:jc w:val="end"/>') + sect,
+    docRels: [rel('rP', 'image', 'media/p.png')],
+    parts: [media('p.png', pic)],
+  }), 'x.docx', parseXml);
+  const figs = [];
+  r.content.descendants((n) => { if (n.type.name === 'figure') figs.push([n.attrs.alt, n.attrs.size, n.attrs.align]); });
+  deepEq(figs, [['Half', 'medium', 'center'], ['Own size', null, 'right'], ['Quarter', 'small', 'left'], ['No extent', null, 'right']], 'half the text width is Medium; about its own (capped) size is Original; jc read, end is right');
 });
 
 await acheck('import: the header and footer bring their first picture, with its alt; more are noted', async () => {

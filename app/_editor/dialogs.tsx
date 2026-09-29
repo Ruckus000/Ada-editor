@@ -4,6 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { safeHref } from './editorSchema';
+import type { FigureAlign, FigureSize } from './editorSchema';
 import type { Section } from './findings';
 import type { SectionImage } from '../_data/store';
 import { acquireUrl, releaseUrl } from '../_data/images';
@@ -114,6 +115,70 @@ export function AltTextDialog({
         <span className={styles.fieldLabel}>Description</span>
         <textarea id={id} className={styles.textarea} rows={3} value={value} onChange={(e) => setValue(e.target.value)} />
       </label>
+    </Shell>
+  );
+}
+
+/* ---------- picture size and position ---------- */
+
+export const SIZE_NAMES: Record<FigureSize | 'original', string> = { original: 'Original', small: 'Small', medium: 'Medium', large: 'Large', full: 'Full width' };
+export const ALIGN_NAMES: Record<FigureAlign, string> = { left: 'Left', center: 'Centre', right: 'Right' };
+const SIZE_HINTS: Record<FigureSize | 'original', string> = { original: 'its own size, no wider than the page', small: 'a quarter of the page width', medium: 'half the page width', large: 'three quarters of the page width', full: 'the whole page width' };
+
+export function FigureLayoutDialog({
+  open,
+  label,
+  initial,
+  onSave,
+  onClose,
+}: {
+  open: boolean;
+  label: string;
+  initial: { size: FigureSize | null; align: FigureAlign };
+  onSave: (layout: { size: FigureSize | null; align: FigureAlign }) => void;
+  onClose: () => void;
+}) {
+  const [size, setSize] = useState<FigureSize | 'original'>(initial.size ?? 'original');
+  const [align, setAlign] = useState<FigureAlign>(initial.align);
+  const id = useId();
+  useEffect(() => {
+    if (open) { setSize(initial.size ?? 'original'); setAlign(initial.align); }
+  }, [open, initial.size, initial.align]);
+  const full = size === 'full';
+
+  return (
+    <Shell
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title="Size and position"
+      description={`How wide this ${label} is on the page, and where it sits. Exports use the same.`}
+      onSubmit={(e) => { e.preventDefault(); onSave({ size: size === 'original' ? null : size, align }); }}
+      footer={
+        <>
+          <Dialog.Close className={styles.btnSubtle} type="button">Cancel</Dialog.Close>
+          <button type="submit" className={styles.btnPrimary}>Save</button>
+        </>
+      }
+    >
+      <fieldset className={styles.choices}>
+        <legend className={styles.fieldLabel}>Size</legend>
+        {(['original', 'small', 'medium', 'large', 'full'] as const).map((s) => (
+          <label key={s} className={styles.check}>
+            <input type="radio" name={`${id}-size`} value={s} checked={size === s} onChange={() => setSize(s)} />
+            <span>{SIZE_NAMES[s]} <span className={styles.choiceHint}>({SIZE_HINTS[s]})</span></span>
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className={styles.choices} disabled={full} aria-describedby={full ? `${id}-full` : undefined}>
+        <legend className={styles.fieldLabel}>Alignment</legend>
+        {(['left', 'center', 'right'] as const).map((a) => (
+          <label key={a} className={styles.check}>
+            <input type="radio" name={`${id}-align`} value={a} checked={align === a} onChange={() => setAlign(a)} />
+            <span>{ALIGN_NAMES[a]}</span>
+          </label>
+        ))}
+        {full ? <p id={`${id}-full`} className={styles.choiceHint}>A full-width picture fills the line, so it has no alignment.</p> : null}
+      </fieldset>
     </Shell>
   );
 }
