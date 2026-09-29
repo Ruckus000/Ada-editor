@@ -26,8 +26,11 @@ system, and every finding is computed by
 the **real checking engine**: nineteen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
-(the document's language, landmarks, headings and links intact; figures are still placeholders,
-and whatever the checker flags is still wrong in the export). **Upload .docx**
+(the document's language, landmarks, headings and links intact, and its images
+embedded in the page with their alt text; whatever the checker flags is still
+wrong in the export, so an image without alt text is exported without it).
+**Insert image** takes a PNG, JPEG, GIF or WebP file (up to 10 MB), checked by
+its contents, not its name. **Upload .docx**
 imports an existing Word file in the browser (the file itself is never
 uploaded) and checks it like any other document. Tables come across as real
 tables, header rows and merged cells included, and a table with no header

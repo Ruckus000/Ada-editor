@@ -1200,6 +1200,27 @@ check('tables: the schema holds them, stored JSON round-trips, and they never ne
   assert(N.table_cell.contentMatch.matchType(N.bullet_list) || N.table_cell.contentMatch.matchType(N.paragraph).matchType(N.bullet_list), 'a cell can hold a list');
 });
 
+check('images: the HTML export embeds each picture; missing alt stays missing; no bytes, a placeholder', () => {
+  const { exportHtml } = mod.exportHtml;
+  const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
+  const [a, b, c] = ['a', 'b', 'c'].map((x) => x.repeat(64));
+  const images = new Map([[a, { src: 'data:image/png;base64,iVBORw0KGgo=' }], [b, { src: 'data:image/jpeg;base64,/9j/' }]]);
+  const d = doc(
+    N.figure.create({ id: 'img-1', alt: 'Chart of weekly visits', label: 'chart', image: a, width: 640, height: 480 }),
+    N.figure.create({ id: 'img-2', alt: '', label: 'photo', image: b }),
+    N.figure.create({ id: 'img-3', alt: 'Floor plan', label: 'floor plan', image: c }),
+    N.figure.create({ id: 'img-4', alt: 'Site plan', label: 'site plan' }),
+  );
+  const page = parseHTML(exportHtml(d, { title: 't', header: '', footer: '' }, empty(), images)).document;
+  const imgs = [...page.querySelectorAll('main figure.image > img')];
+  eq(imgs.length, 2, 'two pictures embedded');
+  eq(imgs[0].getAttribute('src'), 'data:image/png;base64,iVBORw0KGgo=', 'the bytes travel inside the page');
+  deepEq([imgs[0].getAttribute('alt'), imgs[0].getAttribute('width'), imgs[0].getAttribute('height')], ['Chart of weekly visits', '640', '480'], 'alt and size');
+  assert(!imgs[1].hasAttribute('alt'), 'no alt means no alt attribute, never alt="" (which would hide it)');
+  const placeholders = [...page.querySelectorAll('main figure.placeholder')];
+  deepEq(placeholders.map((f) => f.getAttribute('aria-label')), ['Floor plan', 'Site plan'], 'no bytes to hand, or none at all: the placeholder');
+});
+
 check('tables: the HTML export gives headers a scope, keeps spans and the caption', () => {
   const { exportHtml } = mod.exportHtml;
   const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;

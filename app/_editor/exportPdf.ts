@@ -5,6 +5,7 @@ import { TableMap } from 'prosemirror-tables';
 import type { Rect } from 'prosemirror-tables';
 import { documentLanguage, safeHref } from './editorSchema';
 import { headerScope, leadingHeaderRows } from './tableHeaders';
+import { validImageKey } from '../_data/imageFormat';
 import { isForeignTo, isUsableLangTag } from '../_engine/textHelpers';
 import { BODY_PX, HEADING_PX, LINK_TEXT, PAGE_TEXT, parseColour } from '../_engine/contrast';
 import type { RGB } from '../_engine/contrast';
@@ -109,7 +110,16 @@ interface Frag {
 /** Drawn content under one structure element, in reading order. */
 type Content =
   | { kind: 'text'; frags: Frag[] }
-  | { kind: 'figure'; page: number; x: number; top: number; width: number; height: number; label: Frag };
+  | { kind: 'figure'; page: number; x: number; top: number; width: number; height: number; label: Frag }
+  /** A picture: PDFKit's opened image, drawn at this box. */
+  | { kind: 'image'; page: number; x: number; top: number; width: number; height: number; image: PdfImageObject };
+
+/** What PDFKit's openImage returns; image() accepts it back. */
+interface PdfImageObject { width: number; height: number; orientation?: number }
+
+/** The document's pictures as PNG or JPEG bytes, by key (exportImages.ts
+ *  fetches them in the browser; the gate passes its own). */
+export type PdfImages = ReadonlyMap<string, { data: Uint8Array }>;
 
 interface Elem {
   type: string;
@@ -135,7 +145,7 @@ const hex = (css: string, fallback: RGB): RGB => parseColour(css) ?? fallback;
  * Build the PDF. `fonts` are the TTF bytes (the browser fetches
  * PDF_FONT_FILES; the Node gate reads them from public/).
  */
-export async function exportPdf(doc: PMNode, meta: { title: string; header: string; footer: string }, fonts: PdfFonts): Promise<PdfResult> {
+export async function exportPdf(doc: PMNode, meta: { title: string; header: string; footer: string }, fonts: PdfFonts, images: PdfImages = new Map()): Promise<PdfResult> {
   const lang = documentLanguage(doc);
   const title = meta.title.trim() || 'Untitled document';
   const pdf = new PDFDocument({
@@ -422,6 +432,9 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
         shift(item.children, dy, onPage);
       } else if (item.kind === 'text') {
         for (const f of item.frags) { f.y += dy; f.top += dy; f.page = onPage; }
+      } else if (item.kind === 'image') {
+        item.top += dy;
+        item.page = onPage;
       } else {
         item.top += dy;
         item.page = onPage;
@@ -435,6 +448,26 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   /** Cell rules, and header rows redrawn on each later page a table reaches. */
   const cellBoxes: { page: number; x: number; top: number; w: number; h: number }[] = [];
   const repeatedHeaders: Frag[] = [];
+
+  /** A figure's picture, opened by PDFKit, or null: no key, no bytes, or bytes
+   *  PDFKit can't read (the figure is then the placeholder it is in the editor). */
+  const opened = new Map<string, PdfImageObject | null>();
+  const pictureOf = (node: PMNode): { image: PdfImageObject; displayW: number; displayH: number } | null => {
+    const key = validImageKey(node.attrs.image);
+    const source = key ? images.get(key) : undefined;
+    if (!key || !source) return null;
+    if (!opened.has(key)) {
+      try {
+        opened.set(key, (pdf as unknown as { openImage(src: Uint8Array): PdfImageObject }).openImage(source.data));
+      } catch {
+        opened.set(key, null);
+      }
+    }
+    const image = opened.get(key);
+    if (!image) return null;
+    const turned = (image.orientation ?? 1) > 4;
+    return { image, displayW: turned ? image.height : image.width, displayH: turned ? image.width : image.height };
+  };
 
   const blockNode = (node: PMNode, left: number, width: number, depth: number, label?: (firstLine: Frag | undefined) => Elem, bold = false): Elem[] => {
     const name = node.type.name;
@@ -458,6 +491,26 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     }
     if (name === 'figure') {
       const alt = String(node.attrs.alt ?? '');
+      const picture = pictureOf(node);
+      if (picture) {
+        // Its own size (CSS px), no wider than the column, no taller than a
+        // page (half a page in a table cell, whose row can't break).
+        const natW = (Number(node.attrs.width) || picture.displayW) * PT;
+        const natH = (Number(node.attrs.height) || picture.displayH) * PT;
+        let w = Math.min(natW, width);
+        let h = (w * natH) / natW;
+        const maxH = (contentBottom - contentTop) / (breaks ? 1 : 2);
+        if (h > maxH) { h = maxH; w = (h * natW) / natH; }
+        openBlock(FIGURE_MARGIN);
+        if (breaks && y + h > contentBottom && !atTop()) newPage();
+        const top = y;
+        y += h;
+        pendingMargin = FIGURE_MARGIN;
+        // No alt means no /Alt, exactly as the checker reported.
+        const figure: Elem = { type: 'Figure', options: { bbox: [left, top, left + w, top + h], ...(alt.trim() ? { alt } : {}) }, children: [] };
+        figure.children.push({ kind: 'image', page, x: left, top, width: w, height: h, image: picture.image });
+        return [figure];
+      }
       const text = `Image: ${String(node.attrs.label ?? '')}`;
       const style = baseStyle(BODY, false);
       needGlyphs(text, 'regular');
@@ -726,6 +779,11 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
       parent.add(struct);
       for (const child of item.children) emit(child, struct, item);
       struct.end();
+      return;
+    }
+    if (item.kind === 'image') {
+      goTo(item.page);
+      parent.add(() => { pdf.image(item.image as unknown as string, item.x, item.top, { width: item.width, height: item.height }); });
       return;
     }
     if (item.kind === 'figure') {

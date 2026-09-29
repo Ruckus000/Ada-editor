@@ -1061,6 +1061,16 @@ async function images(send, findingCount) {
     const after = await evaluate(send, `(() => { const img = document.querySelector('#document-text [role=img] img'); return img ? img.naturalWidth : 0; })()`);
     if (after !== 120) fail(`IMAGE  the picture did not come back after a reload (naturalWidth ${after})`);
     else note('the picture survives a reload (kept in IndexedDB)');
+
+    // Alt text, added the usual way, for the export check.
+    if (!(await focusByName(send, '#document-text button', 'Add alt text for visits-chart'))) { fail('IMAGE  no Add alt text button on the inserted picture'); return; }
+    await key(send, 'Enter');
+    await sleep(300);
+    if (!(await focusByName(send, '[role=dialog] textarea', ''))) { fail('IMAGE  the alt text dialog has no description field'); return; }
+    await send('Input.insertText', { text: 'Chart of weekly visits' });
+    if (!(await focusByName(send, '[role=dialog] button', 'Save alt text'))) { fail('IMAGE  no Save alt text button'); return; }
+    await key(send, 'Enter');
+    await sleep(1500);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -1111,13 +1121,17 @@ async function checkExport(send) {
       axe.run(document, { runOnly: { type: 'tag', values: ${JSON.stringify(AXE_TAGS)} } })
         .then((r) => JSON.stringify(r.violations.map((v) => ({ id: v.id, nodes: v.nodes.length }))))
     `));
-    for (const v of violations.filter((x) => x.id !== 'role-img-alt')) fail(`EXPORT  axe: ${v.id} x${v.nodes} in the exported page`);
-    const unnamed = violations.find((v) => v.id === 'role-img-alt')?.nodes ?? 0;
+    // Unlabelled figures: placeholders (role-img-alt) and real pictures (image-alt).
+    for (const v of violations.filter((x) => x.id !== 'role-img-alt' && x.id !== 'image-alt')) fail(`EXPORT  axe: ${v.id} x${v.nodes} in the exported page`);
+    const unnamed = violations.filter((v) => v.id === 'role-img-alt' || v.id === 'image-alt').reduce((n, v) => n + v.nodes, 0);
     if (unnamed !== missingAlt) fail(`EXPORT  ${unnamed} unnamed images exported, but the editor showed ${missingAlt} missing alt text`);
     else note(`exported page: axe clean apart from the ${missingAlt} image(s) the editor flags as missing alt`);
     const table = await evaluate(send, `(() => { const t = [...document.querySelectorAll('table')].find((x) => x.querySelector('caption')?.textContent === 'Hearing dates'); return t ? { th: [...t.querySelectorAll('thead th[scope=col]')].map((c) => c.textContent), rows: t.querySelectorAll('tr').length } : null; })()`);
     if (!table || table.th.join('|') !== 'Date|Room' || table.rows !== 3) fail(`EXPORT  the table from the editor did not reach the page with its header row (${JSON.stringify(table)})`);
     else note('the table exports with its caption and scoped header row, axe clean');
+    const picture = await evaluate(send, `(() => { const img = document.querySelector('figure.image img'); return img ? { data: img.getAttribute('src').startsWith('data:image/png;base64,'), alt: img.getAttribute('alt'), natural: img.naturalWidth } : null; })()`);
+    if (!picture?.data || picture.alt !== 'Chart of weekly visits' || picture.natural !== 120) fail(`EXPORT  the inserted picture did not export with its alt text (${JSON.stringify(picture)})`);
+    else note('the inserted picture exports inside the page, with the alt text added in the editor');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

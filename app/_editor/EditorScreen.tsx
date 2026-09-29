@@ -59,6 +59,7 @@ import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import type { TableAction } from './Toolbar';
 import { ImageError, acquireUrl, putImage, releaseUrl } from '../_data/images';
+import { imageKeys, resolveForHtml, resolveForPdf } from './exportImages';
 import { IMAGE_MIMES, MAX_IMAGE_BYTES, sniffImage, validImageKey } from '../_data/imageFormat';
 import styles from './editor.module.css';
 
@@ -499,14 +500,19 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const onExport = () => {
+  /** Said after an export when some pictures couldn't be had here. */
+  const unavailable = (n: number) => (n ? ` ${n === 1 ? '1 image wasn’t' : `${n} images weren’t`} available here, so ${n === 1 ? 'it was' : 'they were'} exported as ${n === 1 ? 'a placeholder' : 'placeholders'}.` : '');
+
+  const onExport = async () => {
     const view = viewRef.current;
     if (!view) return;
+    const content = view.state.doc;
     const s = sectionsRef.current;
-    const html = exportHtml(view.state.doc, { title: doc.title, header: s.header.text, footer: s.footer.text }, document.implementation.createHTMLDocument(''));
+    const { images, missing } = await resolveForHtml(imageKeys(content));
+    const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text }, document.implementation.createHTMLDocument(''), images);
     const file = `${doc.id}.html`;
     download(new Blob([html], { type: 'text/html' }), file);
-    announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.`);
+    announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
   };
 
   // Needs a connection in cloud mode (sync.ts removeDoc): nothing is queued,
@@ -541,7 +547,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         if (!res.ok) throw new Error(`${url}: ${res.status}`);
         return [face, new Uint8Array(await res.arrayBuffer())] as const;
       }));
-      const result = await exportPdf(content, { title: doc.title, header: s.header.text, footer: s.footer.text }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>);
+      const { images, missing } = await resolveForPdf(imageKeys(content));
+      const result = await exportPdf(content, { title: doc.title, header: s.header.text, footer: s.footer.text }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>, images);
       if (!result.ok) {
         setPdfMissing(result.missing);
         announce(`PDF not exported: its font has no characters for ${result.missing.length === 1 ? 'one character' : `${result.missing.length} characters`} in this document. The findings panel lists them.`);
@@ -550,7 +557,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       setPdfMissing([]);
       const file = `${doc.id}.pdf`;
       download(new Blob([result.bytes as BlobPart], { type: 'application/pdf' }), file);
-      announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.`);
+      announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
     } catch {
       announce('The PDF could not be built. Try again, or use Export HTML.');
     } finally {
@@ -917,7 +924,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
               {LANGUAGE_MENU.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
             </select>
           </label>
-          <button type="button" className={styles.btnSubtle} onClick={onExport}>Export HTML</button>
+          <button type="button" className={styles.btnSubtle} onClick={() => void onExport()}>Export HTML</button>
           <button type="button" className={styles.btnSubtle} onClick={() => void onExportPdf()}>Export PDF</button>
           <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
           <button type="button" className={styles.btnSubtle} onClick={() => void onDelete()}>Delete document</button>
