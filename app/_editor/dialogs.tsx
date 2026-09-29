@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { safeHref } from './editorSchema';
 import type { Section } from './findings';
+import type { SectionImage } from '../_data/store';
+import { acquireUrl, releaseUrl } from '../_data/images';
 import styles from './editor.module.css';
 
 /**
@@ -387,7 +389,7 @@ export interface SectionState {
   text: string;
   align: Align;
   spacing: number;
-  image: { id: string; alt: string } | null;
+  image: SectionImage | null;
 }
 
 const ALIGN_ICONS: Record<Align, string> = {
@@ -467,7 +469,7 @@ export function HeaderFooterDialog({
         <div className={styles.fieldLabel}>Image</div>
         {s.image ? (
           <div className={styles.imageRow}>
-            <span className={styles.imageThumb} aria-hidden="true"><ImageIcon size={20} /></span>
+            <span className={styles.imageThumb} aria-hidden="true">{s.image.image ? <StoredImg imageKey={s.image.image} fallback={20} /> : <ImageIcon size={20} />}</span>
             <div className={styles.imageMeta}>
               {s.image.alt
                 ? <span className={styles.altText}>{`Alt text: “${s.image.alt}”`}</span>
@@ -487,6 +489,18 @@ export function HeaderFooterDialog({
       </div>
     </Shell>
   );
+}
+
+/** A stored picture (images.ts), decorative: whatever shows it carries the name.
+ *  The icon stands in while it loads, or if it can't be had. */
+export function StoredImg({ imageKey, fallback }: { imageKey: string; fallback: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void acquireUrl(imageKey).then((u) => { if (live) setUrl(u); });
+    return () => { live = false; setUrl(null); releaseUrl(imageKey); };
+  }, [imageKey]);
+  return url ? <img src={url} alt="" draggable={false} className={styles.storedImg} /> : <ImageIcon size={fallback} />;
 }
 
 export function ImageIcon({ size }: { size: number }) {

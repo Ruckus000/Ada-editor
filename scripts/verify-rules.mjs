@@ -1221,6 +1221,26 @@ check('images: the HTML export embeds each picture; missing alt stays missing; n
   deepEq(placeholders.map((f) => f.getAttribute('aria-label')), ['Floor plan', 'Site plan'], 'no bytes to hand, or none at all: the placeholder');
 });
 
+check('images: header and footer images are sanitised, flagged when unlabelled, and exported', () => {
+  const { sectionImageOf } = mod.store;
+  const key = 'd'.repeat(64);
+  deepEq(sectionImageOf({ id: 'header-img-3', alt: 'Seal', image: key, width: 40, height: 20 }), { id: 'header-img-3', alt: 'Seal', image: key, width: 40, height: 20 }, 'a good one passes');
+  eq(sectionImageOf({ id: '../x', alt: '' }), null, 'a bad id is dropped');
+  deepEq(sectionImageOf({ id: 'footer-img-1', alt: 5, image: '../../etc', width: -1 }), { id: 'footer-img-1', alt: '', image: null, width: null, height: null }, 'bad fields become empty');
+  eq(sectionImageOf('header-img-1'), null, 'not an object');
+  const { sectionFindings } = mod.editorFindings;
+  const images = { headerImage: { id: 'header-img-1', alt: '' }, footerImage: { id: 'footer-img-2', alt: 'Seal' } };
+  deepEq(sectionFindings(images).map((f) => [f.id, f.anchor.section]), [['img-alt-header-img-1', 'header']], 'an unlabelled header image is a finding; a labelled footer one isn’t');
+  eq(sectionFindings(images, ['img-alt-header-img-1']).length, 0, 'a dismissal holds');
+  const { exportHtml } = mod.exportHtml;
+  const page = parseHTML(exportHtml(doc(para('x')), { title: 't', header: 'City Hall', footer: 'Footer', headerImage: { alt: 'City seal', image: key, width: 40, height: 20 }, footerImage: { alt: '', image: 'e'.repeat(64), width: null, height: null } },
+    parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document, new Map([[key, { src: 'data:image/png;base64,AA==' }]]))).document;
+  const img = page.querySelector('header img');
+  deepEq([img?.getAttribute('alt'), img?.getAttribute('src'), page.querySelector('header').textContent.trim()], ['City seal', 'data:image/png;base64,AA==', 'City Hall'], 'the header: its picture, then its text');
+  const placeholder = page.querySelector('footer [role=img]');
+  assert(placeholder && !placeholder.hasAttribute('aria-label'), 'a footer picture with no bytes and no alt: an unnamed placeholder, as flagged');
+});
+
 check('tables: the HTML export gives headers a scope, keeps spans and the caption', () => {
   const { exportHtml } = mod.exportHtml;
   const empty = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
@@ -1669,6 +1689,10 @@ for (const producer of ['pandoc', 'libreoffice']) {
     eq(r.content.child(5).childCount, 2, 'one ordered list of two items, even across numIds');
     deepEq(hrefs(r.content), ['https://example.org/hours', 'https://example.org/branch'], 'links');
     deepEq(figures(r.content), ['Bar chart of visits by weekday', ''], 'image alt text');
+    // The file's one real picture comes with its figure, and is handed back to be stored.
+    const pictured = [];
+    r.content.descendants((n) => { if (n.type.name === 'figure' && n.attrs.image) pictured.push(n.attrs.image); });
+    assert(pictured.length >= 1 && pictured.every((k) => r.images.has(k)), `the embedded PNG arrives with its figure (${JSON.stringify(pictured)})`);
     deepEq(r.notes, [], 'nothing left out');
     const ids = findingIds(r.content);
     assert(!ids.some((id) => id.startsWith('table-')), `a headed table raises nothing: ${JSON.stringify(ids)}`);
@@ -1945,6 +1969,85 @@ await acheck('import: rows and cells inside custom XML and tracked insertions; h
   try { await importDocx(docx({ body: huge }), 'x.docx', parseXml); } catch (e) { error = e; }
   assert(error instanceof ImportError, `over 10,000 cells is refused (got ${error})`);
   eq(error.userMessage, 'This document is too large to import.', 'with the plain too-large message');
+});
+
+// An image drawing: a blip pointing at relationship `rId`.
+const blipDrawing = (rId, alt) => drawing(`<wp:docPr id="1" name="p" descr="${alt}"/>`, `<pic:pic><pic:blipFill><a:blip r:embed="${rId}"/></pic:blipFill></pic:pic>`);
+const media = (name, bytes, opt) => [`word/media/${name}`, Buffer.from(bytes), opt];
+
+await acheck('import: Word pictures arrive with their figures, stored once, keyed by their bytes', async () => {
+  const picture = png(30, 20);
+  const r = await importDocx(docx({
+    body: P(blipDrawing('rA', 'Map of the branch')) + P(blipDrawing('rB', 'The same map again'))
+      + P('<w:r><w:pict><v:shape alt="Old logo"><v:imagedata r:id="rC"/></v:shape></w:pict></w:r>'),
+    docRels: [rel('rA', 'image', 'media/a.png'), rel('rB', 'image', 'media/copy.png'), rel('rC', 'image', 'media/logo.jpg')],
+    parts: [media('a.png', picture), media('copy.png', picture), media('logo.jpg', JPEG_3X2)],
+  }), 'x.docx', parseXml);
+  const figs = [];
+  r.content.descendants((n) => { if (n.type.name === 'figure') figs.push(n.attrs); });
+  eq(figs.length, 3, 'three figures');
+  deepEq([figs[0].alt, figs[0].width, figs[0].height], ['Map of the branch', 30, 20], 'the picture keeps its alt text and gets its size');
+  eq(figs[0].image, figs[1].image, 'the same bytes twice are one image');
+  eq(figs[2].alt, 'Old logo', 'a VML picture keeps its alt');
+  assert(figs[2].image && figs[2].image !== figs[0].image, 'and gets its own picture');
+  eq(r.images.size, 2, 'two images to store');
+  deepEq([...r.images.values()].map((i) => i.mime).sort(), ['image/jpeg', 'image/png'], 'with their types');
+  deepEq(r.notes, [], 'nothing left out');
+});
+
+await acheck('import: pictures the editor can’t show stay placeholders, each kind named in the notes', async () => {
+  const emf = new Uint8Array(48); emf[0] = 1; emf.set(Buffer.from(' EMF'), 40);
+  const r = await importDocx(docx({
+    body: [blipDrawing('rE', 'Old chart'), blipDrawing('rL', 'Logo on the web'), blipDrawing('rM', 'Lost'), blipDrawing('rX', 'Unknown')].map((d) => P(d)).join('')
+      + P(drawing('<wp:docPr id="9" name="c" descr="Visits by month"/>', '<c:chart r:id="rChart"/>')),
+    docRels: [rel('rE', 'image', 'media/chart.emf'), rel('rL', 'image', 'https://example.org/logo.png', true), rel('rM', 'image', 'media/gone.png')],
+    parts: [media('chart.emf', emf)],
+  }), 'x.docx', parseXml);
+  const figs = [];
+  r.content.descendants((n) => { if (n.type.name === 'figure') figs.push(n.attrs); });
+  eq(figs.length, 5, 'every picture is still a figure');
+  assert(figs.every((f) => f.image === null), 'none has a picture');
+  deepEq(figs.map((f) => f.alt), ['Old chart', 'Logo on the web', 'Lost', 'Unknown', 'Visits by month'], 'alt text kept');
+  deepEq(r.notes, [
+    '1 image in a format the editor can’t show (EMF) kept as a placeholder.',
+    '1 image linked from outside the file, not in it, kept as a placeholder.',
+    '2 images missing from the file kept as placeholders.',
+    '1 chart or diagram kept as a placeholder; its alt text is all that came across.',
+  ], 'each kind of placeholder named');
+  eq(r.images.size, 0, 'nothing to store');
+});
+
+await acheck('import: a picture over 10 MB stays a placeholder, stored or deflated', async () => {
+  const big = new Uint8Array(10 * 1024 * 1024 + 1);
+  big.set(png(1, 1));
+  for (const method of [0, 8]) {
+    const r = await importDocx(docx({ body: P(blipDrawing('rB', 'Huge')), docRels: [rel('rB', 'image', 'media/big.png')], parts: [media('big.png', big, { method })] }), 'x.docx', parseXml);
+    let fig;
+    r.content.descendants((n) => { if (n.type.name === 'figure') fig = n.attrs; });
+    eq(fig?.image, null, `method ${method}: no picture`);
+    deepEq(r.notes, ['1 image too large to bring in (over 10 MB) kept as a placeholder.'], `method ${method}: said so`);
+  }
+});
+
+await acheck('import: the header and footer bring their first picture, with its alt; more are noted', async () => {
+  const logo = png(24, 12);
+  const band = (tag, rId, alt) => `<?xml version="1.0"?><w:${tag} ${NS}>${P(blipDrawing(rId, alt) + R(' City Hall'))}${P(blipDrawing(rId, 'Seal again'))}</w:${tag}>`;
+  const r = await importDocx(docx({
+    body: P(R('Body')) + '<w:sectPr><w:headerReference w:type="default" r:id="rH"/><w:footerReference w:type="default" r:id="rF"/></w:sectPr>',
+    docRels: [rel('rH', 'header', 'header1.xml'), rel('rF', 'footer', 'footer1.xml')],
+    parts: [
+      ['word/header1.xml', band('hdr', 'rL', 'City seal')],
+      ['word/_rels/header1.xml.rels', rels(rel('rL', 'image', 'media/logo.png'))],
+      ['word/footer1.xml', `<?xml version="1.0"?><w:ftr ${NS}>${P(R('Page footer'))}</w:ftr>`],
+      media('logo.png', logo),
+    ],
+  }), 'x.docx', parseXml);
+  eq(r.header, 'City Hall', 'the header text as before');
+  deepEq([r.headerImage?.id, r.headerImage?.alt, r.headerImage?.width, r.headerImage?.height], ['header-img-1', 'City seal', 24, 12], 'the logo with its alt and size');
+  assert(r.headerImage?.image && r.images.has(r.headerImage.image), 'its picture is handed back to be stored');
+  eq(r.footerImage, null, 'no footer picture');
+  eq(r.footer, 'Page footer', 'the footer text');
+  assert(r.notes.includes('Only the first image in the header was kept; 1 more was left out.'), `the second picture is noted (${JSON.stringify(r.notes)})`);
 });
 
 await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {

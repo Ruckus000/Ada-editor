@@ -416,6 +416,9 @@
 .band[data-edge='header'] { border-bottom: 1px dashed var(--as-border); }
 .band[data-edge='footer'] { border-top: 1px dashed var(--as-border); }
 
+.bandPicture { display: inline-block; margin-right: 8px; vertical-align: middle; }
+.bandPicture img { display: block; max-height: 40px; width: auto; max-width: 160px; }
+.imageThumb img, .storedImg { max-width: 100%; max-height: 100%; object-fit: contain; }
 .bandImage {
   display: inline-flex;
   align-items: center;

@@ -6,14 +6,15 @@
  * 'deflate-raw', in every supported browser and Node 22), and the format work
  * left is reading one directory. Everything here treats the archive as
  * hostile: sizes in the file are claims, so inflation counts real bytes and
- * stops at a cap; only parts asked for by exact name are ever inflated, so
- * media (and a bomb hidden in media) is never touched; no path is ever
+ * stops at a cap; only parts asked for by exact name are ever inflated (XML
+ * parts, and the images a relationship points at, each under its own cap), so
+ * a bomb hidden in some other entry is never touched; no path is ever
  * written anywhere, so there is no zip-slip surface.
  */
 
 export class ZipError extends Error {}
 
-/** Input cap. A text-heavy .docx is well under this; images dominate size and are never read. */
+/** Input cap. A text-heavy .docx is well under this; images dominate what's left. */
 export const MAX_ZIP_BYTES = 25 * 1024 * 1024;
 const MAX_ENTRIES = 2000;
 /**
@@ -32,6 +33,9 @@ interface Entry { method: number; compressedSize: number; localOffset: number; }
 export interface Zip {
   /** The part's text (UTF-8), or null if the archive has no such entry. */
   text(name: string): Promise<string | null>;
+  /** The part's bytes, or null if there's no such entry; past `cap` inflated
+   *  bytes it throws ZipError('part-too-large'). */
+  bytes(name: string, cap?: number): Promise<Uint8Array | null>;
 }
 
 export function readZip(bytes: Uint8Array): Zip {
@@ -78,7 +82,7 @@ export function readZip(bytes: Uint8Array): Zip {
     p += 46 + nameLen + extraLen + commentLen;
   }
 
-  const bytesOf = async (e: Entry): Promise<Uint8Array> => {
+  const bytesOf = async (e: Entry, cap = MAX_PART_BYTES): Promise<Uint8Array> => {
     const lo = e.localOffset;
     if (!inRange(lo, 30) || u32(lo) !== LOC_SIG) throw new ZipError('corrupt');
     // The local header's name/extra lengths can differ from the central copy; the
@@ -88,11 +92,11 @@ export function readZip(bytes: Uint8Array): Zip {
     if (!inRange(start, e.compressedSize)) throw new ZipError('corrupt');
     const raw = bytes.subarray(start, start + e.compressedSize);
     if (e.method === 0) {
-      if (raw.length > MAX_PART_BYTES) throw new ZipError('part-too-large');
+      if (raw.length > cap) throw new ZipError('part-too-large');
       return raw;
     }
     if (e.method !== 8) throw new ZipError('unsupported-compression');
-    return inflateCapped(raw);
+    return inflateCapped(raw, cap);
   };
 
   return {
@@ -101,11 +105,15 @@ export function readZip(bytes: Uint8Array): Zip {
       if (!e) return null;
       return new TextDecoder('utf-8').decode(await bytesOf(e));
     },
+    async bytes(name, cap) {
+      const e = entries.get(name);
+      return e ? bytesOf(e, cap) : null;
+    },
   };
 }
 
-/** Inflate raw DEFLATE, aborting as soon as the output passes MAX_PART_BYTES. */
-async function inflateCapped(raw: Uint8Array): Promise<Uint8Array> {
+/** Inflate raw DEFLATE, aborting as soon as the output passes `cap`. */
+async function inflateCapped(raw: Uint8Array, cap: number): Promise<Uint8Array> {
   const ds = new DecompressionStream('deflate-raw');
   const writer = ds.writable.getWriter();
   // Errors surface on the reader; swallow the writer's copy so it isn't unhandled.
@@ -119,7 +127,7 @@ async function inflateCapped(raw: Uint8Array): Promise<Uint8Array> {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > MAX_PART_BYTES) {
+      if (total > cap) {
         await reader.cancel().catch(() => {});
         throw new ZipError('part-too-large');
       }

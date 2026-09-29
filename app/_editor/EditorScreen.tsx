@@ -22,7 +22,7 @@ import {
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { removeDoc } from '../_data/sync';
-import { AltTextDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, TableCaptionDialog } from './dialogs';
+import { AltTextDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, StoredImg, TableCaptionDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
   clearFormatting,
@@ -53,7 +53,7 @@ import { isCloud } from '../_data/supabase';
 import { useSyncStatus } from '../_data/sync';
 import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
-import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sortFindings, summaryLine } from './findings';
+import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sectionFindings, sortFindings, summaryLine } from './findings';
 import { exportHtml } from './exportHtml';
 import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
@@ -88,7 +88,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // the findings this user already dismissed, which persist with the document.
   const initialFindings = useMemo(() => {
     const dismissed = new Set(stored.dismissed);
-    return checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f)));
+    return [...checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f))), ...sectionFindings(stored, stored.dismissed)];
   }, [initial, stored]);
 
   /* ---------- state ---------- */
@@ -111,8 +111,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const router = useRouter();
   const pdfBusy = useRef(false);
   const [sections, setSections] = useState<Record<Section, SectionState>>({
-    header: { text: stored.header, align: 'left', spacing: 12, image: null },
-    footer: { text: stored.footer, align: 'left', spacing: 12, image: null },
+    header: { text: stored.header, align: 'left', spacing: 12, image: stored.headerImage },
+    footer: { text: stored.footer, align: 'left', spacing: 12, image: stored.footerImage },
   });
   const [hfOpen, setHfOpen] = useState(false);
   const [hfTab, setHfTab] = useState<Section>('header');
@@ -177,7 +177,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     // must never be reissued to a new image, or the stale dismissal would
     // silently swallow the new image's missing-alt blocker (and a plain
     // collision would make alt-text edits hit the wrong figure).
-    imageSeq.current = imageIdFloor(initial, stored.dismissed);
+    // Section image ids share the counter, so a new image never reuses one.
+    const sectionNums = [stored.headerImage?.id, stored.footerImage?.id].map((id) => Number(/-img-(\d+)$/.exec(id ?? '')?.[1] ?? 0));
+    imageSeq.current = Math.max(imageIdFloor(initial, stored.dismissed), ...sectionNums);
 
     const figureView: NodeViewConstructor = (initialNode) => {
       let node = initialNode;
@@ -459,6 +461,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       content: view.state.doc.toJSON() as DocJSON,
       header: sectionsRef.current.header.text,
       footer: sectionsRef.current.footer.text,
+      headerImage: sectionsRef.current.header.image,
+      footerImage: sectionsRef.current.footer.image,
     });
   }, [doc.id]);
   // Debounced save, hand-rolled setTimeout — no debounce library (§9.7).
@@ -500,6 +504,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  /** Every picture an export needs: the document's and the bands'. */
+  const bandAndDocKeys = (content: PMNode) => {
+    const s = sectionsRef.current;
+    return [...new Set([...imageKeys(content), ...[s.header.image?.image, s.footer.image?.image].flatMap((k) => (validImageKey(k) ? [k as string] : []))])];
+  };
+
   /** Said after an export when some pictures couldn't be had here. */
   const unavailable = (n: number) => (n ? ` ${n === 1 ? '1 image wasn’t' : `${n} images weren’t`} available here, so ${n === 1 ? 'it was' : 'they were'} exported as ${n === 1 ? 'a placeholder' : 'placeholders'}.` : '');
 
@@ -508,8 +518,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     if (!view) return;
     const content = view.state.doc;
     const s = sectionsRef.current;
-    const { images, missing } = await resolveForHtml(imageKeys(content));
-    const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text }, document.implementation.createHTMLDocument(''), images);
+    const { images, missing } = await resolveForHtml(bandAndDocKeys(content));
+    const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, document.implementation.createHTMLDocument(''), images);
     const file = `${doc.id}.html`;
     download(new Blob([html], { type: 'text/html' }), file);
     announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
@@ -547,8 +557,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         if (!res.ok) throw new Error(`${url}: ${res.status}`);
         return [face, new Uint8Array(await res.arrayBuffer())] as const;
       }));
-      const { images, missing } = await resolveForPdf(imageKeys(content));
-      const result = await exportPdf(content, { title: doc.title, header: s.header.text, footer: s.footer.text }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>, images);
+      const { images, missing } = await resolveForPdf(bandAndDocKeys(content));
+      const result = await exportPdf(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>, images);
       if (!result.ok) {
         setPdfMissing(result.missing);
         announce(`PDF not exported: its font has no characters for ${result.missing.length === 1 ? 'one character' : `${result.missing.length} characters`} in this document. The findings panel lists them.`);
@@ -580,8 +590,11 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     view.focus();
   }, []);
 
-  // Insert image opens the file picker; the chosen file comes back through here.
+  // Insert image opens the file picker; the chosen file comes back through
+  // here, for the document or (from the header/footer dialog) for a band.
+  const imageTarget = useRef<Section | null>(null);
   const insertImage = () => {
+    imageTarget.current = null;
     setImageError('');
     imageInputRef.current?.click();
   };
@@ -601,6 +614,16 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         throw new ImageError('type', 'That image couldn’t be read. It may be damaged.');
       }
       const stored = await putImage(bytes);
+      const section = imageTarget.current;
+      imageTarget.current = null;
+      if (section) {
+        const sid = `${section}-img-${++imageSeq.current}`;
+        updateSection(section, { image: { id: sid, alt: '', image: stored.key, width: stored.width, height: stored.height } });
+        const old = sectionsRef.current[section].image;
+        setFindings([...findingsRef.current.filter((f) => f.id !== `img-alt-${old?.id}`), imageFinding(sid, `${section} image`, { kind: 'section', section })]);
+        announce(`Image added to the ${section}. It has no alternative text yet, so it was added as a blocking finding.`);
+        return;
+      }
       const n = ++imageSeq.current;
       const id = `img-${n}`;
       const label = file.name.replace(/\.[^.]+$/, '').replace(/\s+/g, ' ').trim().slice(0, 80) || `inserted image ${n}`;
@@ -807,7 +830,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       const { section } = altTarget;
       const image = sections[section].image;
       if (!image) return;
-      setSections((s) => ({ ...s, [section]: { ...s[section], image: { ...image, alt } } }));
+      // Saved with the document, like the rest of the band.
+      updateSection(section, { image: { ...image, alt } });
       if (alt && exists) setFindings(findingsRef.current.filter((f) => f.id !== findingId));
       if (!alt && !exists) setFindings([...findingsRef.current, imageFinding(image.id, altTarget.label, { kind: 'section', section })]);
     }
@@ -848,11 +872,11 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     announce(`${key === 'header' ? 'Header' : 'Footer'} distance from edge ${spacing} pixels.`);
   };
 
+  // The same file picker as Insert image; the picture lands in this band.
   const sectionInsertImage = (key: Section) => {
-    const id = `${key}-img-${++imageSeq.current}`;
-    updateSection(key, { image: { id, alt: '' } });
-    setFindings([...findingsRef.current, imageFinding(id, `${key} image`, { kind: 'section', section: key })]);
-    announce(`Image added to the ${key}. It has no alternative text yet, so it was added as a blocking finding.`);
+    imageTarget.current = key;
+    setImageError('');
+    imageInputRef.current?.click();
   };
 
   const sectionRemoveImage = (key: Section) => {
@@ -875,8 +899,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         style={{ paddingBlock: `${s.spacing}px`, textAlign: s.align }}
       >
         {s.image ? (
-          <span className={styles.bandImage} role="img" aria-label={s.image.alt || `${key} image, no alternative text`}>
-            <ImageIcon size={12} />
+          <span className={s.image.image ? styles.bandPicture : styles.bandImage} role="img" aria-label={s.image.alt || `${key} image, no alternative text`}>
+            {s.image.image ? <StoredImg imageKey={s.image.image} fallback={12} /> : <ImageIcon size={12} />}
           </span>
         ) : null}
         {s.text}

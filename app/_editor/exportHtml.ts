@@ -18,6 +18,7 @@ ${[1, 2, 3, 4, 5, 6].map((n) => `h${n} { font-size: ${HEADING_PX[n]}px; font-wei
 figure.placeholder { margin: 1.5rem 0; padding: 3rem 1rem; border: 2px dashed currentColor; text-align: center; }
 figure.image { margin: 1.5rem 0; }
 figure.image img { display: block; max-width: 100%; height: auto; }
+header img, footer img { max-height: 4rem; width: auto; max-width: 100%; vertical-align: middle; }
 table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
 th, td { border: 1px solid currentColor; padding: 0.25rem 0.5rem; text-align: start; vertical-align: top; overflow-wrap: anywhere; }
 th > :first-child, td > :first-child { margin-top: 0; }
@@ -92,7 +93,10 @@ function serializerFor(dom: Document, images: HtmlImages): DOMSerializer {
  * every string reaches the page through textContent or the serializer, so the
  * platform does all escaping.
  */
-export function exportHtml(doc: PMNode, meta: { title: string; header: string; footer: string }, dom: Document, images: HtmlImages = new Map()): string {
+/** A header or footer image (store.ts SectionImage). */
+export interface HtmlBandImage { alt: string; image: string | null; width: number | null; height: number | null }
+
+export function exportHtml(doc: PMNode, meta: { title: string; header: string; footer: string; headerImage?: HtmlBandImage | null; footerImage?: HtmlBandImage | null }, dom: Document, images: HtmlImages = new Map()): string {
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string) => {
     const node = dom.createElement(tag);
     if (text !== undefined) node.textContent = text;
@@ -114,13 +118,34 @@ export function exportHtml(doc: PMNode, meta: { title: string; header: string; f
   // and a browser reads the first one.
   dom.head.replaceChildren(charset, viewport, el('title', meta.title.trim() || 'Untitled document'), el('style', STYLE));
 
-  // ponytail: header/footer export their text only — section images,
-  // alignment and spacing aren't persisted in v1; export them once they are.
-  if (meta.header.trim()) dom.body.append(el('header', meta.header));
+  // A band: its image, then its text. Alignment and spacing aren't kept.
+  const band = (tag: 'header' | 'footer', text: string, image: HtmlBandImage | null | undefined) => {
+    if (!text.trim() && !image) return;
+    const node = el(tag);
+    const key = image ? validImageKey(image.image) : null;
+    const src = key ? images.get(key)?.src : undefined;
+    if (image && src) {
+      const img = el('img');
+      img.setAttribute('src', src);
+      // No alt, no alt attribute: as unlabelled as the checker says.
+      if (image.alt.trim()) img.setAttribute('alt', image.alt.trim());
+      if (image.width && image.height) { img.setAttribute('width', String(image.width)); img.setAttribute('height', String(image.height)); }
+      node.append(img);
+    } else if (image) {
+      // No picture to hand: a placeholder, named by its alt text if it has one.
+      const placeholder = el('span', `Image: ${tag} image`);
+      placeholder.setAttribute('role', 'img');
+      if (image.alt.trim()) placeholder.setAttribute('aria-label', image.alt.trim());
+      node.append(placeholder);
+    }
+    if (text.trim()) node.append(image ? ` ${text}` : text);
+    dom.body.append(node);
+  };
+  band('header', meta.header, meta.headerImage);
   const main = el('main');
   main.append(serializerFor(dom, images).serializeFragment(doc.content, { document: dom }));
   dom.body.append(main);
-  if (meta.footer.trim()) dom.body.append(el('footer', meta.footer));
+  band('footer', meta.footer, meta.footerImage);
 
   // ponytail: no print stylesheet — the page prints through the browser.
   // Tagged PDF/UA output is exportPdf.ts.

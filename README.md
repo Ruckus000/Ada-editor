@@ -34,9 +34,12 @@ its contents, not its name. **Upload .docx**
 imports an existing Word file in the browser (the file itself is never
 uploaded) and checks it like any other document. Tables come across as real
 tables, header rows and merged cells included, and a table with no header
-cells is a blocking finding. What the editor can't hold yet (footnotes,
-decorative images, tables nested inside table cells) is listed on the document
-instead of dropped silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser,
+cells is a blocking finding. Pictures come across with their alt text, and
+the first picture in the header and footer becomes that band's image. What
+the editor can't hold yet (footnotes, decorative images, tables nested inside
+table cells, pictures in formats a browser can't draw such as EMF/WMF, or
+linked from outside the file) is listed on the document instead of dropped
+silently. **Export PDF** builds a tagged PDF (PDF/UA-1) in the browser,
 with the same promise as the HTML export: headings, lists, links, language
 changes, alt text and tables (header cells with their scope, merged cells with
 their spans) are tagged from the document's own structure, and a figure

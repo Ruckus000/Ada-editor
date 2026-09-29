@@ -121,6 +121,12 @@ interface PdfImageObject { width: number; height: number; orientation?: number }
  *  fetches them in the browser; the gate passes its own). */
 export type PdfImages = ReadonlyMap<string, { data: Uint8Array }>;
 
+/** A header or footer image (store.ts SectionImage). */
+export interface BandImage { alt: string; image: string | null; width: number | null; height: number | null }
+/** A band image is logo-sized: never taller than this. */
+const BAND_IMAGE_MAX = 48;
+const BAND_GAP = 4;
+
 interface Elem {
   type: string;
   options: { alt?: string; lang?: string; bbox?: [number, number, number, number] };
@@ -145,7 +151,7 @@ const hex = (css: string, fallback: RGB): RGB => parseColour(css) ?? fallback;
  * Build the PDF. `fonts` are the TTF bytes (the browser fetches
  * PDF_FONT_FILES; the Node gate reads them from public/).
  */
-export async function exportPdf(doc: PMNode, meta: { title: string; header: string; footer: string }, fonts: PdfFonts, images: PdfImages = new Map()): Promise<PdfResult> {
+export async function exportPdf(doc: PMNode, meta: { title: string; header: string; footer: string; headerImage?: BandImage | null; footerImage?: BandImage | null }, fonts: PdfFonts, images: PdfImages = new Map()): Promise<PdfResult> {
   const lang = documentLanguage(doc);
   const title = meta.title.trim() || 'Untitled document';
   const pdf = new PDFDocument({
@@ -323,6 +329,40 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     return lines;
   };
 
+  /* ---------- pictures ---------- */
+
+  /** A picture by key, opened by PDFKit, or null: no key, no bytes, or bytes
+   *  PDFKit can't read (a figure is then the placeholder it is in the editor). */
+  const opened = new Map<string, PdfImageObject | null>();
+  const openPicture = (raw: unknown): { image: PdfImageObject; displayW: number; displayH: number } | null => {
+    const key = validImageKey(raw);
+    const source = key ? images.get(key) : undefined;
+    if (!key || !source) return null;
+    if (!opened.has(key)) {
+      try {
+        opened.set(key, (pdf as unknown as { openImage(src: Uint8Array): PdfImageObject }).openImage(source.data));
+      } catch {
+        opened.set(key, null);
+      }
+    }
+    const image = opened.get(key);
+    if (!image) return null;
+    const turned = (image.orientation ?? 1) > 4;
+    return { image, displayW: turned ? image.height : image.width, displayH: turned ? image.width : image.height };
+  };
+
+  /** A band's picture at logo size, or null. */
+  const bandPicture = (band: BandImage | null | undefined) => {
+    const picture = band ? openPicture(band.image) : null;
+    if (!band || !picture) return null;
+    const natW = (band.width ?? picture.displayW) * PT;
+    const natH = (band.height ?? picture.displayH) * PT;
+    let h = Math.min(natH, BAND_IMAGE_MAX);
+    let w = (h * natW) / natH;
+    if (w > PAGE_W - 2 * MARGIN) { w = PAGE_W - 2 * MARGIN; h = (w * natH) / natW; }
+    return { image: picture.image, w, h, alt: band.alt.trim() };
+  };
+
   /* ---------- pagination ---------- */
 
   const lineHeight = (size: number) => size * LEADING;
@@ -336,9 +376,15 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   };
   const headerLines = bandLines(meta.header);
   const footerLines = bandLines(meta.footer);
+  const headerPic = bandPicture(meta.headerImage);
+  const footerPic = bandPicture(meta.footerImage);
   const bandHeight = (lines: Line[]) => lines.reduce((h, l) => h + lineHeight(l.size), 0);
-  const contentTop = MARGIN + (headerLines.length ? bandHeight(headerLines) + BODY : 0);
-  const contentBottom = PAGE_H - MARGIN - (footerLines.length ? bandHeight(footerLines) + BODY : 0);
+  /** A band's picture, then its text below it. */
+  const bandTotal = (lines: Line[], pic: { h: number } | null) => (pic ? pic.h + (lines.length ? BAND_GAP : 0) : 0) + bandHeight(lines);
+  const headerH = bandTotal(headerLines, headerPic);
+  const footerH = bandTotal(footerLines, footerPic);
+  const contentTop = MARGIN + (headerH ? headerH + BODY : 0);
+  const contentBottom = PAGE_H - MARGIN - (footerH ? footerH + BODY : 0);
 
   let page = 0;
   let y = contentTop;
@@ -449,25 +495,7 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   const cellBoxes: { page: number; x: number; top: number; w: number; h: number }[] = [];
   const repeatedHeaders: Frag[] = [];
 
-  /** A figure's picture, opened by PDFKit, or null: no key, no bytes, or bytes
-   *  PDFKit can't read (the figure is then the placeholder it is in the editor). */
-  const opened = new Map<string, PdfImageObject | null>();
-  const pictureOf = (node: PMNode): { image: PdfImageObject; displayW: number; displayH: number } | null => {
-    const key = validImageKey(node.attrs.image);
-    const source = key ? images.get(key) : undefined;
-    if (!key || !source) return null;
-    if (!opened.has(key)) {
-      try {
-        opened.set(key, (pdf as unknown as { openImage(src: Uint8Array): PdfImageObject }).openImage(source.data));
-      } catch {
-        opened.set(key, null);
-      }
-    }
-    const image = opened.get(key);
-    if (!image) return null;
-    const turned = (image.orientation ?? 1) > 4;
-    return { image, displayW: turned ? image.height : image.width, displayH: turned ? image.width : image.height };
-  };
+  const pictureOf = (node: PMNode) => openPicture(node.attrs.image);
 
   const blockNode = (node: PMNode, left: number, width: number, depth: number, label?: (firstLine: Frag | undefined) => Elem, bold = false): Elem[] => {
     const name = node.type.name;
@@ -691,9 +719,18 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   /* ---------- compose ---------- */
 
   const root: Elem[] = [];
-  const bandElem = (lines: Line[], top: number, onPage: number): Elem => {
-    const frags = placeLines(lines, MARGIN, false, onPage, top);
-    return { type: 'Div', options: {}, children: [{ type: 'P', options: {}, children: [{ kind: 'text', frags }] }] };
+  type BandPic = NonNullable<ReturnType<typeof bandPicture>>;
+  const bandElem = (lines: Line[], pic: BandPic | null, top: number, onPage: number): Elem => {
+    const children: Elem[] = [];
+    // No alt means no /Alt, exactly as the checker reported.
+    if (pic) children.push({ type: 'Figure', options: { bbox: [MARGIN, top, MARGIN + pic.w, top + pic.h], ...(pic.alt ? { alt: pic.alt } : {}) }, children: [{ kind: 'image', page: onPage, x: MARGIN, top, width: pic.w, height: pic.h, image: pic.image }] });
+    if (lines.length) children.push({ type: 'P', options: {}, children: [{ kind: 'text', frags: placeLines(lines, MARGIN, false, onPage, top + (pic ? pic.h + BAND_GAP : 0)) }] });
+    return { type: 'Div', options: {}, children };
+  };
+  /** A band again on a later page: decoration, drawn but never read. */
+  const drawBand = (lines: Line[], pic: BandPic | null, top: number, p: number) => {
+    if (pic) pdf.image(pic.image as unknown as string, MARGIN, top, { width: pic.w, height: pic.h });
+    placeLines(lines, MARGIN, false, p, top + (pic ? pic.h + BAND_GAP : 0)).forEach(drawText);
   };
   doc.forEach((node) => root.push(...blockNode(node, MARGIN, PAGE_W - 2 * MARGIN, 0)));
   const pageCount = page + 1;
@@ -703,9 +740,9 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   // The header is read once, before the content, on the first page; the
   // footer once, after it, on the last. Every other repeat is a pagination
   // artifact, which assistive technology skips.
-  const footerTop = PAGE_H - MARGIN - bandHeight(footerLines);
-  if (headerLines.length) root.unshift(bandElem(headerLines, MARGIN, 0));
-  if (footerLines.length) root.push(bandElem(footerLines, footerTop, pageCount - 1));
+  const footerTop = PAGE_H - MARGIN - footerH;
+  if (headerH) root.unshift(bandElem(headerLines, headerPic, MARGIN, 0));
+  if (footerH) root.push(bandElem(footerLines, footerPic, footerTop, pageCount - 1));
 
   /* ---------- draw ---------- */
 
@@ -757,8 +794,8 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     }
     const repeated = repeatedHeaders.filter((f) => f.page === p);
     if (repeated.length) artifact(() => repeated.forEach(drawText), 'Pagination');
-    if (headerLines.length && p !== 0) artifact(() => placeLines(headerLines, MARGIN, false, p, MARGIN).forEach(drawText), 'Pagination');
-    if (footerLines.length && p !== pageCount - 1) artifact(() => placeLines(footerLines, MARGIN, false, p, footerTop).forEach(drawText), 'Pagination');
+    if (headerH && p !== 0) artifact(() => drawBand(headerLines, headerPic, MARGIN, p), 'Pagination');
+    if (footerH && p !== pageCount - 1) artifact(() => drawBand(footerLines, footerPic, footerTop, p), 'Pagination');
   };
 
   let drawnPage = 0;

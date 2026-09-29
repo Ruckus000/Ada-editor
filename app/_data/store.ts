@@ -21,24 +21,52 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { EditorFinding } from '../_editor/findings';
-import { dismissKeyOf } from '../_editor/findings';
+import { dismissKeyOf, sectionFindings } from '../_editor/findings';
 import { schema } from '../_editor/editorSchema';
 import { checkDocument } from '../_engine/check';
 import { SEEDS, buildSeedDocument } from './seed';
 import { setImageScope } from './images';
+import { validImageKey } from './imageFormat';
+import { dimension } from '../_editor/editorSchema';
 import type { DocSummary, SeedDoc } from './seed';
 
 export type DocJSON = Record<string, unknown>;
+
+/** A header or footer image: its alt text and, when it has one, its picture's
+ *  key (images.ts) and displayed size. */
+export interface SectionImage {
+  id: string;
+  alt: string;
+  image: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+/** A section image from untrusted JSON (localStorage, a pulled row), or null. */
+export function sectionImageOf(v: unknown): SectionImage | null {
+  if (typeof v !== 'object' || v === null) return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.id !== 'string' || !/^(?:header|footer)-img-\d{1,9}$/.test(o.id)) return null;
+  return {
+    id: o.id,
+    alt: typeof o.alt === 'string' ? o.alt.slice(0, 2000) : '',
+    image: validImageKey(o.image),
+    width: dimension(o.width),
+    height: dimension(o.height),
+  };
+}
 
 export interface StoredDoc {
   id: string;
   title: string;
   owner: string;
   targets: string[];
-  /** Header/footer band text. Section images are not persisted in v1 —
-   *  same as today's reload behavior. */
+  /** Header/footer band text, and each band's image (alignment and spacing
+   *  aren't kept). */
   header: string;
   footer: string;
+  headerImage: SectionImage | null;
+  footerImage: SectionImage | null;
   content: DocJSON;
   /** Epoch ms of the last full check. */
   lastChecked: number;
@@ -117,7 +145,7 @@ const hasLocalStorage = (): boolean => {
 export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
   if (!Array.isArray(parsed)) return [];
   return parsed
-    .filter((v): v is Omit<StoredDoc, 'dismissed' | 'importNotes'> & { dismissed?: unknown; importNotes?: unknown } => {
+    .filter((v): v is Omit<StoredDoc, 'dismissed' | 'importNotes' | 'headerImage' | 'footerImage'> & { dismissed?: unknown; importNotes?: unknown; headerImage?: unknown; footerImage?: unknown } => {
       if (typeof v !== 'object' || v === null) return false;
       const d = v as Record<string, unknown>;
       return typeof d.id === 'string' && d.id.length > 0 &&
@@ -134,6 +162,8 @@ export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
       ...d,
       dismissed: strings(d.dismissed),
       importNotes: strings(d.importNotes),
+      headerImage: sectionImageOf(d.headerImage),
+      footerImage: sectionImageOf(d.footerImage),
     }));
 }
 
@@ -153,6 +183,8 @@ function seedDocs(seeds: readonly SeedDoc[] = SEEDS): Map<string, StoredDoc> {
       targets: [...seed.targets],
       header: seed.content.header,
       footer: seed.content.footer,
+      headerImage: null,
+      footerImage: null,
       content: buildSeedDocument(seed.content).toJSON() as DocJSON,
       // Staggered so the "most recently checked" order has a stable shape.
       lastChecked: now - i * 60_000,
@@ -249,7 +281,7 @@ export function loadDoc(id: string): StoredDoc | null {
   return parseStoredDoc(stored.content) ? stored : null;
 }
 
-export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'lastChecked' | 'dismissed' | 'importNotes'>>): void {
+export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'headerImage' | 'footerImage' | 'lastChecked' | 'dismissed' | 'importNotes'>>): void {
   const all = readAll();
   const existing = all.get(id);
   if (!existing) return;
@@ -275,11 +307,13 @@ export function slugId(title: string, taken: (id: string) => boolean): string {
  * could only keep it in memory (quota, private mode): the caller must say so,
  * or the document silently disappears on reload.
  */
-export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' | 'content' | 'importNotes'>): { id: string; persisted: boolean } {
+export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' | 'content' | 'importNotes'> & Partial<Pick<StoredDoc, 'headerImage' | 'footerImage'>>): { id: string; persisted: boolean } {
   seedIfEmpty();
   const all = readAll();
   const id = slugId(draft.title, (candidate) => all.has(candidate));
   all.set(id, {
+    headerImage: null,
+    footerImage: null,
     ...draft,
     id,
     owner: 'You',
@@ -435,7 +469,7 @@ export function loadDashboardData(): DashboardData {
     const parsed = parseStoredDoc(d.content);
     if (!parsed) continue;
     const dismissed = new Set(d.dismissed);
-    const findings = checkDocument(parsed, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f)));
+    const findings = [...checkDocument(parsed, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f))), ...sectionFindings(d, d.dismissed)];
     docs.push({
       id: d.id,
       title: d.title,
