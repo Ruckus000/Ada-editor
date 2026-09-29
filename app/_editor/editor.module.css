@@ -499,6 +499,13 @@
 /* A real picture: its own size, never wider than the page, no placeholder box. */
 .figureArt[data-state='ready'] { height: auto; padding: 0; border: 0; background: none; }
 .figureArt[data-state='ready'] img { display: block; max-width: 100%; height: auto; }
+/* Size and position (editorSchema SIZE_FRACTION / ALIGN_FRACTION), as the exports lay it out. */
+.figureArt[data-state='ready'][data-align='left'] { justify-content: flex-start; }
+.figureArt[data-state='ready'][data-align='right'] { justify-content: flex-end; }
+.figureArt[data-state='ready'][data-size='small'] img { width: 25%; }
+.figureArt[data-state='ready'][data-size='medium'] img { width: 50%; }
+.figureArt[data-state='ready'][data-size='large'] img { width: 75%; }
+.figureArt[data-state='ready'][data-size='full'] img { width: 100%; }
 .figcaption { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 .altText { font-size: 12px; font-style: italic; color: var(--as-text-subtlest); }
@@ -790,6 +797,9 @@
 .input[aria-invalid='true'] { border-color: var(--as-blocker); }
 
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.choices { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.choices:disabled .check { opacity: 0.6; }
+.choiceHint { margin: 0; font-size: 13px; color: var(--as-text-subtlest); }
 .check input { width: 18px; height: 18px; margin: 0; }
 
 .fieldError { margin: -10px 0 0; font-size: 13px; font-weight: 600; color: var(--as-blocker); }

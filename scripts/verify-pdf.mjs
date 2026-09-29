@@ -99,7 +99,7 @@ const keyOf = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const CHART = png(40, 30, { alpha: true });
 const PHOTO = withOrientation(JPEG_3X2, 6);
 const IMAGES = new Map([[keyOf(CHART), { data: CHART }], [keyOf(PHOTO), { data: PHOTO }]]);
-const picture = (id, alt, bytes, width, height) => N.figure.create({ id, alt, label: id, image: keyOf(bytes), width, height });
+const picture = (id, alt, bytes, width, height, layout = {}) => N.figure.create({ id, alt, label: id, image: keyOf(bytes), width, height, ...layout });
 const PROSE = 'Residents may review the full application at the planning office during business hours, or online at any time, and may submit written comments before the hearing date.';
 const ALT = 'Site plan: the shelter sits north of the library.';
 
@@ -122,6 +122,9 @@ const featureDoc = () => N.doc.create({ lang: 'en' }, [
   picture('img-3', 'Photo of the library entrance', PHOTO, 2, 3),
   // Its bytes aren't available: the placeholder, with its alt.
   N.figure.create({ id: 'img-4', alt: 'Floor plan', label: 'floor plan', image: 'f'.repeat(64) }),
+  // Sized and placed: half the column, centred; a quarter, at the right.
+  picture('img-5', 'Visits, medium', CHART, 40, 30, { size: 'medium', align: 'center' }),
+  picture('img-6', 'Visits, small', CHART, 40, 30, { size: 'small', align: 'right' }),
   table([[{ th: 'Day' }, { th: 'Hours' }], ['Monday', '9 to 6'], ['Saturday', '10 to 2']], 'Library hours'),
   heading(2, 'Enough text for more pages'),
   ...Array.from({ length: 14 }, (_, i) => para(`${i + 1}. ${PROSE} ${PROSE}`)),
@@ -214,8 +217,8 @@ await check('exports every construct, across pages', async () => {
   assert(annots.some((o) => o.includes('/Contents (the hearing agenda)')), 'an annotation describes its link (PDF/UA 7.18.5)');
   assert(/\/Tabs \/S/.test(text), 'tab order follows the structure');
   const figures = withType(objects, 'Figure');
-  eq(figures.length, 5, 'a Figure per figure (two pictures, two placeholders) and the header logo, read once');
-  for (const alt of [ALT, 'Chart of weekly visits', 'Photo of the library entrance', 'Floor plan', 'City seal']) {
+  eq(figures.length, 7, 'a Figure per figure (four pictures, two placeholders) and the header logo, read once');
+  for (const alt of [ALT, 'Chart of weekly visits', 'Photo of the library entrance', 'Floor plan', 'Visits, medium', 'Visits, small', 'City seal']) {
     assert(figures.some((f) => f.includes(`/Alt (${alt})`)), `a figure carries its alt text: ${alt}`);
   }
   const xobjects = [...objects.values()].filter((o) => o.includes('/Subtype /Image'));
@@ -226,6 +229,15 @@ await check('exports every construct, across pages', async () => {
   const bboxes = figures.map((f) => /\/BBox \[([^\]]*)\]/.exec(f)?.[1]).filter(Boolean).map((b) => b.trim().split(/\s+/).map(Number));
   assert(bboxes.some(([x1, y1, x2, y2]) => Math.abs((x2 - x1) - 30) < 0.5 && Math.abs(Math.abs(y2 - y1) - 22.5) < 0.5), `the chart is drawn at its own size, 40×30 px = 30×22.5 pt (bboxes ${JSON.stringify(bboxes)})`);
   assert(bboxes.some(([x1, y1, x2, y2]) => Math.abs((x2 - x1) - 1.5) < 0.5 && Math.abs(Math.abs(y2 - y1) - 2.25) < 0.5), 'the rotated photo is taller than wide, as displayed');
+  // US Letter, 72 pt margins: a 468 pt column from x = 72.
+  const bboxOf = (alt) => { const f = figures.find((o) => o.includes(`/Alt (${alt})`)); return /\/BBox \[([^\]]*)\]/.exec(f ?? '')?.[1].trim().split(/\s+/).map(Number); };
+  const near = (a, b) => Math.abs(a - b) < 0.5;
+  const [c1, , c2] = bboxOf('Chart of weekly visits') ?? [];
+  assert(near(c1, 72 + (468 - 30) / 2) && near(c2 - c1, 30), `Original size is centred by default (x ${c1}–${c2})`);
+  const [m1, m2y, m2, m1y] = bboxOf('Visits, medium') ?? [];
+  assert(near(m2 - m1, 234) && near(m1, 72 + 117) && near(Math.abs(m1y - m2y), 175.5), `Medium: half the column, centred, in proportion (${[m1, m2y, m2, m1y]})`);
+  const [s1, , s2] = bboxOf('Visits, small') ?? [];
+  assert(near(s2 - s1, 117) && near(s2, 72 + 468), `Small, right: a quarter of the column, against its right edge (x ${s1}–${s2})`);
   // Reading order: the header is read first and the footer last, once each.
   const documentKids = refs(/\/K \[([^\]]*)\]/.exec(withType(objects, 'Document')[0])?.[1] ?? '');
   const first = objects.get(documentKids[0]);

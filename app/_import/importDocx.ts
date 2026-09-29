@@ -2,7 +2,8 @@ import { Fragment } from 'prosemirror-model';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { fixTables } from 'prosemirror-tables';
-import { mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
+import { SIZE_FRACTION, FIGURE_SIZES, mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
+import type { FigureAlign, FigureSize } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import type { Zip } from './unzip';
 import { MAX_SOURCE_BYTES, sha256Hex, sniffImage } from '../_data/imageFormat';
@@ -194,10 +195,10 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
 
   const images = new Map<string, ImportedImage>();
   const budget = { used: 0 };
-  const walker = new Walker(rels, styles, numbering, await loadMedia(zip, rels, images, budget));
+  const sectPr = child(body, 'w:sectPr');
+  const walker = new Walker(rels, styles, numbering, await loadMedia(zip, rels, images, budget), contentWidth(sectPr));
   const blocks = walker.blocks(body);
 
-  const sectPr = child(body, 'w:sectPr');
   const bandNotes: string[] = [];
   // A band's text, as before, and its first picture (a logo) with its alt.
   const band = async (tag: 'w:headerReference' | 'w:footerReference'): Promise<{ text: string; image: BandImage | null }> => {
@@ -207,7 +208,7 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
     const doc = rel && !rel.external ? await xml(rel.target) : null;
     if (!doc || !rel) return { text: '', image: null };
     const bandRels = await relsOf(rel.target);
-    const bandWalker = new Walker(bandRels, styles, numbering, await loadMedia(zip, bandRels, images, budget));
+    const bandWalker = new Walker(bandRels, styles, numbering, await loadMedia(zip, bandRels, images, budget), contentWidth(sectPr));
     const blocks = bandWalker.blocks(doc.documentElement);
     const text = blocks.map((b) => b.node.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ').slice(0, MAX_BAND);
     const figures: PMNode[] = [];
@@ -446,6 +447,33 @@ const SYMBOL_BOXES = new Map<string, Map<number, string>>([
 /** Fonts whose characters are pictures, not text, whichever way w:char is written. */
 const SYMBOL_FONTS = new Set(['symbol', 'wingdings', 'wingdings 2', 'wingdings 3', 'webdings']);
 
+/** The page's text width in CSS px (sectPr: page width less its side
+ *  margins, in twips), or US Letter's 6.5 inches when it doesn't say. */
+function contentWidth(sectPr: Element | null): number {
+  const twips = (el: Element | null, name: string) => Number(el?.getAttribute(name) ?? NaN);
+  const page = twips(child(sectPr, 'w:pgSz'), 'w:w');
+  const mar = child(sectPr, 'w:pgMar');
+  const width = page - twips(mar, 'w:left') - twips(mar, 'w:right');
+  return Number.isFinite(width) && width > 1440 ? width / 15 : 624;
+}
+
+/** A paragraph's w:jc as a picture's alignment ('end' is right in left-to-right text). */
+function jcAlign(jc: string | null): FigureAlign {
+  if (jc === 'center') return 'center';
+  return jc === 'right' || jc === 'end' ? 'right' : 'left';
+}
+
+/** A picture's width in Word (EMU, 9525 to the px) as one of the editor's
+ *  sizes, against the page's text width; null (Original) when Word shows it
+ *  at about its own size, or says nothing. */
+function sizeFromExtent(cx: number, natural: number, column: number): FigureSize | null {
+  if (!(cx > 0) || !(natural > 0)) return null;
+  const px = cx / 9525;
+  if (Math.abs(px - Math.min(natural, column)) <= 0.1 * Math.min(natural, column)) return null;
+  const share = px / column;
+  return FIGURE_SIZES.reduce((best, s) => (Math.abs(SIZE_FRACTION[s] - share) < Math.abs(SIZE_FRACTION[best] - share) ? s : best));
+}
+
 class Walker {
   private visited = 0;
   private figures = 0;
@@ -467,7 +495,10 @@ class Walker {
    */
   private fields: Field[] = [];
 
-  constructor(private rels: Map<string, Rel>, private styles: Styles, private numbering: Numbering, private media: Map<string, Media> = new Map()) {}
+  /** The alignment (direct w:jc) of the paragraph being walked: a picture in it sits the same way. */
+  private paragraphAlign: FigureAlign = 'left';
+
+  constructor(private rels: Map<string, Rel>, private styles: Styles, private numbering: Numbering, private media: Map<string, Media> = new Map(), private column = 624) {}
 
   notes(): string[] {
     const c = this.counts;
@@ -646,6 +677,16 @@ class Walker {
   }
 
   private paragraph(p: Element): Block[] {
+    const outer = this.paragraphAlign;
+    this.paragraphAlign = jcAlign(val(child(child(p, 'w:pPr'), 'w:jc')));
+    try {
+      return this.paragraphBlocks(p);
+    } finally {
+      this.paragraphAlign = outer;
+    }
+  }
+
+  private paragraphBlocks(p: Element): Block[] {
     const pPr = child(p, 'w:pPr');
     const styleId = val(child(pPr, 'w:pStyle'));
     const directLvl = val(child(pPr, 'w:outlineLvl'));
@@ -857,11 +898,13 @@ class Walker {
   }
 
   /** src 0: claimed by the paragraph that holds the image (see emitBlocks). */
-  private figure(alt: string, rId: string | null = null, chart = false): Block {
+  private figure(alt: string, rId: string | null = null, chart = false, extent = 0): Block {
     const n = ++this.figures;
     const found = rId ? this.media.get(rId) : undefined;
     let picture = {};
-    if (found && 'key' in found) picture = { image: found.key, width: found.image.width, height: found.image.height };
+    if (found && 'key' in found) {
+      picture = { image: found.key, width: found.image.width, height: found.image.height, size: sizeFromExtent(extent, found.image.width, this.column), align: this.paragraphAlign };
+    }
     else if (found?.problem === 'unsupported') this.unsupported.set(found.format, (this.unsupported.get(found.format) ?? 0) + 1);
     else if (found) this.counts[found.problem]++;
     else if (rId) this.counts.missing++;
@@ -892,7 +935,8 @@ class Walker {
     const blip = descendants(d).find((e) => !inBox.has(e) && e.tagName === 'a:blip');
     const rId = blip?.getAttribute('r:embed') || blip?.getAttribute('r:link') || null;
     const chart = !blip && descendants(d).some((e) => !inBox.has(e) && (e.tagName === 'c:chart' || e.tagName === 'dgm:relIds'));
-    return [this.figure(docPr?.getAttribute('descr') || docPr?.getAttribute('title') || '', rId, chart), ...text];
+    const extent = Number(first(d, 'wp:extent')?.getAttribute('cx') ?? 0);
+    return [this.figure(docPr?.getAttribute('descr') || docPr?.getAttribute('title') || '', rId, chart, extent), ...text];
   }
 
   /** Legacy VML pictures and OLE objects. */

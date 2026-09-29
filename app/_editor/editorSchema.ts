@@ -22,6 +22,22 @@ export const dimension = (v: unknown): number | null => {
   return Number.isFinite(n) && n > 0 && n <= 100_000 ? n : null;
 };
 
+/** A picture's width as a share of the column; null (Original) is its own
+ *  width, capped at the column. The editor, HTML and PDF all use these. */
+export const FIGURE_SIZES = ['small', 'medium', 'large', 'full'] as const;
+export type FigureSize = (typeof FIGURE_SIZES)[number];
+export const SIZE_FRACTION: Record<FigureSize, number> = { small: 0.25, medium: 0.5, large: 0.75, full: 1 };
+
+/** Where a picture narrower than the column sits in it. */
+export const FIGURE_ALIGNS = ['left', 'center', 'right'] as const;
+export type FigureAlign = (typeof FIGURE_ALIGNS)[number];
+export const ALIGN_FRACTION: Record<FigureAlign, number> = { left: 0, center: 0.5, right: 1 };
+
+/** From untrusted input: a size, or null (Original). */
+export const figureSize = (v: unknown): FigureSize | null => ((FIGURE_SIZES as readonly unknown[]).includes(v) ? (v as FigureSize) : null);
+/** From untrusted input: an alignment, centre by default. */
+export const figureAlign = (v: unknown): FigureAlign => ((FIGURE_ALIGNS as readonly unknown[]).includes(v) ? (v as FigureAlign) : 'center');
+
 const indentAttr = { indent: { default: 0 } };
 const indentStyle = (indent: number) => (indent ? `margin-inline-start: ${indent * 2}em` : '');
 const parseIndent = (el: HTMLElement) => {
@@ -62,15 +78,17 @@ const nodes: Record<string, NodeSpec> = {
     atom: true,
     selectable: true,
     draggable: false,
-    attrs: { id: {}, alt: { default: '' }, label: { default: 'image' }, image: { default: null }, width: { default: null }, height: { default: null } },
+    attrs: { id: {}, alt: { default: '' }, label: { default: 'image' }, image: { default: null }, width: { default: null }, height: { default: null }, size: { default: null }, align: { default: 'center' } },
     parseDOM: [{ tag: 'figure[data-figure-id]', getAttrs: (el) => {
       const d = (el as HTMLElement).dataset;
-      return { id: d.figureId, alt: d.alt ?? '', image: validImageKey(d.image), width: dimension(d.width), height: dimension(d.height) };
+      return { id: d.figureId, alt: d.alt ?? '', image: validImageKey(d.image), width: dimension(d.width), height: dimension(d.height), size: figureSize(d.size), align: figureAlign(d.align) };
     } }],
     toDOM: (node): DOMOutputSpec => ['figure', {
       'data-figure-id': node.attrs.id,
       'data-alt': node.attrs.alt,
       ...(validImageKey(node.attrs.image) ? { 'data-image': node.attrs.image, 'data-width': node.attrs.width, 'data-height': node.attrs.height } : {}),
+      ...(figureSize(node.attrs.size) ? { 'data-size': node.attrs.size } : {}),
+      'data-align': figureAlign(node.attrs.align),
     }],
   },
   text: { group: 'inline' },

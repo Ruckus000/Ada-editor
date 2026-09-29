@@ -23,7 +23,7 @@ import {
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { removeDoc } from '../_data/sync';
-import { AltTextDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, StoredImg, TableCaptionDialog } from './dialogs';
+import { ALIGN_NAMES, AltTextDialog, FigureLayoutDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, SIZE_NAMES, StoredImg, TableCaptionDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
   clearFormatting,
@@ -47,7 +47,8 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState, NewTable } from './editorCommands';
-import { documentLanguage, withoutPageLanguage } from './editorSchema';
+import { documentLanguage, figureAlign, figureSize, withoutPageLanguage } from './editorSchema';
+import type { FigureAlign, FigureSize } from './editorSchema';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { isCloud } from '../_data/supabase';
@@ -119,6 +120,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [hfOpen, setHfOpen] = useState(false);
   const [hfTab, setHfTab] = useState<Section>('header');
   const [altTarget, setAltTarget] = useState<AltTarget | null>(null);
+  const [layoutTarget, setLayoutTarget] = useState<{ id: string; label: string; size: FigureSize | null; align: FigureAlign } | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkInitial, setLinkInitial] = useState('');
   const [tableOpen, setTableOpen] = useState(false);
@@ -133,7 +135,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // re-render, the list re-sort and the decoration rebuild on no-op edits.
   const lastRenderedRef = useRef(findings);
   const activeRef = useRef<string | null>(activeId);
-  const handlersRef = useRef({ insertImageFiles: async (_files: File[]) => {}, refuseImage: () => {}, editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
+  const handlersRef = useRef({ insertImageFiles: async (_files: File[]) => {}, refuseImage: () => {}, editFigureLayout: (_id: string) => {}, editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
   const docRegion = useRef<HTMLElement>(null);
   const findingsRegion = useRef<HTMLElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -209,6 +211,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         // which figure is which (devtools, tests, or future scripting).
         dom.dataset.figureId = node.attrs.id as string;
         art.dataset.state = state;
+        const size = figureSize(node.attrs.size);
+        if (size) art.dataset.size = size; else delete art.dataset.size;
+        art.dataset.align = figureAlign(node.attrs.align);
         art.setAttribute('aria-label', `${alt || `${label}, no alternative text`}${state === 'failed' ? ', image unavailable' : ''}`);
         const status = document.createElement('span');
         status.className = alt ? styles.altText! : styles.missingBadge!;
@@ -226,6 +231,15 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         button.textContent = `${alt ? 'Edit' : 'Add'} alt text for ${label}`;
         button.addEventListener('click', () => handlersRef.current.editFigureAlt(node.attrs.id as string));
         parts.push(button);
+        // Only a real picture has a size to choose.
+        if (validImageKey(node.attrs.image)) {
+          const layout = document.createElement('button');
+          layout.type = 'button';
+          layout.className = styles.linkBtn!;
+          layout.textContent = `Size and position for ${label}`;
+          layout.addEventListener('click', () => handlersRef.current.editFigureLayout(node.attrs.id as string));
+          parts.push(layout);
+        }
         caption.replaceChildren(...parts);
       };
       const load = () => {
@@ -866,8 +880,27 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     setAltTarget(null);
   };
 
+  /* ---------- picture size and position ---------- */
+  const saveLayout = ({ size, align }: { size: FigureSize | null; align: FigureAlign }) => {
+    const view = viewRef.current;
+    const target = layoutTarget;
+    setLayoutTarget(null);
+    if (!view || !target) return;
+    const pos = figurePos(view.state, target.id);
+    if (pos < 0) return;
+    view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...view.state.doc.nodeAt(pos)!.attrs, size, align }));
+    const where = size === 'full' ? '' : `, ${ALIGN_NAMES[align].toLowerCase()}`;
+    announce(`${target.label}: ${SIZE_NAMES[size ?? 'original'].toLowerCase()}${where}.`);
+  };
+
   handlersRef.current = {
     insertImageFiles,
+    editFigureLayout: (id) => {
+      const view = viewRef.current;
+      if (!view) return;
+      const node = view.state.doc.nodeAt(figurePos(view.state, id));
+      if (node) setLayoutTarget({ id, label: node.attrs.label as string, size: figureSize(node.attrs.size), align: figureAlign(node.attrs.align) });
+    },
     refuseImage: () => setImageError('That file isn’t a PNG, JPEG, GIF or WebP image.'),
     editTableCaption: (pos) => {
       const view = viewRef.current;
@@ -1218,6 +1251,13 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         initial={altTarget?.alt ?? ''}
         onSave={saveAlt}
         onClose={() => setAltTarget(null)}
+      />
+      <FigureLayoutDialog
+        open={layoutTarget !== null}
+        label={layoutTarget?.label ?? 'image'}
+        initial={{ size: layoutTarget?.size ?? null, align: layoutTarget?.align ?? 'center' }}
+        onSave={saveLayout}
+        onClose={() => setLayoutTarget(null)}
       />
       <InsertTableDialog open={tableOpen} onInsert={doInsertTable} onClose={() => setTableOpen(false)} focusDocument={() => viewRef.current?.focus()} />
       <TableCaptionDialog open={captionInitial !== null} initial={captionInitial ?? ''} onSave={saveCaption} onClose={() => setCaptionInitial(null)} focusDocument={() => viewRef.current?.focus()} />
