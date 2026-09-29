@@ -37,6 +37,7 @@
     "next": "^15.0.0",
     "pdfkit": "^0.20.2",
     "prosemirror-commands": "^1.7.2",
+    "prosemirror-dropcursor": "^1.8.4",
     "prosemirror-history": "^1.5.0",
     "prosemirror-keymap": "^1.2.3",
     "prosemirror-model": "^1.25.12",

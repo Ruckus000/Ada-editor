@@ -5,7 +5,7 @@ import { fixTables } from 'prosemirror-tables';
 import { mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import type { Zip } from './unzip';
-import { MAX_IMAGE_BYTES, sha256Hex, sniffImage } from '../_data/imageFormat';
+import { MAX_SOURCE_BYTES, sha256Hex, sniffImage } from '../_data/imageFormat';
 import type { ImageMime } from '../_data/imageFormat';
 import { contrastRatio, parseColour } from '../_engine/contrast';
 import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isUsableLangTag, primaryTag } from '../_engine/textHelpers';
@@ -246,8 +246,9 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
 /**
  * Every image a part's relationships point at, read before the walk (reading
  * is async; the walk isn't). Pictures are kept by key in `images`; the rest
- * say why they're placeholders. Each image is capped at 10 MB, as storage is,
- * and all of a file's images together at 60 MB.
+ * say why they're placeholders. Each image is capped at 40 MB (the caller
+ * shrinks large photos before storing them, app/_editor/prepareImage.ts), and
+ * all of a file's images together at 60 MB.
  */
 async function loadMedia(zip: Zip, rels: Map<string, Rel>, images: Map<string, ImportedImage>, budget: { used: number }): Promise<Map<string, Media>> {
   const out = new Map<string, Media>();
@@ -256,7 +257,7 @@ async function loadMedia(zip: Zip, rels: Map<string, Rel>, images: Map<string, I
     if (rel.external) { out.set(id, { problem: 'linked' }); continue; }
     let bytes: Uint8Array | null;
     try {
-      bytes = await zip.bytes(rel.target, MAX_IMAGE_BYTES);
+      bytes = await zip.bytes(rel.target, MAX_SOURCE_BYTES);
     } catch (error) {
       out.set(id, { problem: error instanceof ZipError && error.message === 'part-too-large' ? 'tooLarge' : 'missing' });
       continue;
@@ -474,7 +475,7 @@ class Walker {
     const unsupported = [...this.unsupported.values()].reduce((a, b) => a + b, 0);
     if (unsupported) out.push(`${plural(unsupported, 'image')} in ${this.unsupported.size === 1 ? 'a format' : 'formats'} the editor can’t show (${[...this.unsupported.keys()].join(', ')}) kept as ${unsupported === 1 ? 'a placeholder' : 'placeholders'}.`);
     if (c.linked) out.push(`${plural(c.linked, 'image')} linked from outside the file, not in it, kept as ${c.linked === 1 ? 'a placeholder' : 'placeholders'}.`);
-    if (c.tooLarge) out.push(`${plural(c.tooLarge, 'image')} too large to bring in (over 10 MB) kept as ${c.tooLarge === 1 ? 'a placeholder' : 'placeholders'}.`);
+    if (c.tooLarge) out.push(`${plural(c.tooLarge, 'image')} too large to bring in kept as ${c.tooLarge === 1 ? 'a placeholder' : 'placeholders'}.`);
     if (c.missing) out.push(`${plural(c.missing, 'image')} missing from the file kept as ${c.missing === 1 ? 'a placeholder' : 'placeholders'}.`);
     if (c.charts) out.push(`${plural(c.charts, 'chart or diagram', 'charts or diagrams')} kept as ${c.charts === 1 ? 'a placeholder' : 'placeholders'}; ${c.charts === 1 ? 'its' : 'their'} alt text is all that came across.`);
     if (c.nestedTables) out.push(`${plural(c.nestedTables, 'table inside a table cell', 'tables inside table cells')} flattened into paragraphs.`);
