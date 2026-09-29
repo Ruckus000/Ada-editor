@@ -1669,6 +1669,10 @@ for (const producer of ['pandoc', 'libreoffice']) {
     eq(r.content.child(5).childCount, 2, 'one ordered list of two items, even across numIds');
     deepEq(hrefs(r.content), ['https://example.org/hours', 'https://example.org/branch'], 'links');
     deepEq(figures(r.content), ['Bar chart of visits by weekday', ''], 'image alt text');
+    // The file's one real picture comes with its figure, and is handed back to be stored.
+    const pictured = [];
+    r.content.descendants((n) => { if (n.type.name === 'figure' && n.attrs.image) pictured.push(n.attrs.image); });
+    assert(pictured.length >= 1 && pictured.every((k) => r.images.has(k)), `the embedded PNG arrives with its figure (${JSON.stringify(pictured)})`);
     deepEq(r.notes, [], 'nothing left out');
     const ids = findingIds(r.content);
     assert(!ids.some((id) => id.startsWith('table-')), `a headed table raises nothing: ${JSON.stringify(ids)}`);
@@ -1945,6 +1949,64 @@ await acheck('import: rows and cells inside custom XML and tracked insertions; h
   try { await importDocx(docx({ body: huge }), 'x.docx', parseXml); } catch (e) { error = e; }
   assert(error instanceof ImportError, `over 10,000 cells is refused (got ${error})`);
   eq(error.userMessage, 'This document is too large to import.', 'with the plain too-large message');
+});
+
+// An image drawing: a blip pointing at relationship `rId`.
+const blipDrawing = (rId, alt) => drawing(`<wp:docPr id="1" name="p" descr="${alt}"/>`, `<pic:pic><pic:blipFill><a:blip r:embed="${rId}"/></pic:blipFill></pic:pic>`);
+const media = (name, bytes, opt) => [`word/media/${name}`, Buffer.from(bytes), opt];
+
+await acheck('import: Word pictures arrive with their figures, stored once, keyed by their bytes', async () => {
+  const picture = png(30, 20);
+  const r = await importDocx(docx({
+    body: P(blipDrawing('rA', 'Map of the branch')) + P(blipDrawing('rB', 'The same map again'))
+      + P('<w:r><w:pict><v:shape alt="Old logo"><v:imagedata r:id="rC"/></v:shape></w:pict></w:r>'),
+    docRels: [rel('rA', 'image', 'media/a.png'), rel('rB', 'image', 'media/copy.png'), rel('rC', 'image', 'media/logo.jpg')],
+    parts: [media('a.png', picture), media('copy.png', picture), media('logo.jpg', JPEG_3X2)],
+  }), 'x.docx', parseXml);
+  const figs = [];
+  r.content.descendants((n) => { if (n.type.name === 'figure') figs.push(n.attrs); });
+  eq(figs.length, 3, 'three figures');
+  deepEq([figs[0].alt, figs[0].width, figs[0].height], ['Map of the branch', 30, 20], 'the picture keeps its alt text and gets its size');
+  eq(figs[0].image, figs[1].image, 'the same bytes twice are one image');
+  eq(figs[2].alt, 'Old logo', 'a VML picture keeps its alt');
+  assert(figs[2].image && figs[2].image !== figs[0].image, 'and gets its own picture');
+  eq(r.images.size, 2, 'two images to store');
+  deepEq([...r.images.values()].map((i) => i.mime).sort(), ['image/jpeg', 'image/png'], 'with their types');
+  deepEq(r.notes, [], 'nothing left out');
+});
+
+await acheck('import: pictures the editor can’t show stay placeholders, each kind named in the notes', async () => {
+  const emf = new Uint8Array(48); emf[0] = 1; emf.set(Buffer.from(' EMF'), 40);
+  const r = await importDocx(docx({
+    body: [blipDrawing('rE', 'Old chart'), blipDrawing('rL', 'Logo on the web'), blipDrawing('rM', 'Lost'), blipDrawing('rX', 'Unknown')].map((d) => P(d)).join('')
+      + P(drawing('<wp:docPr id="9" name="c" descr="Visits by month"/>', '<c:chart r:id="rChart"/>')),
+    docRels: [rel('rE', 'image', 'media/chart.emf'), rel('rL', 'image', 'https://example.org/logo.png', true), rel('rM', 'image', 'media/gone.png')],
+    parts: [media('chart.emf', emf)],
+  }), 'x.docx', parseXml);
+  const figs = [];
+  r.content.descendants((n) => { if (n.type.name === 'figure') figs.push(n.attrs); });
+  eq(figs.length, 5, 'every picture is still a figure');
+  assert(figs.every((f) => f.image === null), 'none has a picture');
+  deepEq(figs.map((f) => f.alt), ['Old chart', 'Logo on the web', 'Lost', 'Unknown', 'Visits by month'], 'alt text kept');
+  deepEq(r.notes, [
+    '1 image in a format the editor can’t show (EMF) kept as a placeholder.',
+    '1 image linked from outside the file, not in it, kept as a placeholder.',
+    '2 images missing from the file kept as placeholders.',
+    '1 chart or diagram kept as a placeholder; its alt text is all that came across.',
+  ], 'each kind of placeholder named');
+  eq(r.images.size, 0, 'nothing to store');
+});
+
+await acheck('import: a picture over 10 MB stays a placeholder, stored or deflated', async () => {
+  const big = new Uint8Array(10 * 1024 * 1024 + 1);
+  big.set(png(1, 1));
+  for (const method of [0, 8]) {
+    const r = await importDocx(docx({ body: P(blipDrawing('rB', 'Huge')), docRels: [rel('rB', 'image', 'media/big.png')], parts: [media('big.png', big, { method })] }), 'x.docx', parseXml);
+    let fig;
+    r.content.descendants((n) => { if (n.type.name === 'figure') fig = n.attrs; });
+    eq(fig?.image, null, `method ${method}: no picture`);
+    deepEq(r.notes, ['1 image too large to bring in (over 10 MB) kept as a placeholder.'], `method ${method}: said so`);
+  }
 });
 
 await acheck('import (review regressions): colours arrive with the background they sit on, never invisible', async () => {

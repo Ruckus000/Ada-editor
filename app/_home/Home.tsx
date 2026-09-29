@@ -12,6 +12,7 @@ import { SAMPLE_ID, createDoc, loadDashboardData, saveDoc, seedIfEmpty } from '.
 import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc, signOut } from '../_data/sync';
+import { putImage } from '../_data/images';
 import { NewDocumentDialog } from '../_editor/dialogs';
 import { schema } from '../_editor/editorSchema';
 import { summaryLine } from '../_editor/findings';
@@ -451,14 +452,18 @@ export function Home() {
     try {
       const imported = await importDocxFile(file);
       const findings = checkDocument(imported.content, { prose: true });
+      // The pictures first, so a document is never saved (or synced) ahead of them.
+      let unsaved = 0;
+      for (const image of imported.images.values()) await putImage(image.bytes).catch(() => { unsaved++; });
+      const imageNote = unsaved ? [`${unsaved === 1 ? '1 image' : `${unsaved} images`} couldn’t be saved in this browser, so ${unsaved === 1 ? 'it shows' : 'they show'} as unavailable.`] : [];
       const { id, persisted } = createDoc({
         title: imported.title,
         header: imported.header,
         footer: imported.footer,
         content: imported.content.toJSON() as Record<string, unknown>,
-        importNotes: imported.notes,
+        importNotes: [...imported.notes, ...imageNote],
       });
-      const notes = [...imported.notes];
+      const notes = [...imported.notes, ...imageNote];
       if (!persisted) { notes.push(storageNote); saveDoc(id, { importNotes: notes }); }
       router.push(`/editor/${id}`);
       // The announcer lives in the root layout, so this survives the navigation.

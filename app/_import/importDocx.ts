@@ -4,6 +4,9 @@ import { EditorState } from 'prosemirror-state';
 import { fixTables } from 'prosemirror-tables';
 import { mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
+import type { Zip } from './unzip';
+import { MAX_IMAGE_BYTES, sha256Hex, sniffImage } from '../_data/imageFormat';
+import type { ImageMime } from '../_data/imageFormat';
 import { contrastRatio, parseColour } from '../_engine/contrast';
 import { LISTED_ALPHABET_LANGUAGES, alphabetLanguages, isUsableLangTag, primaryTag } from '../_engine/textHelpers';
 
@@ -33,11 +36,16 @@ export class ImportError extends Error {
   }
 }
 
+/** An image read from the file, for the caller to store (app/_data/images.ts). */
+export interface ImportedImage { bytes: Uint8Array; mime: ImageMime; width: number; height: number }
+
 export interface ImportedDoc {
   title: string;
   header: string;
   footer: string;
   content: PMNode;
+  /** The pictures the content's figures refer to, by key. */
+  images: Map<string, ImportedImage>;
   /** Plain-language notes about what the editor could not hold. */
   notes: string[];
 }
@@ -59,6 +67,8 @@ const MAX_TITLE = 200;
 const MAX_BAND = 500;
 /** Table cells across the document: past this, a file is too complex, not a table. */
 const MAX_TABLE_CELLS = 10_000;
+/** All the images read from one file, inflated: past this the rest stay placeholders. */
+const MAX_MEDIA_TOTAL = 60 * 1024 * 1024;
 /** Word's own limit on a table's columns, and so on any span. */
 const MAX_SPAN = 63;
 
@@ -75,6 +85,11 @@ const WORD_HIGHLIGHT = new Map<string, string>([
 ]);
 
 type Rel = { type: string; target: string; external: boolean };
+/** What an image relationship led to: a picture, or why it's a placeholder. */
+type Media =
+  | { key: string; image: ImportedImage }
+  | { problem: 'unsupported'; format: string }
+  | { problem: 'linked' | 'tooLarge' | 'missing' };
 type ListKind = 'bullet' | 'ordered';
 type ListInfo = { kind: ListKind; ilvl: number };
 /** `src` is the source paragraph's serial: an image inside a list paragraph stays in that item. */
@@ -171,7 +186,9 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
   const numbering = readNumbering(numberingPart ? await xml(numberingPart) : null, styles);
   const core = corePart ? await xml(corePart) : null;
 
-  const walker = new Walker(rels, styles, numbering);
+  const images = new Map<string, ImportedImage>();
+  const budget = { used: 0 };
+  const walker = new Walker(rels, styles, numbering, await loadMedia(zip, rels, images, budget));
   const blocks = walker.blocks(body);
 
   const sectPr = child(body, 'w:sectPr');
@@ -193,8 +210,39 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
     header: await band('w:headerReference'),
     footer: await band('w:footerReference'),
     content: assemble(blocks),
+    images,
     notes: walker.notes(),
   };
+}
+
+/**
+ * Every image a part's relationships point at, read before the walk (reading
+ * is async; the walk isn't). Pictures are kept by key in `images`; the rest
+ * say why they're placeholders. Each image is capped at 10 MB, as storage is,
+ * and all of a file's images together at 60 MB.
+ */
+async function loadMedia(zip: Zip, rels: Map<string, Rel>, images: Map<string, ImportedImage>, budget: { used: number }): Promise<Map<string, Media>> {
+  const out = new Map<string, Media>();
+  for (const [id, rel] of rels) {
+    if (rel.type !== `${REL}image`) continue;
+    if (rel.external) { out.set(id, { problem: 'linked' }); continue; }
+    let bytes: Uint8Array | null;
+    try {
+      bytes = await zip.bytes(rel.target, MAX_IMAGE_BYTES);
+    } catch (error) {
+      out.set(id, { problem: error instanceof ZipError && error.message === 'part-too-large' ? 'tooLarge' : 'missing' });
+      continue;
+    }
+    if (!bytes) { out.set(id, { problem: 'missing' }); continue; }
+    if ((budget.used += bytes.length) > MAX_MEDIA_TOTAL) { out.set(id, { problem: 'tooLarge' }); continue; }
+    const kind = sniffImage(bytes);
+    if (kind?.kind !== 'image') { out.set(id, { problem: 'unsupported', format: kind?.format ?? 'unknown' }); continue; }
+    const key = await sha256Hex(bytes);
+    const image = { bytes, mime: kind.mime, width: kind.width, height: kind.height };
+    images.set(key, image);
+    out.set(id, { key, image });
+  }
+  return out;
 }
 
 function toImportError(error: unknown): ImportError {
@@ -373,7 +421,9 @@ class Walker {
   private visited = 0;
   private figures = 0;
   private paragraphs = 0;
-  private counts = { nestedTables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0, fields: 0 };
+  private counts = { nestedTables: 0, decorative: 0, notes: 0, chunks: 0, tracked: 0, fields: 0, linked: 0, tooLarge: 0, missing: 0, charts: 0 };
+  /** Formats seen that the editor can't show, and how many images each. */
+  private unsupported = new Map<string, number>();
   /** Tables open around the walk: a table inside a cell can't be a table here. */
   private tableDepth = 0;
   private tableCells = 0;
@@ -388,11 +438,17 @@ class Walker {
    */
   private fields: Field[] = [];
 
-  constructor(private rels: Map<string, Rel>, private styles: Styles, private numbering: Numbering) {}
+  constructor(private rels: Map<string, Rel>, private styles: Styles, private numbering: Numbering, private media: Map<string, Media> = new Map()) {}
 
   notes(): string[] {
     const c = this.counts;
     const out: string[] = [];
+    const unsupported = [...this.unsupported.values()].reduce((a, b) => a + b, 0);
+    if (unsupported) out.push(`${plural(unsupported, 'image')} in ${this.unsupported.size === 1 ? 'a format' : 'formats'} the editor can’t show (${[...this.unsupported.keys()].join(', ')}) kept as ${unsupported === 1 ? 'a placeholder' : 'placeholders'}.`);
+    if (c.linked) out.push(`${plural(c.linked, 'image')} linked from outside the file, not in it, kept as ${c.linked === 1 ? 'a placeholder' : 'placeholders'}.`);
+    if (c.tooLarge) out.push(`${plural(c.tooLarge, 'image')} too large to bring in (over 10 MB) kept as ${c.tooLarge === 1 ? 'a placeholder' : 'placeholders'}.`);
+    if (c.missing) out.push(`${plural(c.missing, 'image')} missing from the file kept as ${c.missing === 1 ? 'a placeholder' : 'placeholders'}.`);
+    if (c.charts) out.push(`${plural(c.charts, 'chart or diagram', 'charts or diagrams')} kept as ${c.charts === 1 ? 'a placeholder' : 'placeholders'}; ${c.charts === 1 ? 'its' : 'their'} alt text is all that came across.`);
     if (c.nestedTables) out.push(`${plural(c.nestedTables, 'table inside a table cell', 'tables inside table cells')} flattened into paragraphs.`);
     if (c.decorative) out.push(`${plural(c.decorative, 'decorative image')} marked in Word left out.`);
     if (c.notes) out.push(`${plural(c.notes, 'footnote or endnote', 'footnotes or endnotes')} not imported.`);
@@ -772,9 +828,16 @@ class Walker {
   }
 
   /** src 0: claimed by the paragraph that holds the image (see emitBlocks). */
-  private figure(alt: string): Block {
+  private figure(alt: string, rId: string | null = null, chart = false): Block {
     const n = ++this.figures;
-    return { node: schema.nodes.figure!.create({ id: `img-${n}`, alt: alt.trim().slice(0, MAX_ALT), label: `image ${n}` }), list: null, src: 0 };
+    const found = rId ? this.media.get(rId) : undefined;
+    let picture = {};
+    if (found && 'key' in found) picture = { image: found.key, width: found.image.width, height: found.image.height };
+    else if (found?.problem === 'unsupported') this.unsupported.set(found.format, (this.unsupported.get(found.format) ?? 0) + 1);
+    else if (found) this.counts[found.problem]++;
+    else if (rId) this.counts.missing++;
+    else if (chart) this.counts.charts++;
+    return { node: schema.nodes.figure!.create({ id: `img-${n}`, alt: alt.trim().slice(0, MAX_ALT), label: `image ${n}`, ...picture }), list: null, src: 0 };
   }
 
   private isDecorative(el: Element): boolean {
@@ -795,7 +858,12 @@ class Walker {
     if (txbx.length && !picture) return text;
     if (this.isDecorative(d)) { this.counts.decorative++; return text; }
     const docPr = first(d, 'wp:docPr');
-    return [this.figure(docPr?.getAttribute('descr') || docPr?.getAttribute('title') || ''), ...text];
+    // The picture's bytes: the first blip outside a text box (a chart or
+    // SmartArt has none, and stays a placeholder).
+    const blip = descendants(d).find((e) => !inBox.has(e) && e.tagName === 'a:blip');
+    const rId = blip?.getAttribute('r:embed') || blip?.getAttribute('r:link') || null;
+    const chart = !blip && descendants(d).some((e) => !inBox.has(e) && (e.tagName === 'c:chart' || e.tagName === 'dgm:relIds'));
+    return [this.figure(docPr?.getAttribute('descr') || docPr?.getAttribute('title') || '', rId, chart), ...text];
   }
 
   /** Legacy VML pictures and OLE objects. */
@@ -805,8 +873,9 @@ class Walker {
     // A horizontal rule is decoration by definition.
     if (descendants(el).some((e) => e.getAttribute('o:hr') === 't')) return [];
     const shape = first(el, 'v:shape') || first(el, 'v:rect') || first(el, 'v:oval');
-    if (!shape && !first(el, 'v:imagedata')) return [];
-    return [this.figure(shape?.getAttribute('alt') ?? '')];
+    const data = first(el, 'v:imagedata');
+    if (!shape && !data) return [];
+    return [this.figure(shape?.getAttribute('alt') ?? '', data?.getAttribute('r:id') || null)];
   }
 }
 
