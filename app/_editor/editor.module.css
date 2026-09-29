@@ -492,6 +492,10 @@
   color: var(--as-text-subtlest);
 }
 
+.figureIcon { display: contents; }
+/* A real picture: its own size, never wider than the page, no placeholder box. */
+.figureArt[data-state='ready'] { height: auto; padding: 0; border: 0; background: none; }
+.figureArt[data-state='ready'] img { display: block; max-width: 100%; height: auto; }
 .figcaption { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 .altText { font-size: 12px; font-style: italic; color: var(--as-text-subtlest); }

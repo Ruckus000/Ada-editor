@@ -20,6 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { CHROME, connect, evaluate, key, launch, shutdown, sleep, track, watchdog } from './cdp.mjs';
 import { P, R, docx } from './harness/docx.mjs';
+import { png } from './harness/images.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
@@ -921,6 +922,7 @@ async function editor() {
     else note('dismissals persist across reloads (count = post-dismiss + 2 pasted images)');
 
     await tables(send, findingCount);
+    await images(send, findingCount);
 
     await checkReflow(send);
     await checkForcedColors(send);
@@ -1013,6 +1015,55 @@ async function tables(send, findingCount) {
   await checkTree(send, { contentTextbox: 'Document text' });
   // Let the debounced save land: the export reloads from storage.
   await sleep(1500);
+}
+
+// Real images: Insert image opens a file picker, the picture shows in the
+// editor as a named image with its missing-alt blocker, a file that isn't an
+// image is refused out loud, and the picture survives a reload (IndexedDB).
+async function images(send, findingCount) {
+  const dir = mkdtempSync(join(tmpdir(), 'ada-images-'));
+  try {
+    const chart = join(dir, 'visits-chart.png');
+    writeFileSync(chart, png(120, 80));
+    const fake = join(dir, 'not-a-picture.png');
+    writeFileSync(fake, 'this is text, renamed .png');
+    const choose = async (file) => {
+      const { result } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file][aria-label="Choose an image"]')` });
+      if (!result.objectId) { fail('IMAGE  no image file input'); return false; }
+      await send('DOM.setFileInputFiles', { objectId: result.objectId, files: [file] });
+      await sleep(900);
+      return true;
+    };
+    const figures = () => evaluate(send, `document.querySelectorAll('#document-text [data-figure-id]').length`);
+    await evaluate(send, `(() => { const d = document.getElementById('document-text'); d.focus(); const p = [...d.querySelectorAll(':scope > p')].pop(); const r = document.createRange(); r.selectNodeContents(p); r.collapse(false); getSelection().removeAllRanges(); getSelection().addRange(r); })()`);
+    await sleep(200);
+    const before = { figures: await figures(), findings: await findingCount() };
+    if (!(await focusByName(send, '[role=toolbar] button', 'Insert image'))) { fail('IMAGE  no Insert image button'); return; }
+    if (!(await choose(chart))) return;
+    const shown = await evaluate(send, `(() => { const art = [...document.querySelectorAll('#document-text [role=img]')].find((a) => a.querySelector('img')); const img = art?.querySelector('img'); return art ? { name: art.getAttribute('aria-label'), natural: img.naturalWidth, alt: img.getAttribute('alt') } : null; })()`);
+    const said = await liveText(send);
+    if (!shown || shown.natural !== 120 || shown.alt !== '' || !/visits-chart, no alternative text/.test(shown.name)) fail(`IMAGE  the chosen picture did not show as a named image (${JSON.stringify(shown)})`);
+    else if ((await figures()) !== before.figures + 1 || (await findingCount()) !== before.findings + 1) fail('IMAGE  inserting added no figure or no missing-alt finding');
+    else if (!/^Image inserted: visits-chart\. It has no alternative text yet/.test(said)) fail(`IMAGE  insertion not announced (got ${JSON.stringify(said)})`);
+    else note('Insert image: the chosen picture shows, named, with its missing-alt blocker, announced');
+    await runAxe(send, ' (real image)');
+
+    const count = await figures();
+    if (!(await choose(fake))) return;
+    const alert = await evaluate(send, `[...document.querySelectorAll('[role=alert]')].map((a) => a.textContent).join(' ')`);
+    if (!alert.includes('isn’t a PNG, JPEG, GIF or WebP') || (await figures()) !== count) fail(`IMAGE  a text file renamed .png was not refused visibly (${JSON.stringify(alert)})`);
+    else note('a file that isn’t an image is refused with a visible alert, and nothing is inserted');
+
+    // Kept in this browser: the picture is back after a reload.
+    await sleep(1500);
+    await send('Page.reload');
+    await sleep(2000);
+    const after = await evaluate(send, `(() => { const img = document.querySelector('#document-text [role=img] img'); return img ? img.naturalWidth : 0; })()`);
+    if (after !== 120) fail(`IMAGE  the picture did not come back after a reload (naturalWidth ${after})`);
+    else note('the picture survives a reload (kept in IndexedDB)');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // Export: the downloaded page must be exactly as accessible as the findings

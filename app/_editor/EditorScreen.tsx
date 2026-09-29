@@ -58,6 +58,8 @@ import { exportHtml } from './exportHtml';
 import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import type { TableAction } from './Toolbar';
+import { ImageError, acquireUrl, putImage, releaseUrl } from '../_data/images';
+import { IMAGE_MIMES, MAX_IMAGE_BYTES, sniffImage, validImageKey } from '../_data/imageFormat';
 import styles from './editor.module.css';
 
 const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green' };
@@ -102,6 +104,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   /** Characters the PDF font can't draw, from the last refused PDF export. */
   const [pdfMissing, setPdfMissing] = useState<string[]>([]);
   const [deleteError, setDeleteError] = useState(false);
+  const [imageError, setImageError] = useState('');
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const deleting = useRef(false);
   const router = useRouter();
   const pdfBusy = useRef(false);
@@ -126,7 +130,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // re-render, the list re-sort and the decoration rebuild on no-op edits.
   const lastRenderedRef = useRef(findings);
   const activeRef = useRef<string | null>(activeId);
-  const handlersRef = useRef({ editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
+  const handlersRef = useRef({ insertImageFile: async (_file: File) => {}, editFigureAlt: (_id: string) => {}, editTableCaption: (_pos: number) => {}, activate: (_id: string) => {}, docChanged: () => {}, runFullCheck: () => {} });
   const docRegion = useRef<HTMLElement>(null);
   const findingsRegion = useRef<HTMLElement>(null);
   const activeCardRef = useRef<HTMLDivElement>(null);
@@ -182,36 +186,77 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       const art = document.createElement('div');
       art.className = styles.figureArt!;
       art.setAttribute('role', 'img');
-      art.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+      const icon = document.createElement('span');
+      icon.className = styles.figureIcon!;
+      icon.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
+      art.append(icon);
       const caption = document.createElement('figcaption');
       caption.className = styles.figcaption!;
       dom.append(art, caption);
+      // The picture: none (a placeholder), loading, ready, or failed (its bytes
+      // can't be had here). The wrapper's name is the alt text either way.
+      let shown: string | null = null;
+      let state: 'none' | 'loading' | 'ready' | 'failed' = 'none';
       const render = () => {
         const alt = node.attrs.alt as string;
         const label = node.attrs.label as string;
         // Mirrors the id toDOM would emit: nothing else on the live DOM identifies
         // which figure is which (devtools, tests, or future scripting).
         dom.dataset.figureId = node.attrs.id as string;
-        art.setAttribute('aria-label', alt || `${label}, no alternative text`);
+        art.dataset.state = state;
+        art.setAttribute('aria-label', `${alt || `${label}, no alternative text`}${state === 'failed' ? ', image unavailable' : ''}`);
         const status = document.createElement('span');
         status.className = alt ? styles.altText! : styles.missingBadge!;
         status.textContent = alt ? `Alt text: “${alt}”` : 'Missing alt text';
+        const parts: Node[] = [status];
+        if (state === 'failed') {
+          const gone = document.createElement('span');
+          gone.className = styles.altText!;
+          gone.textContent = 'Image unavailable';
+          parts.push(gone);
+        }
         const button = document.createElement('button');
         button.type = 'button';
         button.className = styles.linkBtn!;
         button.textContent = `${alt ? 'Edit' : 'Add'} alt text for ${label}`;
         button.addEventListener('click', () => handlersRef.current.editFigureAlt(node.attrs.id as string));
-        caption.replaceChildren(status, button);
+        parts.push(button);
+        caption.replaceChildren(...parts);
       };
+      const load = () => {
+        const key = validImageKey(node.attrs.image);
+        if (key === shown) return;
+        if (shown) releaseUrl(shown);
+        shown = key;
+        art.replaceChildren(icon);
+        state = key ? 'loading' : 'none';
+        if (!key) return;
+        void acquireUrl(key).then((url) => {
+          if (shown !== key) return;
+          if (!url) { state = 'failed'; render(); return; }
+          const img = document.createElement('img');
+          img.alt = '';
+          img.draggable = false;
+          if (node.attrs.width && node.attrs.height) { img.width = node.attrs.width as number; img.height = node.attrs.height as number; }
+          img.onerror = () => { if (shown === key) { art.replaceChildren(icon); state = 'failed'; render(); } };
+          img.src = url;
+          art.replaceChildren(img);
+          state = 'ready';
+          render();
+        });
+      };
+      load();
       render();
       return {
         dom,
         update(next) {
           if (next.type !== node.type) return false;
           node = next;
+          load();
           render();
           return true;
         },
+        destroy() { if (shown) releaseUrl(shown); },
         stopEvent: (event) => !!(event.target as HTMLElement).closest?.('button'),
         ignoreMutation: () => true,
       };
@@ -293,6 +338,13 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       // Pasted or copied images get fresh ids: a copy of an image in this document
       // would otherwise share its id, and alt-text edits would hit the wrong one.
       // Pasted text loses any mark for the document's own language.
+      // A pasted image file (a screenshot) goes the same way as a chosen one.
+      handlePaste(_view, event) {
+        const file = [...(event.clipboardData?.files ?? [])].find((f) => (IMAGE_MIMES as readonly string[]).includes(f.type));
+        if (!file) return false;
+        void handlersRef.current.insertImageFile(file);
+        return true;
+      },
       transformPasted(slice, pasteView) {
         const pageLang = documentLanguage(pasteView.state.doc);
         const renumber = (fragment: Fragment): Fragment => {
@@ -521,16 +573,41 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     view.focus();
   }, []);
 
+  // Insert image opens the file picker; the chosen file comes back through here.
   const insertImage = () => {
+    setImageError('');
+    imageInputRef.current?.click();
+  };
+
+  const insertImageFile = async (file: File) => {
     const view = viewRef.current;
     if (!view) return;
-    const n = ++imageSeq.current;
-    const id = `img-${n}`;
-    // The dispatch's image reconcile adds the blocking finding.
-    view.dispatch(view.state.tr.replaceSelectionWith(nodeTypes.figure!.create({ id, label: `inserted image ${n}` })).scrollIntoView());
-    setActiveId(`img-alt-${id}`);
-    setFilter(null);
-    announce(`Image inserted. It has no alternative text yet, so it was added as a blocking finding.`);
+    setImageError('');
+    try {
+      if (file.size > MAX_IMAGE_BYTES) throw new ImageError('size', 'That image is over 10 MB. Use a smaller copy.');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (sniffImage(bytes)?.kind !== 'image') throw new ImageError('type', 'That file isn’t a PNG, JPEG, GIF or WebP image.');
+      // Its header can be right and the rest broken: make sure it draws.
+      try {
+        (await createImageBitmap(new Blob([bytes as BlobPart]))).close();
+      } catch {
+        throw new ImageError('type', 'That image couldn’t be read. It may be damaged.');
+      }
+      const stored = await putImage(bytes);
+      const n = ++imageSeq.current;
+      const id = `img-${n}`;
+      const label = file.name.replace(/\.[^.]+$/, '').replace(/\s+/g, ' ').trim().slice(0, 80) || `inserted image ${n}`;
+      const current = viewRef.current ?? view;
+      // The dispatch's check adds the missing-alt blocker.
+      current.dispatch(current.state.tr.replaceSelectionWith(nodeTypes.figure!.create({ id, label, image: stored.key, width: stored.width, height: stored.height })).scrollIntoView());
+      setActiveId(`img-alt-${id}`);
+      setFilter(null);
+      current.focus();
+      announce(`Image inserted: ${label}. It has no alternative text yet, so it was added as a blocking finding.`);
+    } catch (error) {
+      // Shown, and read out once by role="alert".
+      setImageError(error instanceof ImageError ? error.message : 'That image couldn’t be added.');
+    }
   };
 
   /* ---------- tables ---------- */
@@ -732,6 +809,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   };
 
   handlersRef.current = {
+    insertImageFile,
     editTableCaption: (pos) => {
       const view = viewRef.current;
       const table = view?.state.doc.nodeAt(pos);
@@ -846,6 +924,21 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         </div>
       </div>
       {deleteError ? <p role="alert" className={styles.deleteError}>This document couldn’t be deleted. Check your connection and try again.</p> : null}
+      {imageError ? <p role="alert" className={styles.deleteError}>{imageError}</p> : null}
+      {/* Insert image's file picker: opened by the toolbar button, never a tab stop of its own. */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept={IMAGE_MIMES.join(',')}
+        hidden
+        tabIndex={-1}
+        aria-label="Choose an image"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) void insertImageFile(file);
+        }}
+      />
 
       <div className={styles.body}>
         <main ref={docRegion} tabIndex={-1} aria-label="Document" className={styles.docMain}>
