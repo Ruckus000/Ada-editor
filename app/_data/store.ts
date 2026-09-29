@@ -25,6 +25,7 @@ import { dismissKeyOf } from '../_editor/findings';
 import { schema } from '../_editor/editorSchema';
 import { checkDocument } from '../_engine/check';
 import { SEEDS, buildSeedDocument } from './seed';
+import { setImageScope } from './images';
 import type { DocSummary, SeedDoc } from './seed';
 
 export type DocJSON = Record<string, unknown>;
@@ -79,6 +80,7 @@ export function setStoreUser(uid: string | null): void {
   memoryDocs = null;
   memoryDirty = null;
   diskFailed = false;
+  setImageScope({ uid, cloud });
 }
 
 /** Cloud mode with no account: the store holds nothing and keeps nothing. */
@@ -88,6 +90,7 @@ export function detachStore(): void {
   memoryDocs = null;
   memoryDirty = null;
   diskFailed = false;
+  setImageScope(null);
 }
 
 /** sync.ts listens here to schedule a push after each local write. */
@@ -344,6 +347,11 @@ function markDirty(ids: string[]): void {
 }
 
 /** Docs the server has not confirmed yet, as they are now. */
+/** Every document in the store (sync.ts: which images are still in use here). */
+export function allDocs(): StoredDoc[] {
+  return [...readAll().values()];
+}
+
 export function dirtyDocs(): StoredDoc[] {
   const all = readAll();
   return [...readDirty()].flatMap((id) => all.get(id) ?? []);

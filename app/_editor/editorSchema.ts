@@ -3,6 +3,7 @@ import type { DOMOutputSpec, MarkSpec, NodeSpec, Node as PMNode } from 'prosemir
 import { addListNodes } from 'prosemirror-schema-list';
 import { tableNodes } from 'prosemirror-tables';
 import { isForeignTo, isLangTag, isRtlLanguage, isUsableLangTag } from '../_engine/textHelpers';
+import { validImageKey } from '../_data/imageFormat';
 
 /**
  * Document schema for the editor screen.
@@ -14,6 +15,12 @@ import { isForeignTo, isLangTag, isRtlLanguage, isUsableLangTag } from '../_engi
  */
 
 const MAX_INDENT = 6;
+
+/** A figure's width or height from untrusted input: a positive pixel count, or null. */
+export const dimension = (v: unknown): number | null => {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n > 0 && n <= 100_000 ? n : null;
+};
 
 const indentAttr = { indent: { default: 0 } };
 const indentStyle = (indent: number) => (indent ? `margin-inline-start: ${indent * 2}em` : '');
@@ -44,17 +51,27 @@ const nodes: Record<string, NodeSpec> = {
     toDOM: (node): DOMOutputSpec => [`h${node.attrs.level}`, node.attrs.indent ? { style: indentStyle(node.attrs.indent) } : {}, 0],
   },
   /**
-   * A placeholder image. Rendered by a NodeView in EditorScreen so its alt-text
-   * control can live inside the document without being editable text.
+   * An image. Rendered by a NodeView in EditorScreen so its alt-text control
+   * can live inside the document without being editable text. `image` is the
+   * key its bytes are stored under (app/_data/images.ts), with the displayed
+   * `width` and `height`; a figure without one is a placeholder. The DOM form
+   * carries all of it, so copy and paste keep the picture.
    */
   figure: {
     group: 'block flow',
     atom: true,
     selectable: true,
     draggable: false,
-    attrs: { id: {}, alt: { default: '' }, label: { default: 'image' } },
-    parseDOM: [{ tag: 'figure[data-figure-id]', getAttrs: (el) => ({ id: (el as HTMLElement).dataset.figureId, alt: (el as HTMLElement).dataset.alt ?? '' }) }],
-    toDOM: (node): DOMOutputSpec => ['figure', { 'data-figure-id': node.attrs.id, 'data-alt': node.attrs.alt }],
+    attrs: { id: {}, alt: { default: '' }, label: { default: 'image' }, image: { default: null }, width: { default: null }, height: { default: null } },
+    parseDOM: [{ tag: 'figure[data-figure-id]', getAttrs: (el) => {
+      const d = (el as HTMLElement).dataset;
+      return { id: d.figureId, alt: d.alt ?? '', image: validImageKey(d.image), width: dimension(d.width), height: dimension(d.height) };
+    } }],
+    toDOM: (node): DOMOutputSpec => ['figure', {
+      'data-figure-id': node.attrs.id,
+      'data-alt': node.attrs.alt,
+      ...(validImageKey(node.attrs.image) ? { 'data-image': node.attrs.image, 'data-width': node.attrs.width, 'data-height': node.attrs.height } : {}),
+    }],
   },
   text: { group: 'inline' },
   hard_break: {

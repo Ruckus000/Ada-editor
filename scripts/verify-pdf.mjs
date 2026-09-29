@@ -26,6 +26,8 @@
 import { build } from 'esbuild';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
 import { inflateSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
+import { JPEG_3X2, png, withOrientation } from './harness/images.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -92,6 +94,12 @@ const cell = (c) => {
     typeof content === 'string' ? [para(content)] : content);
 };
 const table = (rows, caption = '') => N.table.create({ caption }, rows.map((r) => N.table_row.create(null, r.map(cell))));
+// Real pictures, by key, as the browser hands them to exportPdf.
+const keyOf = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const CHART = png(40, 30, { alpha: true });
+const PHOTO = withOrientation(JPEG_3X2, 6);
+const IMAGES = new Map([[keyOf(CHART), { data: CHART }], [keyOf(PHOTO), { data: PHOTO }]]);
+const picture = (id, alt, bytes, width, height) => N.figure.create({ id, alt, label: id, image: keyOf(bytes), width, height });
 const PROSE = 'Residents may review the full application at the planning office during business hours, or online at any time, and may submit written comments before the hearing date.';
 const ALT = 'Site plan: the shelter sits north of the library.';
 
@@ -109,6 +117,11 @@ const featureDoc = () => N.doc.create({ lang: 'en' }, [
   N.bullet_list.create(null, [item(para('First bullet')), item(para('Second bullet'), N.ordered_list.create({ order: 3 }, [item(para('Third step')), item(para('Fourth step'))])), item(para(PROSE))]),
   N.paragraph.create({ indent: 2 }, [t(`Indented. ${PROSE}`)]),
   N.figure.create({ id: 'img-1', alt: ALT, label: 'site plan' }),
+  picture('img-2', 'Chart of weekly visits', CHART, 40, 30),
+  // Rotated by its EXIF tag: displayed 2 wide by 3 tall.
+  picture('img-3', 'Photo of the library entrance', PHOTO, 2, 3),
+  // Its bytes aren't available: the placeholder, with its alt.
+  N.figure.create({ id: 'img-4', alt: 'Floor plan', label: 'floor plan', image: 'f'.repeat(64) }),
   table([[{ th: 'Day' }, { th: 'Hours' }], ['Monday', '9 to 6'], ['Saturday', '10 to 2']], 'Library hours'),
   heading(2, 'Enough text for more pages'),
   ...Array.from({ length: 14 }, (_, i) => para(`${i + 1}. ${PROSE} ${PROSE}`)),
@@ -170,7 +183,7 @@ const save = (name, bytes) => {
 console.log('PDF export — structure');
 
 await check('exports every construct, across pages', async () => {
-  const result = await exportPdf(featureDoc(), FEATURE_META, fonts);
+  const result = await exportPdf(featureDoc(), FEATURE_META, fonts, IMAGES);
   assert(result.ok, `refused: ${JSON.stringify(result.missing)}`);
   assert(result.pages >= 3, `expected at least 3 pages, got ${result.pages}`);
   save('features', result.bytes);
@@ -201,8 +214,18 @@ await check('exports every construct, across pages', async () => {
   assert(annots.some((o) => o.includes('/Contents (the hearing agenda)')), 'an annotation describes its link (PDF/UA 7.18.5)');
   assert(/\/Tabs \/S/.test(text), 'tab order follows the structure');
   const figures = withType(objects, 'Figure');
-  eq(figures.length, 1, 'one Figure');
-  assert(figures[0].includes(`/Alt (${ALT})`), 'the figure carries its alt text');
+  eq(figures.length, 4, 'a Figure per figure: two pictures and two placeholders');
+  for (const alt of [ALT, 'Chart of weekly visits', 'Photo of the library entrance', 'Floor plan']) {
+    assert(figures.some((f) => f.includes(`/Alt (${alt})`)), `a figure carries its alt text: ${alt}`);
+  }
+  const xobjects = [...objects.values()].filter((o) => o.includes('/Subtype /Image'));
+  assert(xobjects.some((o) => o.includes('/Filter /DCTDecode')), 'the JPEG is embedded as a JPEG');
+  assert(xobjects.some((o) => o.includes('/SMask')), 'the PNG keeps its transparency as a soft mask');
+  // Each picture, plus the PNG's soft mask (itself an image XObject).
+  eq(xobjects.filter((o) => o.includes('/SMask')).length + xobjects.filter((o) => o.includes('/Filter /DCTDecode')).length, 2, 'both pictures are drawn');
+  const bboxes = figures.map((f) => /\/BBox \[([^\]]*)\]/.exec(f)?.[1]).filter(Boolean).map((b) => b.trim().split(/\s+/).map(Number));
+  assert(bboxes.some(([x1, y1, x2, y2]) => Math.abs((x2 - x1) - 30) < 0.5 && Math.abs(Math.abs(y2 - y1) - 22.5) < 0.5), `the chart is drawn at its own size, 40×30 px = 30×22.5 pt (bboxes ${JSON.stringify(bboxes)})`);
+  assert(bboxes.some(([x1, y1, x2, y2]) => Math.abs((x2 - x1) - 1.5) < 0.5 && Math.abs(Math.abs(y2 - y1) - 2.25) < 0.5), 'the rotated photo is taller than wide, as displayed');
   // Reading order: the header is read first and the footer last, once each.
   const documentKids = refs(/\/K \[([^\]]*)\]/.exec(withType(objects, 'Document')[0])?.[1] ?? '');
   const first = objects.get(documentKids[0]);
@@ -280,11 +303,13 @@ await check('no block the editor can hold is dropped from the PDF', async () => 
 });
 
 await check('a figure without alt text has no /Alt — never filled in from its label', async () => {
-  const result = await exportPdf(N.doc.create(null, [heading(1, 'Map'), N.figure.create({ id: 'img-1', alt: '', label: 'location map' })]), { title: 'Map', header: '', footer: '' }, fonts);
+  const result = await exportPdf(N.doc.create(null, [heading(1, 'Map'), picture('img-1', '', CHART, 40, 30)]), { title: 'Map', header: '', footer: '' }, fonts, IMAGES);
   assert(result.ok, 'exported');
   save('figure-without-alt', result.bytes);
-  const figure = withType(objectsOf(result.bytes).objects, 'Figure')[0];
+  const { objects } = objectsOf(result.bytes);
+  const figure = withType(objects, 'Figure')[0];
   assert(figure && !figure.includes('/Alt'), 'no /Alt on the figure');
+  assert([...objects.values()].some((o) => o.includes('/Subtype /Image')), 'the picture itself is there, just unlabelled');
 });
 
 await check('the document language and title reach the file', async () => {

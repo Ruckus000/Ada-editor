@@ -26,8 +26,11 @@ system, and every finding is computed by
 the **real checking engine**: nineteen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
-(the document's language, landmarks, headings and links intact; figures are still placeholders,
-and whatever the checker flags is still wrong in the export). **Upload .docx**
+(the document's language, landmarks, headings and links intact, and its images
+embedded in the page with their alt text; whatever the checker flags is still
+wrong in the export, so an image without alt text is exported without it).
+**Insert image** takes a PNG, JPEG, GIF or WebP file (up to 10 MB), checked by
+its contents, not its name. **Upload .docx**
 imports an existing Word file in the browser (the file itself is never
 uploaded) and checks it like any other document. Tables come across as real
 tables, header rows and merged cells included, and a table with no header
@@ -54,7 +57,11 @@ itself — `supabase/tests/rls.sql` checks it). The sign-in email is `supabase/t
 Supabase's **Confirm signup** and **Magic link** templates (subject: *Your Ada
 Editor sign-in code*); Supabase fills in `{{ .Token }}` and `{{ .Email }}`. The browser keeps a working copy,
 so typing never waits on the network and edits made offline sync when the
-connection returns. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
+connection returns. Images live outside the document: a figure stores the
+SHA-256 of its bytes, and the bytes go to the account's private `images`
+bucket at `<user id>/<key>` (storage policies limit each account to its own
+folder; `supabase/migrations/20260930120000_images.sql`), cached in the
+browser's IndexedDB. Local mode keeps them in IndexedDB only. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
 set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
 documents in this browser's localStorage only, exactly as before accounts.
 
