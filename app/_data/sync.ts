@@ -1,12 +1,16 @@
 import { useSyncExternalStore } from 'react';
 import { getClient } from './supabase';
-import { applyPulled, clearStore, deleteDoc, detachStore, dirtyDocs, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
+import { allDocs, applyPulled, clearStore, deleteDoc, detachStore, dirtyDocs, loadDoc, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
+import { imageKeysOf } from './imageFormat';
+import { clearImageScope, pendingKeys, purgeFolder, removeRemote, uploadPending } from './images';
 import type { StoredDoc } from './store';
 
 /**
  * Write-behind from the local store to public.documents (cloud mode only).
  * The store stays the synchronous working copy; this pulls an account's docs
- * once per sign-in and pushes whatever the store marks dirty.
+ * once per sign-in and pushes whatever the store marks dirty. A document's
+ * images go to the account's private bucket first (images.ts), so a row never
+ * reaches the server before the pictures it refers to.
  *
  * ponytail: last push wins. A tab pulls once per sign-in, so a document
  * edited on another device since then is overwritten if it is also EDITED in
@@ -74,6 +78,8 @@ const toRow = (d: StoredDoc, ownerId: string) => ({
   last_checked: d.lastChecked,
   dismissed: d.dismissed,
   import_notes: d.importNotes,
+  // Which images the document uses: what a deletion checks before removing one.
+  image_keys: imageKeysOf(d.content),
   updated_at: new Date().toISOString(),
 });
 
@@ -99,10 +105,18 @@ async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Prom
   const docs = pending();
   if (!ownerId || !docs.length) { settle(); return; }
   // One upsert per doc, so a doc the server refuses can't hold the others back.
-  const results = await Promise.all(docs.map((d) => client.from('documents').upsert(toRow(d, ownerId)).then(
-    ({ error }) => error,
-    (error: unknown) => error ?? new Error('Network error'),
-  )));
+  // Its images first: if they can't be uploaded, the doc waits with them.
+  const results = await Promise.all(docs.map(async (d) => {
+    try {
+      await uploadPending(imageKeysOf(d.content));
+    } catch (error) {
+      return error ?? new Error('Network error');
+    }
+    return client.from('documents').upsert(toRow(d, ownerId)).then(
+      ({ error }) => error,
+      (error: unknown) => error ?? new Error('Network error'),
+    );
+  }));
   if (ownerId !== attachedUid) return; // signed out or switched while in flight
   let retry = false;
   const pushed = docs.filter((d, i) => {
@@ -182,6 +196,7 @@ export async function removeDoc(id: string): Promise<boolean> {
   if (!ownerId) return false;
   // Let any push in flight land first, or its upsert could recreate the row.
   await push();
+  const keys = imageKeysOf(loadDoc(id)?.content);
   const { error } = await client.from('documents').delete().eq('owner_id', ownerId).eq('id', id).then(
     (result) => result,
     (failure: unknown) => ({ error: failure ?? new Error('Network error') }),
@@ -191,7 +206,25 @@ export async function removeDoc(id: string): Promise<boolean> {
   deleteDoc(id);
   rejected.delete(id);
   settle();
+  void removeUnused(ownerId, keys);
   return true;
+}
+
+/**
+ * After a deletion: remove the deleted document's images that nothing else
+ * uses, on the server or still only in this browser. Best effort; an image
+ * left behind is removed with the account. (Images taken out of a document by
+ * editing stay until then too: undo can bring them back.)
+ */
+async function removeUnused(ownerId: string, keys: string[]): Promise<void> {
+  const client = getClient();
+  if (!client || !keys.length) return;
+  const { data, error } = await client.from('documents').select('image_keys').overlaps('image_keys', keys);
+  if (error) return;
+  const used = new Set<string>();
+  for (const row of (data ?? []) as { image_keys?: string[] }[]) for (const k of row.image_keys ?? []) used.add(k);
+  for (const d of allDocs()) for (const k of imageKeysOf(d.content)) used.add(k);
+  await removeRemote(ownerId, keys.filter((k) => !used.has(k)));
 }
 
 /** Resolves false when edits never reached the server and the person chose
@@ -200,11 +233,14 @@ export async function signOut(confirmDiscard: () => boolean): Promise<boolean> {
   const client = getClient();
   if (!client) return true;
   await push();
-  if (dirtyDocs().length && !confirmDiscard()) return false;
+  // Images not yet uploaded are unsaved work too.
+  if ((dirtyDocs().length || (await pendingKeys()).length) && !confirmDiscard()) return false;
+  const uid = attachedUid;
   // Clear first: signOut() fires AuthGate's listener, which would detach the
   // store before clearStore could find the account's cache to delete.
   forget();
   clearStore();
+  if (uid) await clearImageScope(uid);
   // auth-js removes the local session even when the logout request fails
   // (offline), so a shared computer is signed out either way.
   await client.auth.signOut();
@@ -232,11 +268,15 @@ export async function deleteAccount(): Promise<boolean> {
   const { data } = await client.auth.getSession();
   const uid = data.session?.user.id;
   if (!uid) return false;
+  // Storage doesn't cascade from the account: empty its image folder first,
+  // and stop if that fails rather than leave pictures nobody can delete.
+  if (!(await purgeFolder(uid))) { console.error('Account deletion stopped: its images could not be removed'); return false; }
   const { error } = await client.rpc('delete_my_account');
   if (error) { console.error('Account deletion failed', error); return false; }
   forget();
   setStoreUser(uid);
   clearStore();
+  await clearImageScope(uid);
   // The user is gone, so the server's logout answers 404/403; auth-js treats
   // those as signed out and removes the local session.
   await client.auth.signOut();

@@ -190,12 +190,6 @@ export async function pendingKeys(): Promise<string[]> {
   return (rows ?? []).filter((r) => r.pending).map((r) => r.key);
 }
 
-/** Mark `key` owed again: the bucket lost it, but this browser still has it. */
-export async function markPending(key: string): Promise<void> {
-  const row = await readRow(key).catch(() => undefined);
-  if (row && !row.pending) await writeRow({ ...row, pending: true }).catch(() => undefined);
-}
-
 /** Delete these keys from the account's bucket (best effort). */
 export async function removeRemote(uid: string, keys: readonly string[]): Promise<void> {
   const client = getClient();

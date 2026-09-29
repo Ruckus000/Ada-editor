@@ -1,5 +1,5 @@
--- RLS and privilege check for public.documents (including delete), public.contact_messages and
--- delete_my_account(). Runs in one transaction and rolls back, so
+-- RLS and privilege check for public.documents (including delete), public.contact_messages,
+-- the private images bucket and delete_my_account(). Runs in one transaction and rolls back, so
 -- it is safe against a live project: execute it with psql or MCP execute_sql.
 -- Any failed expectation raises and aborts; success returns 'rls ok'.
 begin;
@@ -91,6 +91,37 @@ do $$ begin
     raise exception 'anon can call delete_my_account';
   exception when insufficient_privilege then null; end;
 end $$;
+
+-- Images: a private bucket; each account reaches its own folder, by key only.
+reset role;
+do $$ begin
+  if not exists (select 1 from storage.buckets where id = 'images' and not public and file_size_limit = 10485760
+    and allowed_mime_types @> array['image/png', 'image/jpeg', 'image/gif', 'image/webp'] and cardinality(allowed_mime_types) = 4)
+  then raise exception 'the images bucket is missing, public, or has the wrong limits'; end if;
+end $$;
+set local role authenticated;
+set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated"}';
+insert into storage.objects (bucket_id, name) values ('images', '00000000-0000-0000-0000-00000000000a/' || repeat('a', 64));
+do $$ begin
+  if (select count(*) from storage.objects where bucket_id = 'images') <> 1 then raise exception 'A cannot see their own image'; end if;
+  begin
+    insert into storage.objects (bucket_id, name) values ('images', '00000000-0000-0000-0000-00000000000a/../notes.txt');
+    raise exception 'A stored an image under a name that is not a key';
+  exception when insufficient_privilege then null; end;
+end $$;
+set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000b", "role": "authenticated"}';
+do $$ begin
+  if (select count(*) from storage.objects where bucket_id = 'images') <> 0 then raise exception 'B can see A''s images'; end if;
+  begin
+    insert into storage.objects (bucket_id, name) values ('images', '00000000-0000-0000-0000-00000000000a/' || repeat('b', 64));
+    raise exception 'B stored an image in A''s folder';
+  exception when insufficient_privilege then null; end;
+end $$;
+set local role anon;
+do $$ begin
+  if (select count(*) from storage.objects where bucket_id = 'images') <> 0 then raise exception 'anon can see images'; end if;
+end $$;
+-- (The staged row goes with the rollback: storage forbids deleting in SQL.)
 
 -- A deletes their account: A, A's documents and A's messages go; B is untouched.
 set local role authenticated;

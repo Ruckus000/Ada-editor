@@ -116,8 +116,10 @@ port = 54624
 # sender_name = "Admin"
 
 [storage]
-# Off: Ada Editor does not use it, and the local stack starts faster without it.
-enabled = false
+# On: documents' images live in the private `images` bucket (see
+# supabase/migrations/20260930120000_images.sql), and the e2e test uploads,
+# downloads and deletes them against this local stack.
+enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 

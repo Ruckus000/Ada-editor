@@ -26,6 +26,12 @@ export default function Page() {
           file, the file itself is read in your browser and never uploaded; only the document made from
           it is saved.
         </li>
+        <li>
+          The images you add to your documents, stored privately in your account: only you can open
+          them. Deleting a document deletes the images no other document of yours uses, and deleting your
+          account deletes all of them. An image you take out of a document stays with your account until
+          you delete the account, so that undo can bring it back.
+        </li>
         <li>A sign-in session, stored in your browser so you stay signed in.</li>
         <li>Messages you send us from this page, with your email address, so we can reply.</li>
       </ul>
@@ -35,14 +41,14 @@ export default function Page() {
 
       <h2>Who helps run Ada Editor</h2>
       <ul>
-        <li><strong>Supabase</strong> stores your account and documents, on Amazon Web Services in Ohio, USA.</li>
+        <li><strong>Supabase</strong> stores your account, documents and images, on Amazon Web Services in Ohio, USA.</li>
         <li><strong>Vercel</strong> hosts the website.</li>
         <li><strong>Resend</strong> sends the sign-in emails.</li>
       </ul>
       <p>Like any web service, they keep short-lived technical logs, which include IP addresses.</p>
 
       <h2>How long we keep it</h2>
-      <p>Until you delete your account. Deleting it removes your account, every document in it and any messages you sent us, straight away.</p>
+      <p>Until you delete your account. Deleting it removes your account, every document and image in it and any messages you sent us, straight away.</p>
 
       <h2>Your choices</h2>
       <ul>

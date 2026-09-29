@@ -57,7 +57,11 @@ itself — `supabase/tests/rls.sql` checks it). The sign-in email is `supabase/t
 Supabase's **Confirm signup** and **Magic link** templates (subject: *Your Ada
 Editor sign-in code*); Supabase fills in `{{ .Token }}` and `{{ .Email }}`. The browser keeps a working copy,
 so typing never waits on the network and edits made offline sync when the
-connection returns. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
+connection returns. Images live outside the document: a figure stores the
+SHA-256 of its bytes, and the bytes go to the account's private `images`
+bucket at `<user id>/<key>` (storage policies limit each account to its own
+folder; `supabase/migrations/20260930120000_images.sql`), cached in the
+browser's IndexedDB. Local mode keeps them in IndexedDB only. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
 set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
 documents in this browser's localStorage only, exactly as before accounts.
 

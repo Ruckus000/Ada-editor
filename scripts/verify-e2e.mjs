@@ -17,7 +17,8 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
@@ -25,8 +26,11 @@ import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { CHROME, connect, evaluate, key, launch, openTab, shutdown, sleep, track, watchdog } from './cdp.mjs';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
+import { png } from './harness/images.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const PICTURE = png(64, 48);
+const PICTURE_KEY = createHash('sha256').update(PICTURE).digest('hex');
 const NEXT = resolve(ROOT, 'node_modules/.bin/next');
 const VERBOSE = process.argv.includes('--verbose');
 const KEEP = process.argv.includes('--keep-stack');
@@ -41,7 +45,9 @@ const note = (m) => notes.push(`  ok  [${page}] ${m}`);
 /* ---------- the local stack ---------- */
 
 // Only what the app uses: Postgres, Auth (gotrue), PostgREST, the Kong gateway, Mailpit.
-const EXCLUDE = 'studio,realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta';
+// storage-api runs: documents' images live in its bucket. imgproxy (image
+// transforms) isn't used.
+const EXCLUDE = 'studio,realtime,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta';
 const supabase = (args, opts = {}) => spawnSync('npx', ['supabase', ...args], { cwd: ROOT, encoding: 'utf8', ...opts });
 const stackStatus = () => {
   const out = supabase(['status', '-o', 'json']).stdout ?? '';
@@ -251,6 +257,16 @@ async function signIn(send, email) {
   })()`);
 }
 
+// Asked directly (a download), not through a listing's search.
+const objectExists = async (uid, key) => !(await db.storage.from('images').download(`${uid}/${key}`)).error;
+async function waitForObject(uid, key, timeout = 15_000) {
+  const until = Date.now() + timeout;
+  while (Date.now() < until) {
+    if (await objectExists(uid, key)) return true;
+    await sleep(300);
+  }
+  return false;
+}
 const docsOf = async (uid) => (await db.from('documents').select('id, content, updated_at, targets').eq('owner_id', uid)).data ?? [];
 const docOf = async (uid, id) => (await db.from('documents').select('content, updated_at').eq('owner_id', uid).eq('id', id).single()).data;
 const contentHas = (row, text) => JSON.stringify(row?.content ?? {}).includes(text);
@@ -366,6 +382,24 @@ async function firstBrowser() {
     else if (!status) fail(`SYNC  the edit reached the server but the status reads ${JSON.stringify(await saveStatus(send))}`);
     else note('a document made from the + menu, and what is typed in it, reach the server; the status reads Saved');
 
+    page = 'images';
+    const pictureDir = mkdtempSync(join(tmpdir(), 'ada-e2e-image-'));
+    const pictureFile = join(pictureDir, 'e2e-picture.png');
+    writeFileSync(pictureFile, PICTURE);
+    const { result: input } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file][aria-label="Choose an image"]')` });
+    if (!input.objectId) fail('IMAGE  the editor has no image file input');
+    else {
+      await typeAtEnd(send, ' ');
+      await send('DOM.setFileInputFiles', { objectId: input.objectId, files: [pictureFile] });
+      const stored = await waitForObject(uid, PICTURE_KEY);
+      const row = await waitForRow(uid, SYNCED, (r) => contentHas(r, PICTURE_KEY));
+      const keys = (await db.from('documents').select('image_keys').eq('id', SYNCED).eq('owner_id', uid).single()).data?.image_keys ?? [];
+      if (!stored) fail(`IMAGE  the inserted picture never reached the account's bucket at ${uid}/${PICTURE_KEY}`);
+      else if (!contentHas(row, PICTURE_KEY) || !keys.includes(PICTURE_KEY)) fail(`IMAGE  the document row does not refer to its picture (image_keys ${JSON.stringify(keys)})`);
+      else note('an inserted picture uploads to the private bucket under the account, and the row names it');
+    }
+    tidy(pictureDir);
+
     page = 'restored from the server';
     await evaluate(send, `Object.keys(localStorage).filter((k) => k.startsWith('ada.docs.v1')).forEach((k) => localStorage.removeItem(k))`);
     await send('Page.reload');
@@ -406,6 +440,9 @@ async function firstBrowser() {
       if (!left) fail(`TABS  signing out in another tab left this tab at ${await evaluate(send, 'location.pathname')}`);
       else if (storage.some((k) => k.startsWith('ada.docs.v1') || /^sb-.*-auth-token$/.test(k))) fail(`TABS  signed out, but the browser still holds ${JSON.stringify(storage)}`);
       else note('Sign out (Account menu) in one tab takes the other tab out of the account, and nothing is left in the browser');
+      const keptImages = await evaluate(send, `new Promise((done) => { const r = indexedDB.open('ada-images'); r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains('blobs')) { done(0); return; } const q = db.transaction('blobs').objectStore('blobs').index('scope').count(${JSON.stringify(uid)}); q.onsuccess = () => done(q.result); q.onerror = () => done(-1); }; r.onerror = () => done(-1); })`);
+      if (keptImages !== 0) fail(`TABS  signed out, but ${keptImages} of the account's images are still in this browser`);
+      else note('signing out also forgets the account’s images in this browser');
     }
     // Close only this tab's socket: Browser.close (shutdown) would end the whole browser.
     second.ws.close();
@@ -432,6 +469,13 @@ async function secondBrowser() {
       fail(`SEED  a returning account should have ${JSON.stringify(want)} (server ${JSON.stringify(rows.map((r) => r.id))}, desk ${JSON.stringify(onDesk)})`);
     } else note('signing in again reaches the same account, both documents on the desk, nothing seeded twice');
     if (!contentHas(rows.find((r) => r.id === SYNCED), 'E2E offline edit.')) fail('SYNC  the other browser’s edits are missing in a fresh one');
+
+    page = 'images on another device';
+    await go(send, `/editor/${SYNCED}`);
+    const drawn = await waitFor(send, `(document.querySelector('#document-text [role=img] img')?.naturalWidth ?? 0) === 64`, 20_000);
+    if (!drawn) fail('IMAGE  a fresh browser did not download and show the picture from the account');
+    else note('a fresh browser downloads the picture from the account’s bucket and shows it');
+    await goHome(send);
 
     page = 'export PDF';
     if (await createDocument(send, 'E2E clean document', CLEAN)) {
@@ -472,6 +516,14 @@ async function secondBrowser() {
     const resurrected = (await docsOf(uid)).map((r) => r.id).filter((id) => id === CLEAN || id === SYNCED);
     if (resurrected.length) fail(`DELETE  deleted documents came back through sync: ${JSON.stringify(resurrected)}`);
     else if (deletedBoth) note('deleting from the editor asks first, announces it, and the documents stay gone after a reload');
+    // The picture was only in the deleted document: it goes too.
+    let pictureGone = false;
+    for (let i = 0; i < 30 && !pictureGone; i++) {
+      pictureGone = !(await objectExists(uid, PICTURE_KEY));
+      if (!pictureGone) await sleep(300);
+    }
+    if (!pictureGone) fail('IMAGE  deleting the only document that used a picture left it in the bucket');
+    else note('deleting the only document that used a picture removes it from the bucket');
 
     page = 'remove the sample';
     await goHome(send);
@@ -504,6 +556,10 @@ async function secondBrowser() {
     else if (messages.length !== 1 || messages[0].email !== A) fail(`PRIVACY  expected one message from ${A}, found ${JSON.stringify(messages)}`);
     else note('a message is stored once, from the signed-in address');
 
+    // An image nothing refers to any more (edited out): account deletion must still remove it.
+    const stray = 'e'.repeat(64);
+    const { error: strayError } = await db.storage.from('images').upload(`${uid}/${stray}`, PICTURE, { contentType: 'image/png' });
+    if (strayError) fail(`IMAGE  could not stage a stray image: ${strayError.message}`);
     await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
     await clickButton(send, 'Delete my account');
     const deleted = await waitFor(send, `location.pathname === '/sign-in' && location.search.includes('deleted') && document.querySelector('.signin__notice')?.textContent`, 20_000);
@@ -516,6 +572,9 @@ async function secondBrowser() {
     else if (!deleted) fail('ACCOUNT  did not land on sign-in with the deleted notice');
     else if (user?.user || leftDocs || leftMessages) fail(`ACCOUNT  left behind: user ${!!user?.user}, ${leftDocs} documents, ${leftMessages} messages`);
     else note('deleting the account asks first, then removes the user, its documents and its messages');
+    const leftImages = ((await db.storage.from('images').list(uid)).data ?? []).length;
+    if (leftImages || (await objectExists(uid, stray))) fail(`ACCOUNT  images were left in the deleted account's folder (${leftImages} listed)`);
+    else note('deleting the account empties its image folder');
   } finally {
     tidy(dir);
     await browser.close();
