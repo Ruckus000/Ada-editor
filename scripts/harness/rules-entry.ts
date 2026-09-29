@@ -15,3 +15,4 @@ export * as unzip from '../../app/_import/unzip';
 export * as contrast from '../../app/_engine/contrast';
 export * as pm from 'prosemirror-model';
 export * as pmState from 'prosemirror-state';
+export * as imageFormat from '../../app/_data/imageFormat';

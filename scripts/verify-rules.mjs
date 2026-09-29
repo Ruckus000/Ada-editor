@@ -19,6 +19,7 @@
 import { build } from 'esbuild';
 import { DOMParser as XmlParser, parseHTML } from 'linkedom';
 import { NS, P, R, docx, makeZip, rel, rels } from './harness/docx.mjs';
+import { JPEG_3X2, png, withOrientation } from './harness/images.mjs';
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -1575,6 +1576,57 @@ const rejects = async (bytes, message, what) => {
 
 const style = (id, name, extra = '') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/>${extra}</w:style>`;
 const drawing = (docPr, graphic = '<pic:pic/>') => `<w:r><w:drawing><wp:inline>${docPr}<a:graphic><a:graphicData>${graphic}</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+
+check('images: formats are read from the bytes, with size, orientation and channels', () => {
+  const { sniffImage } = mod.imageFormat;
+  const pick = (r) => r && (r.kind === 'image' ? `${r.mime} ${r.width}x${r.height} o${r.orientation}${r.cmyk ? ' cmyk' : ''}` : `unsupported ${r.format}`);
+  eq(pick(sniffImage(png(5, 3))), 'image/png 5x3 o1', 'PNG');
+  eq(pick(sniffImage(png(2, 2, { alpha: true }))), 'image/png 2x2 o1', 'PNG with alpha');
+  eq(pick(sniffImage(JPEG_3X2)), 'image/jpeg 3x2 o1', 'JPEG');
+  eq(pick(sniffImage(withOrientation(JPEG_3X2, 6))), 'image/jpeg 2x3 o6', 'a rotated JPEG reports its displayed size');
+  const cmyk = new Uint8Array([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x14, 0x08, 0x00, 0x04, 0x00, 0x06, 0x04, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0, 4, 0x11, 0]);
+  eq(pick(sniffImage(cmyk)), 'image/jpeg 6x4 o1 cmyk', 'a four-channel JPEG is CMYK');
+  const gif = new Uint8Array([...Buffer.from('GIF89a'), 7, 0, 9, 0, 0, 0, 0, 0]);
+  eq(pick(sniffImage(gif)), 'image/gif 7x9 o1', 'GIF');
+  const webp = (chunk, body) => new Uint8Array([...Buffer.from('RIFF'), 0, 0, 0, 0, ...Buffer.from('WEBP'), ...Buffer.from(chunk), 0, 0, 0, 0, ...body]);
+  eq(pick(sniffImage(webp('VP8X', [0, 0, 0, 0, 99, 0, 0, 49, 0, 0]))), 'image/webp 100x50 o1', 'WebP (VP8X)');
+  eq(pick(sniffImage(webp('VP8 ', [0, 0, 0, 0x9d, 0x01, 0x2a, 40, 0, 30, 0, 0, 0]))), 'image/webp 40x30 o1', 'WebP (VP8)');
+  const emf = new Uint8Array(48); emf[0] = 1; emf.set(Buffer.from(' EMF'), 40);
+  eq(pick(sniffImage(emf)), 'unsupported EMF', 'EMF named, not shown');
+  eq(pick(sniffImage(new Uint8Array([0xd7, 0xcd, 0xc6, 0x9a, ...new Array(20).fill(0)]))), 'unsupported WMF', 'WMF');
+  eq(pick(sniffImage(new Uint8Array([...Buffer.from('BM'), ...new Array(20).fill(0)]))), 'unsupported BMP', 'BMP');
+  eq(pick(sniffImage(new Uint8Array(Buffer.from('<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>')))), 'unsupported SVG', 'SVG');
+  eq(sniffImage(new Uint8Array(Buffer.from('this is a text file, renamed .png'))), null, 'text is not an image');
+  eq(sniffImage(png(4, 4).subarray(0, 20)), null, 'a truncated PNG is not an image');
+  eq(sniffImage(new Uint8Array([0xff, 0xd8, 0xff, 0xda, 0, 2, 0, 0, 0, 0, 0, 0])), null, 'a JPEG with no frame header is not an image');
+});
+
+await acheck('images: keys are SHA-256, and only well-formed keys get through', async () => {
+  const { sha256Hex, validImageKey, imageKeysOf, toBase64 } = mod.imageFormat;
+  const key = await sha256Hex(png(1, 1));
+  assert(/^[0-9a-f]{64}$/.test(key), 'a 64-character hex key');
+  eq(await sha256Hex(png(1, 1)), key, 'the same bytes, the same key');
+  assert((await sha256Hex(png(1, 2))) !== key, 'other bytes, another key');
+  for (const bad of ['../other-user/x', key.toUpperCase(), `${key}0`, 42, null, { key }]) eq(validImageKey(bad), null, `refused: ${JSON.stringify(bad)}`);
+  eq(validImageKey(key), key, 'a key passes');
+  eq(toBase64(new Uint8Array([104, 105])), 'aGk=', 'base64');
+  const other = await sha256Hex(JPEG_3X2);
+  const content = doc(para('x'), N.figure.create({ id: 'img-1', image: key }), table([[{ td: [N.figure.create({ id: 'img-2', image: other })] }]]), N.figure.create({ id: 'img-3', image: key }), N.figure.create({ id: 'img-4', image: 'nope' })).toJSON();
+  deepEq(imageKeysOf(content, [{ image: other }, null, { image: '../x' }]).sort(), [key, other].sort(), 'figures at any depth and section images, once each, bad keys dropped');
+});
+
+check('images: a figure keeps its picture through the clipboard; a hostile key is dropped', () => {
+  const key = 'a'.repeat(64);
+  const f = N.figure.create({ id: 'img-1', alt: 'Map', label: 'map', image: key, width: 640, height: 480 });
+  const dom = mod.pm.DOMSerializer.fromSchema(schema).serializeNode(f, { document: parseHTML('<!doctype html><html><body></body></html>').document });
+  const back = mod.pm.DOMParser.fromSchema(schema).parse(parseHTML(`<!doctype html><html><body>${dom.outerHTML}</body></html>`).document.body).firstChild;
+  deepEq([back.attrs.image, back.attrs.width, back.attrs.height, back.attrs.alt], [key, 640, 480, 'Map'], 'image, size and alt survive');
+  const hostile = mod.pm.DOMParser.fromSchema(schema).parse(parseHTML('<!doctype html><html><body><figure data-figure-id="img-9" data-image="../../etc" data-width="-3" data-height="1e9"></figure></body></html>').document.body).firstChild;
+  deepEq([hostile.attrs.image, hostile.attrs.width, hostile.attrs.height], [null, null, null], 'a bad key and bad sizes become null');
+  assert(!dom.outerHTML.includes('data-image') || dom.getAttribute('data-image') === key, 'toDOM writes the key');
+  const placeholder = mod.pm.DOMSerializer.fromSchema(schema).serializeNode(N.figure.create({ id: 'img-2' }), { document: parseHTML('<!doctype html><html><body></body></html>').document });
+  assert(!placeholder.hasAttribute('data-image'), 'a placeholder writes no image attributes');
+});
 
 await acheck('linkedom matches OOXML by qualified name, as the importer assumes', () => {
   const el = parseXml(`<w:p ${NS}/>`).documentElement;
