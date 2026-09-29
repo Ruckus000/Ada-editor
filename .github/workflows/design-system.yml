@@ -15,6 +15,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +51,7 @@ jobs:
   pdf:
     name: PDF/UA export
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,6 +78,7 @@ jobs:
   e2e:
     name: End-to-end (local Supabase)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -104,6 +107,7 @@ jobs:
 
   accessibility:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -135,6 +139,9 @@ jobs:
   orca:
     name: Orca screen reader
     runs-on: ubuntu-latest
+    # About 4x a normal run: a hung speech-dispatcher once held a PR for 25
+    # minutes (GitHub waits 6 hours by default). Fail fast and re-run instead.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

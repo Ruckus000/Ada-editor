@@ -56,7 +56,12 @@ yet.
 **Accounts and storage.** People sign in with an emailed one-time code
 (Supabase Auth), and documents are saved to their account in Supabase
 (`supabase/migrations/`; row-level security keeps each account's documents to
-itself — `supabase/tests/rls.sql` checks it). The sign-in email is `supabase/templates/sign-in-code.html`, pasted into
+itself — `supabase/tests/rls.sql` checks it). The hosted project's migration
+history uses the files' own versions: a migration applied another way (the
+Supabase MCP, the SQL editor) is recorded under the time it ran, so set its
+row in `supabase_migrations.schema_migrations` to the file's version
+afterwards (or `supabase migration repair`), or the CLI will try to run it
+again. The sign-in email is `supabase/templates/sign-in-code.html`, pasted into
 Supabase's **Confirm signup** and **Magic link** templates (subject: *Your Ada
 Editor sign-in code*); Supabase fills in `{{ .Token }}` and `{{ .Email }}`. The browser keeps a working copy,
 so typing never waits on the network and edits made offline sync when the
