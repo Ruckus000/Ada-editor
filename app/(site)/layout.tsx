@@ -1,6 +1,7 @@
 import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans';
 import type { ReactNode } from 'react';
+import { CountVisit } from '../_site/CountVisit';
 import { PIN_LIGHT, PinLightTheme } from '../_site/PinLightTheme';
 import { Reveal } from '../_site/Reveal';
 import { SiteFooter } from '../_site/SiteFooter';
@@ -22,6 +23,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       <main id="main" tabIndex={-1} className="site-main">{children}</main>
       <SiteFooter />
       <Reveal />
+      <CountVisit />
     </div>
   );
 }

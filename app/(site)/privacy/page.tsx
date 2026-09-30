@@ -48,10 +48,10 @@ export default function Page() {
               </div>
             </li>
             <li>
-              <div className="page-highlights__art" aria-hidden="true">no ads · no analytics</div>
+              <div className="page-highlights__art" aria-hidden="true">no ads · no cookies</div>
               <div className="page-highlights__body">
-                <h3>No tracking</h3>
-                <p>No ads, no analytics and no tracking cookies. We never sell your data.</p>
+                <h3>No tracking cookies</h3>
+                <p>No ads and no tracking cookies. We count visits to our public pages ourselves, without identifying you. We never sell your data.</p>
               </div>
             </li>
           </ul>
@@ -76,6 +76,14 @@ export default function Page() {
             Messages you send us from the contact page, with the email address to reply to. If
             you’re signed in, that’s your account’s address and the message is linked to your account.
           </li>
+          <li>Emails you send to an adaedit.com address: the sender, recipients, subject and text, kept with the messages above.</li>
+          <li>
+            Visits to our public pages (the home page, this page, the accessibility statement and the contact page), never
+            inside the editor: which page, the site that linked you here, the type of device and the country. No cookies and
+            nothing stored in your browser. To count a person once a day, we keep a scrambled code made from your IP address
+            and browser with a key that changes every day and is then deleted, so no one, us included, can link your visits
+            from one day to the next. We don’t count you at all if your browser sends Do Not Track or Global Privacy Control.
+          </li>
           <li>
             To stop the contact form being flooded, scrambled (one-way hashed) forms of the sending device’s IP address and of
             its network, for one day. We never store the addresses themselves. Messages that look like spam are kept aside
@@ -85,14 +93,14 @@ export default function Page() {
       </PageSection>
 
       <PageSection id="dont" title="What we don’t do">
-        <p>No ads, no analytics and no tracking cookies. We never sell your data, and the only companies that handle it are the ones listed next, to run the service.</p>
+        <p>No ads, no third-party analytics and no tracking cookies. We never sell your data, and the only companies that handle it are the ones listed next, to run the service.</p>
       </PageSection>
 
       <PageSection id="who" title="Who helps run Ada Editor">
         <ul className="page-grid">
           <li><h3>Supabase</h3><p>Stores your account, documents and images, on Amazon Web Services in Ohio, USA.</p></li>
           <li><h3>Vercel</h3><p>Hosts the website.</p></li>
-          <li><h3>Resend</h3><p>Sends the sign-in emails.</p></li>
+          <li><h3>Resend</h3><p>Sends the sign-in emails, and receives email sent to adaedit.com addresses (it keeps its own copy).</p></li>
         </ul>
         <p>Like any web service, they keep short-lived technical logs, which include IP addresses.</p>
       </PageSection>
@@ -100,9 +108,10 @@ export default function Page() {
       <PageSection id="how-long" title="How long we keep it">
         <p>Until you delete your account. Deleting it removes your account, every document and image in it and any messages you sent us while signed in, straight away.</p>
         <p>
-          Messages sent without an account are kept until we delete them.{' '}
+          Messages sent without an account, and emails to adaedit.com addresses, are kept until we delete them.{' '}
           <Link href="/contact">Ask us to delete yours</Link> at any time.
         </p>
+        <p>Visit counts are kept for 13 months.</p>
       </PageSection>
 
       <PageSection id="choices" title="Your choices">

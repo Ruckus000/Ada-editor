@@ -111,6 +111,35 @@ the "try again later" refusal. Use a dedicated, monitored mailbox such as
 reports don't drown in system mail. Without the first two the form says it
 isn't set up; without the third the email line is hidden.
 
+**Operator portal.** `portal.adaedit.com` (`app/portal`, `app/api/portal`,
+`middleware.ts`) is where operators work through everything people send:
+contact-form messages and email to anything@adaedit.com, in one list
+(Waiting, Held for review, Handled, Spam; Reply opens your mail app; Delete
+is permanent, for senders who ask). An overview shows what needs a person and
+how the public site is doing. Access: sign in with an emailed code, then the
+server checks the `operators` table on every request; add operators in the
+SQL editor with `insert into public.operators (email) values ('you@…')`
+(lower case, and the account must exist: sign up once in the app first).
+
+- **Email in:** Resend receiving. adaedit.com's MX record points at Resend,
+  whose `email.received` webhook calls `/api/inbound/resend` (signature
+  verified); the route fetches the text and stores it next to form messages,
+  held by the same spam rules. Resend keeps its own copy.
+- **Visits:** `/api/collect`, fed by `app/_site/CountVisit.tsx` on the public
+  pages only (never the app): page, referring site, device type, country, and
+  a visitor hash keyed by a random salt that changes daily and is deleted
+  after two days (`visit_salt()`). No cookies; Do Not Track and Global Privacy
+  Control are honoured; bots skipped; kept 13 months.
+- **Emails to you:** `/api/cron/daily` (`vercel.json`, 13:00 UTC). On any day
+  new open messages arrived, a one-line alert; on Mondays, the weekly report.
+  Numbers and a portal link only, never message text.
+
+Env vars for the portal, in Vercel: `PORTAL_HOST=portal.adaedit.com`,
+`RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` (the `whsec_…` of the receiving
+webhook), `CRON_SECRET`, `REPORT_TO` (your address) and `REPORT_FROM` (e.g.
+`Ada Editor <reports@adaedit.com>`, on a domain verified for sending in
+Resend). Without `PORTAL_HOST`, `/portal` works on any host (local, previews).
+
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused
 - **[Design system](docs/design-system/README.md)** — principles, tokens,

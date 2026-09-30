@@ -1,5 +1,6 @@
 -- RLS and privilege check for public.documents (including delete), public.contact_messages,
--- public.contact_attempts, contact_gate() and contact_bits(),
+-- public.contact_attempts, contact_gate() and contact_bits(), the portal's tables
+-- (operators, page_views, visit_salts, portal_runs) and functions,
 -- the private images bucket and delete_my_account(). Runs in one transaction and rolls back, so
 -- it is safe against a live project: execute it with psql or MCP execute_sql.
 -- Any failed expectation raises and aborts; success returns 'rls ok'.
@@ -103,6 +104,30 @@ do $$ begin
     perform public.contact_bits('x', 16, 20, 1, 1);
     raise exception 'authenticated can call contact_bits';
   exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.operators;
+    raise exception 'authenticated can read operators';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.page_views;
+    raise exception 'authenticated can read page_views';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.visit_salts;
+    raise exception 'authenticated can read visit_salts';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.portal_runs;
+    raise exception 'authenticated can read portal_runs';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.operators (email) values ('rls-a@test.invalid');
+    raise exception 'an account can make itself an operator';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.portal_stats(7);
+    raise exception 'authenticated can call portal_stats';
+  exception when insufficient_privilege then null; end;
 end $$;
 
 set local role anon;
@@ -126,6 +151,30 @@ do $$ begin
   begin
     perform public.contact_bits('x', 16, 20, 1, 1);
     raise exception 'anon can call contact_bits';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.operators;
+    raise exception 'anon can read operators';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.page_views;
+    raise exception 'anon can read page_views';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.visit_salts;
+    raise exception 'anon can read visit_salts';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.portal_runs;
+    raise exception 'anon can read portal_runs';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.portal_stats(7);
+    raise exception 'anon can call portal_stats';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.visit_salt();
+    raise exception 'anon can call visit_salt';
   exception when insufficient_privilege then null; end;
 end $$;
 

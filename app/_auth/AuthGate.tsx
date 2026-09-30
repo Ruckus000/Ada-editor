@@ -23,7 +23,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [attempt, setAttempt] = useState(0);
-  const open = !isCloud || PUBLIC_PATHS.has(pathname);
+  // The operator portal has its own gate (app/_portal/PortalGate).
+  const portal = pathname === '/portal' || pathname.startsWith('/portal/');
+  const open = !isCloud || portal || PUBLIC_PATHS.has(pathname);
 
   // The session can end or change under this tab: sign-out or sign-in in
   // another tab (auth-js relays those between tabs), or a revoked session.
@@ -47,7 +49,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     if (!client) return;
     // Leaving the app for sign-in ends the session's "ready": the next account
     // must load before anything reads the store.
-    if (PUBLIC_PATHS.has(pathname)) { setState('loading'); return; }
+    if (portal || PUBLIC_PATHS.has(pathname)) { setState('loading'); return; }
     let live = true;
     void (async () => {
       const { data } = await client.auth.getSession();
@@ -63,7 +65,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       if (live) setState('ready');
     })();
     return () => { live = false; };
-  }, [pathname, router, attempt]);
+  }, [pathname, portal, router, attempt]);
 
   if (open || state === 'ready') return <>{children}</>;
   if (state === 'failed') {

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { Button, useAnnounce } from '../../design-system/primitives';
 import { getClient } from '../_data/supabase';
 import './signin.css';
@@ -15,6 +15,7 @@ type Problem = { text: string; invalid: boolean };
 function problemFor(code: string | undefined, step: 'email' | 'code'): Problem {
   if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit') return { text: 'Too many codes were requested. Wait a minute, then try again.', invalid: false };
   if (code === 'email_address_invalid' || code === 'validation_failed') return { text: 'Enter an email address like name@example.org.', invalid: true };
+  if (code === 'otp_disabled' || code === 'signup_disabled') return { text: 'No account uses that address. Sign in with the address you were added with.', invalid: true };
   if (step === 'code') return { text: 'That code didn’t work. It may have expired: send a new code and use the newest email.', invalid: true };
   return { text: 'The code couldn’t be sent. Check your connection and try again.', invalid: false };
 }
@@ -24,7 +25,16 @@ function problemFor(code: string | undefined, step: 'email' | 'code'): Problem {
  * be read on a phone and typed on the computer doing the work, and there is no
  * redirect URL to configure for every preview deployment.
  */
-export function SignInScreen() {
+type Props = {
+  /** The operator portal reuses this screen: its own heading and lede, no new
+   *  accounts, and it stays put on success (the portal re-checks access). */
+  title?: string;
+  lede?: ReactNode;
+  allowSignUp?: boolean;
+  onSignedIn?: () => void;
+};
+
+export function SignInScreen({ title = 'Sign in to Ada Editor', lede, allowSignUp = true, onSignedIn }: Props = {}) {
   const router = useRouter();
   const announce = useAnnounce();
   const [email, setEmail] = useState('');
@@ -49,7 +59,7 @@ export function SignInScreen() {
     busyRef.current = true;
     setBusy(true);
     setError(null);
-    const { error: failed } = await client.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } });
+    const { error: failed } = await client.auth.signInWithOtp({ email: address, options: { shouldCreateUser: allowSignUp } });
     busyRef.current = false;
     setBusy(false);
     if (failed) { setError(problemFor(failed.code, 'email')); return; }
@@ -78,7 +88,8 @@ export function SignInScreen() {
     setBusy(false);
     if (failed) { setError(problemFor(failed.code, 'code')); return; }
     announce('Signed in.');
-    router.replace('/desk');
+    if (onSignedIn) onSignedIn();
+    else router.replace('/desk');
   };
 
   const changeEmail = () => {
@@ -89,11 +100,11 @@ export function SignInScreen() {
 
   return (
     <main className="signin">
-      <h1 className="signin__title">Sign in to Ada Editor</h1>
+      <h1 className="signin__title">{title}</h1>
       {sentTo === null ? (
         <form className="signin__form" onSubmit={onEmail} noValidate>
           {deleted ? <p className="signin__notice" role="status">Your account and its documents were deleted.</p> : null}
-          <p className="signin__lede">We’ll email you a code. No password needed; your documents are saved to your account. <Link href="/privacy">How we handle your data</Link></p>
+          <p className="signin__lede">{lede ?? <>We’ll email you a code. No password needed; your documents are saved to your account. <Link href="/privacy">How we handle your data</Link></>}</p>
           <label className="signin__field">
             <span>Email address</span>
             <input

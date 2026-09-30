@@ -1438,6 +1438,26 @@ async function contactPage() {
   }
 }
 
+// Local mode has no accounts, so the portal shows why it can't open. Still a
+// page people land on: same checks as any other.
+async function portalPage() {
+  page = '/portal';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    await runAxe(send, '');
+    await checkTree(send);
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Operator portal · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    const robots = await evaluate(send, `document.querySelector('meta[name=robots]')?.content ?? ''`);
+    if (!/noindex/.test(robots)) fail(`PORTAL  must not be indexed (robots: ${JSON.stringify(robots)})`);
+    else note('the portal asks search engines not to index it');
+    await checkReflow(send);
+    await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 async function accessibilityPage() {
   page = '/accessibility';
   const { proc, ws, send } = await openPage(page);
@@ -1514,6 +1534,7 @@ try {
   await landingPage();
   await accessibilityPage();
   await contactPage();
+  await portalPage();
   await privacyPage();
   await signIn();
   await home();

@@ -101,6 +101,7 @@ const appEnv = {
   // The contact route's server-only key and signing secret (app/_contact).
   SUPABASE_SERVICE_ROLE_KEY: SERVICE,
   CONTACT_SECRET: 'e2e-contact-secret-that-is-at-least-32-chars',
+  CRON_SECRET: 'e2e-cron-secret',
 };
 if (!process.argv.includes('--no-build')) {
   const built = spawnSync(NEXT, ['build'], { cwd: ROOT, stdio: VERBOSE ? 'inherit' : 'pipe', env: appEnv });
@@ -260,6 +261,52 @@ async function contactWithoutAccount(send) {
   await db.from('contact_messages').delete().like('message', `${bot}%`);
   await db.from('contact_messages').delete().eq('email', from);
   await db.from('contact_attempts').delete().gte('id', 0);
+}
+
+/** The signed-in browser's Supabase access token. */
+const accessToken = (send) => evaluate(send, `(() => {
+  const k = Object.keys(localStorage).find((k) => k.startsWith('sb-') && k.endsWith('-auth-token'));
+  return k ? JSON.parse(localStorage.getItem(k)).access_token : null;
+})()`);
+
+/** The operator portal's API, the visit counter and the daily job. */
+async function portalChecks(send, uid) {
+  page = 'portal';
+  const token = await accessToken(send);
+  const asA = (path, init = {}) => fetch(`${origin}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
+  const before = await asA('/api/portal/me');
+  await db.from('operators').insert({ email: A.toLowerCase() });
+  const me = await asA('/api/portal/me');
+  const list = me.ok ? await (await asA('/api/portal/messages?view=open')).json() : null;
+  const mine = list?.messages?.find((m) => m.user_id === uid);
+  if (before.status !== 403 || !me.ok || !mine) fail(`PORTAL  not an operator ${before.status} (want 403), operator ${me.status}, own message listed ${!!mine}`);
+  else note('only listed operators reach the portal API; the signed-in message is in Waiting');
+  if (mine) {
+    const handled = await asA(`/api/portal/messages/${mine.id}`, { method: 'POST', body: JSON.stringify({ action: 'handled' }) });
+    const row = (await db.from('contact_messages').select('handled_at').eq('id', mine.id)).data?.[0];
+    if (!handled.ok || !row?.handled_at) fail(`PORTAL  Mark handled: ${handled.status} ${JSON.stringify(row)}`);
+    else note('Mark handled records when');
+  }
+  const stats = await asA('/api/portal/stats?days=7');
+  if (!stats.ok) fail(`PORTAL  stats ${stats.status}`);
+
+  const beforeViews = (await db.from('page_views').select('id', { count: 'exact', head: true })).count ?? 0;
+  const ua = 'Mozilla/5.0 (X11; Linux x86_64) e2e';
+  const beacon = (body, extra = {}) => fetch(`${origin}/api/collect`, { method: 'POST', headers: { 'User-Agent': ua, Origin: origin, ...extra }, body: JSON.stringify(body) });
+  await beacon({ p: '/', r: 'https://example.org/somewhere' });
+  await beacon({ p: '/desk', r: '' });                       // the app: never counted
+  await beacon({ p: '/privacy', r: '' }, { 'Sec-GPC': '1' }); // Global Privacy Control
+  const views = (await db.from('page_views').select('path, referrer_host, visitor').order('id', { ascending: false }).limit(3)).data ?? [];
+  const afterViews = (await db.from('page_views').select('id', { count: 'exact', head: true })).count ?? 0;
+  if (afterViews - beforeViews !== 1 || views[0]?.path !== '/' || views[0]?.referrer_host !== 'example.org') fail(`VISITS  expected exactly the landing view counted, got ${afterViews - beforeViews}: ${JSON.stringify(views)}`);
+  else note('a public page view is counted; the app and Global Privacy Control are not');
+
+  const cronNo = await fetch(`${origin}/api/cron/daily`);
+  const cronYes = await fetch(`${origin}/api/cron/daily`, { headers: { Authorization: 'Bearer e2e-cron-secret' } });
+  if (cronNo.status !== 401 || !cronYes.ok) fail(`CRON  without the secret ${cronNo.status} (want 401), with it ${cronYes.status}`);
+  else note('the daily job needs the cron secret and runs');
+
+  await db.from('operators').delete().eq('email', A.toLowerCase());
 }
 
 /** Put the caret at the very end of the document text and type there. */
@@ -661,6 +708,8 @@ async function secondBrowser() {
     if (!sent) fail(`CONTACT  sending a message showed no confirmation (${JSON.stringify(await evaluate(send, `document.querySelector('.contact-error')?.textContent ?? null`))})`);
     else if (messages.length !== 1 || messages[0].email !== A) fail(`CONTACT  expected one message from ${A}, found ${JSON.stringify(messages)}`);
     else note('a signed-in message is stored once, from the account address, with no email typed');
+
+    await portalChecks(send, uid);
 
     page = 'privacy';
     await go(send, '/privacy');

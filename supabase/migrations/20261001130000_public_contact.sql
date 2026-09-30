@@ -14,7 +14,8 @@
 -- authenticated: only the server (service_role).
 
 alter table public.contact_messages
-  add column status text not null default 'open' check (status in ('open', 'held')),
+  -- 'spam' is an operator's verdict in the portal (20261001150000).
+  add column status text not null default 'open' check (status in ('open', 'held', 'spam')),
   add column held_reason text,
   -- An anonymous message's reply-to address is typed, so hold it to a shape.
   add constraint contact_messages_email_shape
