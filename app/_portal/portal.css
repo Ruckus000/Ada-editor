@@ -84,3 +84,17 @@
 .portal-body { margin: var(--ada-space-3) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: var(--ada-type-line-height-body); max-width: var(--ada-type-measure); }
 .portal-actions { display: flex; flex-wrap: wrap; gap: var(--ada-space-2); margin-top: var(--ada-space-4); }
 .portal-actions a.ada-button { text-decoration: none; }
+
+/* Replies */
+.portal-followup { display: inline-block; margin: var(--ada-space-2) 0 0 var(--ada-space-2); padding: 2px var(--ada-space-2); border-radius: var(--ada-radius-sm); background: var(--ada-surface-sunken); font-size: var(--ada-type-size-sm); font-weight: 600; }
+.portal-thread { margin-top: var(--ada-space-4); display: flex; flex-direction: column; gap: var(--ada-space-3); }
+.portal-sent { padding-left: var(--ada-space-4); border-left: 3px solid var(--ada-border-default); }
+.portal-sent .portal-body { margin-top: var(--ada-space-1); }
+.portal-reply { margin-top: var(--ada-space-4); display: flex; flex-direction: column; gap: var(--ada-space-2); max-width: var(--ada-type-measure); }
+.portal-reply > label:first-child { font-weight: 600; }
+.portal-reply__hint { margin: 0; color: var(--ada-text-secondary); font-size: var(--ada-type-size-sm); }
+.portal-reply textarea { padding: var(--ada-space-3); font: inherit; color: var(--ada-text-primary); background: var(--ada-surface-canvas); border: 1px solid var(--ada-border-control); border-radius: var(--ada-radius-md); resize: vertical; }
+.portal-reply textarea[aria-invalid='true'] { border-color: var(--ada-severity-blocker-fg); border-width: 2px; }
+.portal-reply__check { display: inline-flex; align-items: center; gap: var(--ada-space-2); min-height: var(--ada-target-comfortable); }
+.portal-reply__check input { inline-size: 20px; block-size: 20px; }
+.portal-reply .portal-actions { margin-top: 0; }

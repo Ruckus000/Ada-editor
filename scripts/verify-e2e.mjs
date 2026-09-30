@@ -287,6 +287,13 @@ async function portalChecks(send, uid) {
     if (!handled.ok || !row?.handled_at) fail(`PORTAL  Mark handled: ${handled.status} ${JSON.stringify(row)}`);
     else note('Mark handled records when');
   }
+  // No Resend key in CI: the reply route must say so, not pretend to send.
+  if (mine) {
+    const reply = await asA(`/api/portal/messages/${mine.id}/reply`, { method: 'POST', body: JSON.stringify({ body: 'Thanks, we’re on it.' }) });
+    const saved = (await db.from('contact_replies').select('id').eq('message_id', mine.id)).data ?? [];
+    if (reply.status !== 503 || saved.length) fail(`PORTAL  reply without Resend: ${reply.status} (want 503), ${saved.length} saved`);
+    else note('replying without email settings is refused, and nothing is recorded as sent');
+  }
   const stats = await asA('/api/portal/stats?days=7');
   if (!stats.ok) fail(`PORTAL  stats ${stats.status}`);
 

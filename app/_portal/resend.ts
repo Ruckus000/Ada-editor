@@ -39,6 +39,8 @@ export type ReceivedEmail = {
   text: string | null;
   html: string | null;
   reply_to: string[] | null;
+  message_id: string | null;
+  headers: Record<string, string> | null;
 };
 
 /** The body isn't in the webhook; fetch it (GET /emails/receiving/{id}). */
@@ -48,15 +50,21 @@ export async function getReceivedEmail(id: string): Promise<ReceivedEmail | null
   return (await res.json()) as ReceivedEmail;
 }
 
-export async function sendEmail(mail: { from: string; to: string; subject: string; text: string; html: string }): Promise<boolean> {
+type Outgoing = { from: string; to: string; subject: string; text: string; html: string; replyTo?: string; headers?: Record<string, string> };
+
+export async function sendEmail({ replyTo, ...mail }: Outgoing): Promise<boolean> {
   const res = await fetch(`${API}/emails`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(mail),
+    body: JSON.stringify({ ...mail, ...(replyTo ? { reply_to: replyTo } : {}) }),
   });
   if (!res.ok) console.error('resend send failed', res.status, await res.text().catch(() => ''));
   return res.ok;
 }
+
+/** A header value from a received email, whatever its case. */
+export const headerOf = (h: Record<string, string> | null, name: string) =>
+  h ? Object.entries(h).find(([k]) => k.toLowerCase() === name)?.[1] ?? null : null;
 
 /** "Name <a@b.c>" → "a@b.c". */
 export const addressOf = (s: string) => (s.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] ?? s).trim().toLowerCase();

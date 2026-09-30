@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { EMAIL_SHAPE, MAX_MESSAGE } from '../../../_contact/rules';
 import { holdReason } from '../../../_contact/score';
 import { adminClient, contactReady } from '../../../_contact/server';
-import { addressOf, getReceivedEmail, htmlToText, inboundReady, verifyWebhook } from '../../../_portal/resend';
+import { addressOf, getReceivedEmail, headerOf, htmlToText, inboundReady, verifyWebhook } from '../../../_portal/resend';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +41,15 @@ export async function POST(req: NextRequest) {
   const db = adminClient();
   const since = new Date(Date.now() - 60 * 60_000).toISOString();
   const { count } = await db.from('contact_messages').select('id', { count: 'exact', head: true }).eq('source', 'email').gt('created_at', since);
-  const held = (count ?? 0) >= FLOOD_PER_HOUR ? 'flood' : holdReason(`${mail.subject ?? ''}\n${body}`, replyTo);
+  // An answer to one of our replies arrives at the tagged Reply-To we gave
+  // it (accessibility+r<token>@…): a follow-up to that conversation, and never
+  // held as spam, since we wrote to them first.
+  const tokens = mail.to.map(addressOf).map((a) => a.match(/\+r([a-z0-9]{20,40})@/)?.[1]).filter((t): t is string => !!t);
+  const { data: ours } = tokens.length
+    ? await db.from('contact_replies').select('message_id').in('reply_token', tokens).limit(1)
+    : { data: null };
+  const followsUp = (ours?.[0]?.message_id as number | undefined) ?? null;
+  const held = followsUp ? null : (count ?? 0) >= FLOOD_PER_HOUR ? 'flood' : holdReason(`${mail.subject ?? ''}\n${body}`, replyTo);
 
   const { error } = await db.from('contact_messages').upsert({
     source: 'email',
@@ -52,6 +60,8 @@ export async function POST(req: NextRequest) {
     message: body,
     status: held ? 'held' : 'open',
     held_reason: held,
+    email_message_id: (mail.message_id ?? headerOf(mail.headers, 'message-id'))?.slice(0, 998) ?? null,
+    follows_up: followsUp,
   }, { onConflict: 'resend_email_id', ignoreDuplicates: true });
   if (error) { console.error('inbound insert failed', error); return NextResponse.json({ error: 'store-failed' }, { status: 500 }); }
   return ok();

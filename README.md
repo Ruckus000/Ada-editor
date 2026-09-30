@@ -114,8 +114,13 @@ isn't set up; without the third the email line is hidden.
 **Operator portal.** `portal.adaedit.com` (`app/portal`, `app/api/portal`,
 `middleware.ts`) is where operators work through everything people send:
 contact-form messages and email to anything@adaedit.com, in one list
-(Waiting, Held for review, Handled, Spam; Reply opens your mail app; Delete
-is permanent, for senders who ask). An overview shows what needs a person and
+(Waiting, Held for review, Handled, Spam; Delete is permanent, for senders
+who ask). **Replies** are sent from the portal through Resend, from the
+adaedit.com address the person wrote to (else `NEXT_PUBLIC_CONTACT_EMAIL`),
+their message quoted below; the Reply-To is that address tagged
+`+r<token>`, so their answer comes back as a follow-up to the same
+conversation. Sent replies are kept in `contact_replies`, deleted with the
+message. An overview shows what needs a person and
 how the public site is doing. Access: sign in with an emailed code, then the
 server checks the `operators` table on every request; add operators in the
 SQL editor with `insert into public.operators (email) values ('you@…')`
@@ -130,7 +135,9 @@ SQL editor with `insert into public.operators (email) values ('you@…')`
   a visitor hash keyed by a random salt that changes daily and is deleted
   after two days (`visit_salt()`). No cookies; Do Not Track and Global Privacy
   Control are honoured; bots skipped; kept 13 months.
-- **Emails to you:** `/api/cron/daily` (`vercel.json`, 13:00 UTC). On any day
+- **Emails to you:** `/api/cron/daily`, at 9am New York time all year
+  (`vercel.json` fires at 13:00 and 14:00 UTC; only the run in the 9 o'clock
+  hour in New York acts, which covers EST and EDT). On any day
   new open messages arrived, a one-line alert; on Mondays, the weekly report.
   Numbers and a portal link only, never message text.
 

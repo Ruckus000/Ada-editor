@@ -1,6 +1,6 @@
 -- RLS and privilege check for public.documents (including delete), public.contact_messages,
 -- public.contact_attempts, contact_gate() and contact_bits(), the portal's tables
--- (operators, page_views, visit_salts, portal_runs) and functions,
+-- (operators, page_views, visit_salts, portal_runs, contact_replies) and functions,
 -- the private images bucket and delete_my_account(). Runs in one transaction and rolls back, so
 -- it is safe against a live project: execute it with psql or MCP execute_sql.
 -- Any failed expectation raises and aborts; success returns 'rls ok'.
@@ -121,6 +121,10 @@ do $$ begin
     raise exception 'authenticated can read portal_runs';
   exception when insufficient_privilege then null; end;
   begin
+    perform 1 from public.contact_replies;
+    raise exception 'authenticated can read contact_replies';
+  exception when insufficient_privilege then null; end;
+  begin
     insert into public.operators (email) values ('rls-a@test.invalid');
     raise exception 'an account can make itself an operator';
   exception when insufficient_privilege then null; end;
@@ -167,6 +171,10 @@ do $$ begin
   begin
     perform 1 from public.portal_runs;
     raise exception 'anon can read portal_runs';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform 1 from public.contact_replies;
+    raise exception 'anon can read contact_replies';
   exception when insufficient_privilege then null; end;
   begin
     perform public.portal_stats(7);

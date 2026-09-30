@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { Button, useAnnounce } from '../../../design-system/primitives';
 import { useOperator } from '../../_portal/PortalGate';
+import { ReplyBox } from '../../_portal/ReplyBox';
 import { HELD_REASONS } from '../../_portal/types';
-import type { Message } from '../../_portal/types';
+import type { Message, Reply } from '../../_portal/types';
 
 const VIEWS = [
   { key: 'open', label: 'Waiting' },
@@ -28,9 +29,10 @@ const DONE: Record<Action, string> = { handled: 'Marked handled', reopen: 'Reope
 
 /**
  * Triage for everything people send us: the contact form and email to
- * anything@adaedit.com, in one list. Reply opens your mail app (message text
- * is shown as text, never as HTML). Delete is permanent: use it when a
- * sender asks (the privacy notice promises it).
+ * anything@adaedit.com, in one list. Reply sends an email from the portal
+ * (ReplyBox); the thread of our replies shows under each message. Message
+ * text is shown as text, never as HTML. Delete is permanent (replies go with
+ * it): use it when a sender asks, as the privacy notice promises.
  */
 export default function Messages() {
   const { api } = useOperator();
@@ -38,6 +40,7 @@ export default function Messages() {
   const [view, setView] = useState<View>('open');
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [replying, setReplying] = useState<number | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -57,6 +60,13 @@ export default function Messages() {
     setFailed(null);
     setMessages((list) => list?.filter((x) => x.id !== m.id) ?? null);
     announce(`${DONE[action]}: message from ${m.email}.`);
+  };
+
+  const sent = (m: Message, reply: Reply, handled: boolean) => {
+    setReplying(null);
+    const leaves = handled && (view === 'open' || view === 'held');
+    setMessages((list) => leaves ? list?.filter((x) => x.id !== m.id) ?? null : list?.map((x) => x.id === m.id ? { ...x, replies: [...x.replies, reply] } : x) ?? null);
+    announce(`Reply sent to ${m.email}.${leaves ? ' Moved to Handled.' : ''}`);
   };
 
   const current = VIEWS.find((v) => v.key === view)!;
@@ -88,15 +98,27 @@ export default function Messages() {
                       {' · '}<time dateTime={m.created_at}>{when(m.created_at)}</time>
                     </p>
                     {m.status === 'held' && m.held_reason ? <p className="portal-held">Held: {HELD_REASONS[m.held_reason] ?? m.held_reason}</p> : null}
+                    {m.follows_up ? <p className="portal-followup">Answer to one of our replies</p> : null}
                   </header>
                   <p className="portal-body">{m.message}</p>
-                  <div className="portal-actions">
-                    <a className="ada-button ada-button--secondary" href={`mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(`Re: ${subject}`)}`}>Reply<span className="ada-visually-hidden"> to {m.email}</span></a>
+                  {m.replies.length ? (
+                    <section className="portal-thread" aria-label={`Our replies to ${m.email}`}>
+                      {[...m.replies].sort((a, b) => a.sent_at.localeCompare(b.sent_at)).map((r) => (
+                        <div key={r.id} className="portal-sent">
+                          <p className="portal-meta">Replied by {r.sent_by} from {r.from_address} · <time dateTime={r.sent_at}>{when(r.sent_at)}</time></p>
+                          <p className="portal-body">{r.body}</p>
+                        </div>
+                      ))}
+                    </section>
+                  ) : null}
+                  {replying === m.id ? <ReplyBox message={m} onSent={(r, h) => sent(m, r, h)} onCancel={() => setReplying(null)} /> : null}
+                  {replying === m.id ? null : <div className="portal-actions">
+                    <Button variant="primary" onClick={() => setReplying(m.id)}>Reply<span className="ada-visually-hidden"> to {m.email}</span></Button>
                     {ACTIONS[view].map((a) => (
                       <Button key={a.action} variant="secondary" onClick={() => void act(m, a.action, a.label)}>{a.label}<span className="ada-visually-hidden"> for the message from {m.email}</span></Button>
                     ))}
                     <Button variant="ghost" onClick={() => void act(m, 'delete', 'Delete')}>Delete<span className="ada-visually-hidden"> the message from {m.email}</span></Button>
-                  </div>
+                  </div>}
                 </article>
               </li>
             );

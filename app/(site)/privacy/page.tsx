@@ -77,6 +77,7 @@ export default function Page() {
             you’re signed in, that’s your account’s address and the message is linked to your account.
           </li>
           <li>Emails you send to an adaedit.com address: the sender, recipients, subject and text, kept with the messages above.</li>
+          <li>Our replies to you, kept with the message they answer, and deleted with it.</li>
           <li>
             Visits to our public pages (the home page, this page, the accessibility statement and the contact page), never
             inside the editor: which page, the site that linked you here, the type of device and the country. No cookies and
@@ -100,7 +101,7 @@ export default function Page() {
         <ul className="page-grid">
           <li><h3>Supabase</h3><p>Stores your account, documents and images, on Amazon Web Services in Ohio, USA.</p></li>
           <li><h3>Vercel</h3><p>Hosts the website.</p></li>
-          <li><h3>Resend</h3><p>Sends the sign-in emails, and receives email sent to adaedit.com addresses (it keeps its own copy).</p></li>
+          <li><h3>Resend</h3><p>Sends the sign-in emails and our replies to you, and receives email sent to adaedit.com addresses (it keeps its own copy of each).</p></li>
         </ul>
         <p>Like any web service, they keep short-lived technical logs, which include IP addresses.</p>
       </PageSection>

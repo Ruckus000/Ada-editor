@@ -5,7 +5,7 @@ import { NO_STORE, requireOperator } from '../../../_portal/auth';
 
 export const dynamic = 'force-dynamic';
 
-const COLUMNS = 'id, created_at, source, email, to_address, subject, message, status, held_reason, handled_at, user_id';
+const COLUMNS = 'id, created_at, source, email, to_address, subject, message, status, held_reason, handled_at, user_id, follows_up, replies:contact_replies(id, from_address, to_address, subject, body, sent_by, sent_at)';
 
 /**
  * The triage lists. `open`: waiting for a person; `held`: set aside by the

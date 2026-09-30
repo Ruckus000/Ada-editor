@@ -26,7 +26,11 @@ export type Message = {
   held_reason: string | null;
   handled_at: string | null;
   user_id: string | null;
+  follows_up: number | null;
+  replies: Reply[];
 };
+
+export type Reply = { id: number; from_address: string; to_address: string; subject: string; body: string; sent_by: string; sent_at: string };
 
 /** Plain-English names for the spam rules' reasons (app/_contact/score.ts, contact_gate()). */
 export const HELD_REASONS: Record<string, string> = {
@@ -41,3 +45,7 @@ export const HELD_REASONS: Record<string, string> = {
   flood: 'Arrived during a flood',
   unknown: 'Other',
 };
+
+/** accessibility+r1a2b@adaedit.com → accessibility@adaedit.com: the address a
+ *  reply goes out from, without the conversation tag. */
+export const untagged = (address: string) => address.trim().toLowerCase().replace(/\+[^@]*@/, '@');
