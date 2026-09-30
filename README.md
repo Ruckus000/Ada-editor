@@ -65,7 +65,11 @@ again. The sign-in email is `supabase/templates/sign-in-code.html`, pasted into
 Supabase's **Confirm signup** and **Magic link** templates (subject: *Your Ada
 Editor sign-in code*); Supabase fills in `{{ .Token }}` and `{{ .Email }}`. The browser keeps a working copy,
 so typing never waits on the network and edits made offline sync when the
-connection returns. Images live outside the document: a figure stores the
+connection returns. Each document carries a server-stamped revision: a save
+only lands while the server still has the revision it was edited from, so
+edits made on two devices are never silently overwritten; the person is asked
+to keep theirs, mine or both (`app/_data/sync.ts`, `app/_auth/ConflictDialog.tsx`).
+Coming back to a tab fetches what changed elsewhere. Images live outside the document: a figure stores the
 SHA-256 of its bytes, and the bytes go to the account's private `images`
 bucket at `<user id>/<key>` (storage policies limit each account to its own
 folder; `supabase/migrations/20260930120000_images.sql`), cached in the

@@ -1486,10 +1486,30 @@ check('cloud mode: server rows replace the cache, unpushed local edits win, acco
 
     const pushed = store.dirtyDocs();
     store.saveDoc('a', { header: 'typed while the push was in flight' });
-    store.markClean(pushed);
+    store.markPushed(pushed.map((doc) => ({ doc, revision: 7 })));
     deepEq(ids(), ['a'], 'a push of an older version does not clear a newer edit');
-    store.markClean(store.dirtyDocs());
+    eq(store.loadDoc('a').revision, 7, 'but the copy is now based on the revision the server stored');
+    store.markPushed(store.dirtyDocs().map((doc) => ({ doc, revision: 8 })));
     eq(ids().length, 0, 'the pushed version clears the flag');
+    eq(store.loadDoc('a').revision, 8, 'at its new revision');
+
+    // Another device's version: taken, clean, and screens are told.
+    const told = [];
+    const stop = store.subscribeDocs((changed) => told.push([...changed]));
+    store.saveDoc('b', { header: 'mine' });
+    eq(told.length, 0, 'this tab’s own typing is not news');
+    assert(store.replaceDoc({ ...storedDocJSON('b', { header: 'theirs' }), revision: '12', savedAt: '2026-01-01' }), 'a server row replaces the copy');
+    deepEq([store.loadDoc('b').header, store.loadDoc('b').revision, ids().includes('b')], ['theirs', 12, false], 'with its revision, and nothing left to push');
+    assert(!('savedAt' in store.loadDoc('b')), 'the row’s save time is not kept in the copy');
+    eq(store.replaceDoc({ id: 'b' }), false, 'a malformed row replaces nothing');
+    store.rebaseDoc('b', 15);
+    deepEq([store.loadDoc('b').revision, ids().includes('b')], [15, true], 'keep mine: based on the revision there now, and pushed again');
+    store.deleteDoc('b', { byThisTab: true });
+    store.applyPulled([storedDocJSON('a', { header: 'x' }), { ...storedDocJSON('b', { header: 'y' }), revision: -3 }]);
+    eq(store.loadDoc('b').revision, undefined, 'a revision that isn’t a positive whole number is dropped');
+    deepEq(told, [['b'], ['a', 'b']], 'told of the replacement and the pull; not of keep-mine or a delete made here');
+    stop();
+    store.markPushed(store.dirtyDocs().map((doc) => ({ doc, revision: 9 })));
 
     store.saveDoc('b', { lastChecked: 1 });
     eq(ids().length, 0, 'opening or re-checking a doc (lastChecked only) is not an edit to push');

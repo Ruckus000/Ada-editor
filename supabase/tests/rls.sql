@@ -28,10 +28,23 @@ do $$ begin
   exception when check_violation then null; end;
 end $$;
 
+-- The server stamps each write: revision 1 on insert, one more per update
+-- whatever the client sends, and updated_at from its own clock.
+do $$ begin
+  if (select revision from public.documents where id = 'doc-a') <> 1 then raise exception 'a new document is not revision 1'; end if;
+  update public.documents set title = 'A2', revision = 99, updated_at = '2000-01-01' where id = 'doc-a';
+  if (select revision from public.documents where id = 'doc-a') <> 2 then raise exception 'an update did not make revision 2 (or the client set it)'; end if;
+  if (select updated_at from public.documents where id = 'doc-a') < now() - interval '1 minute' then raise exception 'the client set updated_at'; end if;
+  -- A save made from revision 1 no longer matches: the app's conflict check.
+  update public.documents set title = 'stale' where id = 'doc-a' and revision = 1;
+  if found then raise exception 'a save from a stale revision matched'; end if;
+end $$;
+
 -- B sees and changes nothing of A's, and cannot write as A.
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000b", "role": "authenticated"}';
 do $$ begin
   if (select count(*) from public.documents) <> 0 then raise exception 'B can read A''s documents'; end if;
+  -- (B's refused writes below must not bump A's revision either: checked as A later.)
   update public.documents set title = 'taken' where id = 'doc-a';
   if found then raise exception 'B updated A''s document'; end if;
   delete from public.documents where id = 'doc-a';
@@ -66,6 +79,7 @@ do $$ begin
   delete from public.documents where id = 'doc-a-2';
   if not found then raise exception 'A could not delete their own document'; end if;
   if (select count(*) from public.documents) <> 1 then raise exception 'deleting doc-a-2 touched other rows'; end if;
+  if (select revision from public.documents where id = 'doc-a') <> 2 then raise exception 'B''s refused writes changed A''s revision'; end if;
   begin
     insert into public.contact_messages (message, email) values ('forged', 'someone@else.invalid');
     raise exception 'a message was sent with a forged email';

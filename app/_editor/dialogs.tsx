@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent, ReactNode, RefObject } from 'react';
 import { safeHref } from './editorSchema';
 import type { FigureAlign, FigureSize } from './editorSchema';
 import type { Section } from './findings';
@@ -17,7 +17,7 @@ import styles from './editor.module.css';
  * the control that opened it.
  */
 
-function Shell({
+export function Shell({
   open,
   onOpenChange,
   title,
@@ -26,6 +26,7 @@ function Shell({
   footer,
   onSubmit,
   restoreFocus,
+  initialFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,6 +38,8 @@ function Shell({
   /** Called as the dialog closes: false when it has put focus somewhere else
    *  itself (saving moved on into the document), so the opener isn't refocused. */
   restoreFocus?: () => boolean;
+  /** Where focus starts, instead of the first control (the close button). */
+  initialFocus?: RefObject<HTMLElement | null>;
 }) {
   // These dialogs open from state, not a Dialog.Trigger, so Radix has nowhere
   // to return focus on close. Remember what had focus when we opened: on
@@ -56,7 +59,10 @@ function Shell({
         <Dialog.Content
           className={`${styles.palette} ${styles.dialog}`}
           {...(description ? {} : { 'aria-describedby': undefined })}
-          onOpenAutoFocus={() => { returnTo.current = document.activeElement as HTMLElement | null; }}
+          onOpenAutoFocus={(e) => {
+            returnTo.current = document.activeElement as HTMLElement | null;
+            if (initialFocus?.current) { e.preventDefault(); initialFocus.current.focus(); }
+          }}
           onCloseAutoFocus={(e) => {
             if (restoreFocus && !restoreFocus()) { e.preventDefault(); return; }
             if (!returnTo.current?.isConnected) return;

@@ -8,6 +8,7 @@ import { hasCachedDocs } from '../_data/store';
 import { getClient, isCloud } from '../_data/supabase';
 import { attachedAccount, detachAccount, loadAccount } from '../_data/sync';
 import { StatusScreen } from '../_status/StatusScreen';
+import { ConflictDialog } from './ConflictDialog';
 
 /**
  * Cloud mode only: no session → /sign-in; a session → load the account's
@@ -65,7 +66,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => { live = false; };
   }, [pathname, router, attempt]);
 
-  if (open || state === 'ready') return <>{children}</>;
+  if (open || state === 'ready') return <>{children}{isCloud && state === 'ready' ? <ConflictDialog /> : null}</>;
   if (state === 'failed') {
     return (
       <StatusScreen

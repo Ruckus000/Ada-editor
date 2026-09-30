@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getClient } from './supabase';
-import { allDocs, applyPulled, clearStore, deleteDoc, detachStore, dirtyDocs, loadDoc, markClean, onDocsDirty, seedAccount, setStoreUser } from './store';
+import { allDocs, applyPulled, clearStore, createDoc, deleteDoc, detachStore, dirtyDocs, isDirty, loadDoc, markPushed, onDocsDirty, rebaseDoc, replaceDoc, seedAccount, setStoreUser } from './store';
 import { imageKeysOf } from './imageFormat';
 import { clearImageScope, listRemote, markPending, markSwept, pendingKeys, purgeFolder, removeRemote, sweptAt, uploadPending } from './images';
 import type { StoredDoc } from './store';
@@ -12,15 +12,16 @@ import type { StoredDoc } from './store';
  * images go to the account's private bucket first (images.ts), so a row never
  * reaches the server before the pictures it refers to.
  *
- * ponytail: last push wins. A tab pulls once per sign-in, so a document
- * edited on another device since then is overwritten if it is also EDITED in
- * this tab (merely opening it no longer pushes). Upgrade: an updated_at
- * precondition on the upsert (optimistic concurrency) plus a re-pull on focus,
- * when people report lost edits across devices.
+ * Edits on two devices: each copy remembers the server revision it was
+ * edited from, and a save updates the row only while the server still has
+ * that revision. If another device saved first, nothing is overwritten: the
+ * document waits as a conflict until the person chooses what to keep
+ * (resolveConflict). Coming back to the tab (focus, visibility, online)
+ * fetches what changed elsewhere, so a clean copy is rarely stale at all.
  */
 
 // PostgREST aliases map snake_case columns onto StoredDoc's fields.
-const COLUMNS = 'id,title,owner,targets,header,footer,headerImage:header_image,footerImage:footer_image,content,lastChecked:last_checked,dismissed,importNotes:import_notes';
+const COLUMNS = 'id,title,owner,targets,header,footer,headerImage:header_image,footerImage:footer_image,content,lastChecked:last_checked,dismissed,importNotes:import_notes,revision,savedAt:updated_at';
 const PUSH_DELAY = 1000;
 /** PostgREST caps a response at its max-rows setting (1000 by default). The
  *  pull pages until it holds the exact row count, advancing by what actually
@@ -33,7 +34,12 @@ const SWEEP_GRACE = 7 * DAY;
 /** Keys per "which rows use these?" query, keeping its URL short. */
 const KEY_BATCH = 100;
 
-export type SyncStatus = 'saved' | 'saving' | 'unsynced';
+/** Coming back to the tab fetches what changed at most this often. */
+const REFRESH_GAP = 5000;
+/** Ids per "send me these rows" request, keeping its URL short. */
+const ID_BATCH = 100;
+
+export type SyncStatus = 'saved' | 'saving' | 'unsynced' | 'conflict';
 
 let status: SyncStatus = 'saved';
 const listeners = new Set<() => void>();
@@ -61,6 +67,81 @@ let loadedUid: string | null = null;
  *  in this browser, not retried until edited again — retrying can't succeed. */
 const rejected = new Set<string>();
 let loading: { uid: string; promise: Promise<void> } | null = null;
+/** Ids the server had at the last pull or refresh: a copy that has no
+ *  revision but is on the server was cached before revisions existed. */
+const onServer = new Set<string>();
+
+/* ---------- conflicts: saved on another device since this copy's revision ---------- */
+
+export interface Conflict {
+  id: string;
+  title: string;
+  /** The server's version as it is now (a row, as pulled), or null: deleted there. */
+  server: Record<string, unknown> | null;
+  /** When the other device saved it (ISO), if still there. */
+  savedAt: string | null;
+}
+
+const conflicts = new Map<string, Conflict>();
+const conflictListeners = new Set<() => void>();
+let conflictList: Conflict[] = [];
+const conflictsChanged = () => {
+  conflictList = [...conflicts.values()];
+  conflictListeners.forEach((l) => l());
+};
+
+/** Documents waiting for the person to choose what to keep, oldest first. */
+export function useConflicts(): Conflict[] {
+  return useSyncExternalStore(
+    (l) => { conflictListeners.add(l); return () => { conflictListeners.delete(l); }; },
+    () => conflictList,
+    () => EMPTY,
+  );
+}
+const EMPTY: Conflict[] = [];
+
+/** What the person keeps: this device's edits, the other device's version,
+ *  or both (this device's edits become a new document). Returns the copy's
+ *  id for "both". */
+export function resolveConflict(id: string, choice: 'mine' | 'theirs' | 'both'): string | null {
+  const c = conflicts.get(id);
+  if (!c) return null;
+  if (openEditor?.id === id) openEditor.flush();
+  conflicts.delete(id);
+  conflictsChanged();
+  const mine = loadDoc(id);
+  let copy: string | null = null;
+  if (choice === 'mine') {
+    // Based on the version there now (or, deleted there, a new row).
+    if (!c.server) onServer.delete(id);
+    rebaseDoc(id, c.server ? Number(c.server.revision) || undefined : undefined);
+  } else {
+    if (choice === 'both' && mine) {
+      copy = createDoc({
+        title: `${mine.title} (edits from this device)`.slice(0, 500),
+        header: mine.header,
+        footer: mine.footer,
+        headerImage: mine.headerImage,
+        footerImage: mine.footerImage,
+        content: mine.content,
+        importNotes: mine.importNotes,
+      }).id;
+    }
+    if (c.server) replaceDoc(c.server);
+    else { onServer.delete(id); deleteDoc(id); }
+  }
+  settle();
+  return copy;
+}
+
+/** The same document either way (another tab of this browser saved these
+ *  very edits): no one needs asking. */
+function sameEdits(server: Record<string, unknown>, mine: StoredDoc): boolean {
+  const pick = (d: Record<string, unknown>) => JSON.stringify([d.title, d.header, d.footer, d.headerImage ?? null, d.footerImage ?? null, d.content, d.dismissed ?? [], d.importNotes ?? []]);
+  return pick(server) === pick(mine as unknown as Record<string, unknown>);
+}
+
+/* ---------- pushing ---------- */
 
 function schedulePush(delay = PUSH_DELAY): void {
   clearTimeout(timer);
@@ -87,7 +168,7 @@ const toRow = (d: StoredDoc, ownerId: string) => ({
   footer_image: d.footerImage,
   // Which images the document uses: what a deletion checks before removing one.
   image_keys: imageKeysOf(d.content, [d.headerImage, d.footerImage]),
-  updated_at: new Date().toISOString(),
+  // No updated_at or revision: the server stamps both (documents_stamp).
 });
 
 /** Push every dirty doc. Never throws: a failure leaves the docs dirty (they
@@ -104,8 +185,31 @@ function push(): Promise<void> {
   return inFlight;
 }
 
-const pending = () => dirtyDocs().filter((d) => !rejected.has(d.id));
-const settle = () => setStatus(rejected.size ? 'unsynced' : 'saved');
+const pending = () => dirtyDocs().filter((d) => !rejected.has(d.id) && !conflicts.has(d.id));
+const settle = () => setStatus(conflicts.size ? 'conflict' : rejected.size ? 'unsynced' : 'saved');
+
+type Saved = { revision: number } | { conflict: true } | { error: unknown };
+type Client = NonNullable<ReturnType<typeof getClient>>;
+
+/** Save one document: an update only from the revision it was edited from; an
+ *  insert for a new one. Either finding the server moved on is a conflict. */
+async function save(client: Client, d: StoredDoc, ownerId: string): Promise<Saved> {
+  const row = toRow(d, ownerId);
+  const done = ({ data, error }: { data: { revision: unknown }[] | null; error: unknown }): Saved => {
+    if (error) return (error as { code?: unknown }).code === '23505' ? { conflict: true } : { error };
+    const revision = Number(data?.[0]?.revision);
+    return Number.isSafeInteger(revision) && revision > 0 ? { revision } : { conflict: true };
+  };
+  const failed = (error: unknown): Saved => ({ error: error ?? new Error('Network error') });
+  const table = client.from('documents');
+  if (d.revision !== undefined) {
+    return table.update(row).eq('owner_id', ownerId).eq('id', d.id).eq('revision', d.revision).select('revision').then(done, failed);
+  }
+  // Cached before revisions existed and already on the server: saved as it
+  // always was, once; from then on it has a revision.
+  if (onServer.has(d.id)) return table.upsert(row).select('revision').then(done, failed);
+  return table.insert(row).select('revision').then(done, failed);
+}
 
 async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Promise<void> {
   const ownerId = attachedUid;
@@ -117,27 +221,41 @@ async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Prom
     try {
       await uploadPending(imageKeysOf(d.content, [d.headerImage, d.footerImage]));
     } catch (error) {
-      return error ?? new Error('Network error');
+      return { error: error ?? new Error('Network error') } as Saved;
     }
-    return client.from('documents').upsert(toRow(d, ownerId)).then(
-      ({ error }) => error,
-      (error: unknown) => error ?? new Error('Network error'),
-    );
+    return save(client, d, ownerId);
   }));
   if (ownerId !== attachedUid) return; // signed out or switched while in flight
   let retry = false;
-  const pushed = docs.filter((d, i) => {
-    const error = results[i];
-    if (!error) return true;
+  const pushed: { doc: StoredDoc; revision: number }[] = [];
+  const clashed: StoredDoc[] = [];
+  docs.forEach((d, i) => {
+    const result = results[i]!;
+    if ('revision' in result) { pushed.push({ doc: d, revision: result.revision }); onServer.add(d.id); return; }
+    if ('conflict' in result) { clashed.push(d); return; }
+    const { error } = result;
     console.error(`Sync failed for ${d.id}`, error);
     // SQLSTATE class 22/23 (bad data, a failed CHECK): the same row will be
     // refused again. Anything else — network, an expired token — is retried.
     const code = (error as { code?: unknown }).code;
     if (typeof code === 'string' && /^2[23]/.test(code)) rejected.add(d.id);
     else retry = true;
-    return false;
   });
-  markClean(pushed);
+  markPushed(pushed);
+  // Saved elsewhere first: fetch that version, to show the choice with it.
+  for (const d of clashed) {
+    const { data, error } = await client.from('documents').select(COLUMNS).eq('owner_id', ownerId).eq('id', d.id).maybeSingle().then(
+      (r) => r,
+      (failure: unknown) => ({ data: null, error: failure ?? new Error('Network error') }),
+    );
+    if (ownerId !== attachedUid) return;
+    if (error) { retry = true; continue; }
+    const server = (data ?? null) as Record<string, unknown> | null;
+    if (server && sameEdits(server, d)) { replaceDoc(server); continue; }
+    if (!server) onServer.delete(d.id);
+    conflicts.set(d.id, { id: d.id, title: d.title, server, savedAt: typeof server?.savedAt === 'string' ? server.savedAt : null });
+  }
+  if (clashed.length) conflictsChanged();
   if (retry) { setStatus('unsynced'); schedulePush(RETRY_DELAY); }
   else if (pending().length) schedulePush();
   else settle();
@@ -172,6 +290,8 @@ export function loadAccount(uid: string): Promise<void> {
       total = count ?? rows.length;
       if (!data.length) break;
     }
+    onServer.clear();
+    for (const r of rows) onServer.add(String((r as { id?: unknown }).id));
     applyPulled(rows);
     // The sample is a first-visit gift, not a floor: once given, an account
     // that deletes everything stays empty. The flag lives in the user's own
@@ -199,7 +319,7 @@ export function loadAccount(uid: string): Promise<void> {
  */
 export async function removeDoc(id: string): Promise<boolean> {
   const client = getClient();
-  if (!client) { deleteDoc(id); return true; }
+  if (!client) { deleteDoc(id, { byThisTab: true }); return true; }
   const ownerId = attachedUid;
   if (!ownerId) return false;
   // Let any push in flight land first, or its upsert could recreate the row.
@@ -212,8 +332,10 @@ export async function removeDoc(id: string): Promise<boolean> {
   );
   if (error) { console.error(`Delete failed for ${id}`, error); return false; }
   if (ownerId !== attachedUid) return false; // signed out or switched meanwhile
-  deleteDoc(id);
+  deleteDoc(id, { byThisTab: true });
   rejected.delete(id);
+  onServer.delete(id);
+  if (conflicts.delete(id)) conflictsChanged();
   settle();
   void removeUnused(ownerId, keys);
   return true;
@@ -350,9 +472,73 @@ function forget(): void {
   attachedUid = null;
   loadedUid = null;
   rejected.clear();
+  onServer.clear();
+  if (conflicts.size) { conflicts.clear(); conflictsChanged(); }
+  lastRefresh = 0;
   setStatus('saved');
 }
 
+/* ---------- what changed elsewhere ---------- */
+
+let lastRefresh = 0;
+let refreshing: Promise<void> | null = null;
+let openEditor: { id: string; flush: () => void; typing: () => boolean } | null = null;
+
+/** The open editor registers its unsaved typing (a debounced save not yet in
+ *  the store): flushed before a refresh or a conflict choice, and a document
+ *  still being typed into is never replaced underneath it. */
+export function setOpenEditor(editor: typeof openEditor): void {
+  openEditor = editor;
+}
+const typingIn = (id: string) => openEditor?.id === id && openEditor.typing();
+
+/**
+ * Bring this tab up to date with other devices: push what's here, then ask
+ * the server which documents it has at which revision, and take the newer or
+ * new ones this copy has no edits to. Documents gone from the server and
+ * untouched here go too. A copy with edits is left to the push, which finds
+ * any conflict. At most once per REFRESH_GAP; never throws.
+ */
+export function refresh(force = false): Promise<void> {
+  if (refreshing) return refreshing;
+  if (!force && Date.now() - lastRefresh < REFRESH_GAP) return Promise.resolve();
+  refreshing = refreshOnce().catch((error: unknown) => { console.error('Refresh failed', error); }).finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+async function refreshOnce(): Promise<void> {
+  const client = getClient();
+  const uid = attachedUid;
+  if (!client || !uid || loadedUid !== uid) return;
+  lastRefresh = Date.now();
+  openEditor?.flush();
+  await push();
+  const heads: { id: string; revision: number }[] = [];
+  let total = Infinity;
+  while (heads.length < total) {
+    const { data, count, error } = await client.from('documents').select('id,revision', { count: 'exact' }).order('id').range(heads.length, heads.length + PAGE - 1);
+    if (error || uid !== attachedUid) return;
+    heads.push(...(data as { id: string; revision: number }[]));
+    total = count ?? heads.length;
+    if (!data.length) break;
+  }
+  const local = new Map(allDocs().map((d) => [d.id, d]));
+  const settled = (id: string) => !isDirty(id) && !conflicts.has(id) && !typingIn(id);
+  const stale = heads.filter((h) => settled(h.id) && local.get(h.id)?.revision !== Number(h.revision)).map((h) => h.id);
+  const there = new Set(heads.map((h) => h.id));
+  onServer.clear();
+  there.forEach((id) => onServer.add(id));
+  for (let i = 0; i < stale.length; i += ID_BATCH) {
+    const { data, error } = await client.from('documents').select(COLUMNS).eq('owner_id', uid).in('id', stale.slice(i, i + ID_BATCH));
+    if (error || uid !== attachedUid) return;
+    // Edited while this was fetched: the push decides, not this.
+    for (const row of (data ?? []) as Record<string, unknown>[]) if (settled(String(row.id))) replaceDoc(row);
+  }
+  for (const d of local.values()) if (!there.has(d.id) && d.revision !== undefined && settled(d.id)) deleteDoc(d.id);
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { if (attachedUid) void push(); });
+  window.addEventListener('online', () => { if (attachedUid) void refresh(true); });
+  window.addEventListener('focus', () => { if (attachedUid) void refresh(); });
+  document.addEventListener('visibilitychange', () => { if (attachedUid && document.visibilityState === 'visible') void refresh(); });
 }
