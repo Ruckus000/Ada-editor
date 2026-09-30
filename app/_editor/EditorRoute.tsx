@@ -31,7 +31,7 @@ export function EditorRoute() {
   if (!ready) return <title>Document · Ada Editor</title>;
   if (!stored) {
     return (
-      <StatusScreen title="Document not found" actions={<Link href="/">Back to all documents</Link>}>
+      <StatusScreen title="Document not found" actions={<Link href="/desk">Back to all documents</Link>}>
         {isCloud ? 'There’s no document with that id in your account.' : 'No document with that id is stored in this browser.'}
       </StatusScreen>
     );

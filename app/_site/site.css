@@ -1,0 +1,419 @@
+/* The public site: landing, accessibility statement, privacy notice. Class
+ * prefix `site-`. Colours are Ada tokens; the translucent ones are the same
+ * tokens mixed with transparency (color-mix), never new literals. The site is
+ * light-only (see PinLightTheme), so primitive ramps are used directly where
+ * the design names them.
+ *
+ * Liquid glass: buttons are tinted, blurred glass with a gloss highlight and a
+ * hover sheen. Primary stays dense enough that white text keeps 4.5:1 on white
+ * (blue-500 at 80% over white measures 4.6:1). Reduced transparency and forced
+ * colours both fall back to solid buttons. */
+
+.site {
+  --site-ink: var(--ada-c-neutral-950);
+  --site-shade: var(--ada-c-neutral-900);
+  --site-white: var(--ada-c-neutral-0);
+  --site-hairline: color-mix(in srgb, var(--site-shade) 8%, transparent);
+  --site-font: var(--font-geist-sans), var(--ada-type-family-ui);
+  --site-mono: var(--font-geist-mono), var(--ada-type-family-mono);
+  --site-max: 1200px;
+  --site-header-h: 65px;
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--ada-surface-canvas);
+  color: var(--ada-text-primary);
+  font-family: var(--site-font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html:has(.site) { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html:has(.site) { scroll-behavior: auto; } }
+
+.site a { color: var(--ada-action-primary-bg); text-underline-offset: 3px; }
+.site a:hover { color: var(--ada-text-primary); }
+
+.site-mono { font-family: var(--site-mono); }
+
+/* ---------- skip link ---------- */
+
+.site-skip {
+  position: absolute;
+  left: 16px;
+  top: -80px;
+  z-index: 50;
+  padding: var(--ada-space-3) var(--ada-space-4);
+  border-radius: var(--ada-radius-md);
+  background: var(--ada-text-primary);
+  color: var(--ada-text-inverse) !important;
+  font-weight: 500;
+  text-decoration: none;
+}
+.site-skip:focus { top: 12px; }
+
+.site-main { outline: none; }
+
+/* ---------- header ---------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--site-hairline);
+  background: color-mix(in srgb, var(--site-white) 85%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(16px);
+  transition: box-shadow 300ms ease;
+}
+/* The landing hero's gradient runs up behind the header. */
+.site-header[data-overlay] { margin-bottom: calc(-1 * var(--site-header-h)); background: color-mix(in srgb, var(--site-white) 80%, transparent); }
+.site-header[data-scrolled] { box-shadow: 0 10px 30px -18px color-mix(in srgb, var(--site-shade) 35%, transparent); }
+
+.site-nav {
+  max-width: var(--site-max);
+  margin: 0 auto;
+  padding: 10px var(--ada-space-5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ada-space-2) var(--ada-space-5);
+}
+
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--ada-target-comfortable);
+  color: var(--ada-text-primary) !important;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.site-brand__mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--site-ink);
+  color: var(--site-white);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--site-white) 20%, transparent);
+}
+
+.site-navlinks { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.site-navlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ada-target-comfortable);
+  padding: 0 var(--ada-space-3);
+  border-radius: 999px;
+  color: var(--ada-text-secondary) !important;
+  text-decoration: none;
+  font-size: var(--ada-type-size-sm);
+  font-weight: 500;
+}
+.site-navlink:hover { color: var(--ada-text-primary) !important; background: var(--ada-c-neutral-100); }
+
+.site-actions { display: flex; align-items: center; gap: var(--ada-space-2); margin-left: auto; }
+.site-actions .site-navlink { color: var(--ada-text-primary) !important; }
+.site-actions .site-cta { min-height: 40px; padding-inline: var(--ada-space-4); }
+
+.site-burger-btn { display: none; }
+.site-burger-btn.ada-button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
+.site-burger { display: grid; gap: 5px; width: 18px; }
+.site-burger span { display: block; height: 1.5px; border-radius: 2px; background: currentColor; transition: transform 250ms var(--ada-motion-ease); }
+[aria-expanded="true"] > .site-burger span:first-child { transform: translateY(3.25px) rotate(45deg); }
+[aria-expanded="true"] > .site-burger span:last-child { transform: translateY(-3.25px) rotate(-45deg); }
+
+.site-mnav {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: var(--ada-space-1) 20px 20px;
+  background: color-mix(in srgb, var(--site-white) 94%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--site-hairline);
+  box-shadow: 0 28px 40px -28px color-mix(in srgb, var(--site-shade) 40%, transparent);
+}
+.site-mnav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.site-mnav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 var(--ada-space-1);
+  border-bottom: 1px solid var(--ada-border-subtle);
+  color: var(--ada-text-primary) !important;
+  text-decoration: none;
+  font-size: var(--ada-type-size-lg);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.site-mnav li:last-child a { border-bottom: 0; }
+.site-mnav a span { color: var(--ada-text-secondary); }
+
+@media (max-width: 760px) {
+  .site-navlinks, .site-actions .site-navlink { display: none; }
+  .site-burger-btn { display: inline-flex; }
+  .site-nav { padding: 10px var(--ada-space-4); }
+  .site-actions .site-cta { padding-inline: 14px; }
+}
+@media (min-width: 761px) { .site-mnav { display: none; } }
+
+/* ---------- liquid glass ---------- */
+
+.site .ada-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  transition:
+    background-color var(--ada-motion-base) var(--ada-motion-ease),
+    box-shadow var(--ada-motion-base) var(--ada-motion-ease),
+    transform var(--ada-motion-base) var(--ada-motion-ease);
+}
+.site .ada-button:hover { filter: none; }
+/* Gloss: a bright upper half and a faint lower rim. */
+.site .ada-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--site-white) 42%, transparent) 0%,
+    color-mix(in srgb, var(--site-white) 10%, transparent) 45%,
+    transparent 55%,
+    color-mix(in srgb, var(--site-white) 14%, transparent) 100%);
+}
+/* Sheen that sweeps across on hover. */
+.site .ada-button::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -50%;
+  bottom: -50%;
+  left: 0;
+  width: 36%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--site-white) 50%, transparent), transparent);
+  transform: translateX(-160%) skewX(-20deg);
+  transition: transform 800ms var(--ada-motion-ease);
+}
+.site .ada-button:hover::after { transform: translateX(420%) skewX(-20deg); }
+.site .ada-button:active { transform: scale(0.97); }
+
+.site .ada-button--primary {
+  background: color-mix(in srgb, var(--ada-c-blue-500) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--site-white) 22%, transparent);
+  color: var(--site-white) !important;
+  text-shadow: 0 1px 1px color-mix(in srgb, var(--site-ink) 25%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--site-white) 55%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--site-ink) 20%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--site-white) 12%, transparent),
+    0 1px 2px color-mix(in srgb, var(--site-ink) 20%, transparent),
+    0 10px 28px -10px color-mix(in srgb, var(--ada-c-blue-500) 70%, transparent);
+}
+.site .ada-button--primary:hover { background: color-mix(in srgb, var(--ada-c-blue-500) 90%, var(--site-ink)); }
+
+.site .ada-button--secondary {
+  background: color-mix(in srgb, var(--site-white) 50%, transparent);
+  color: var(--site-ink) !important;
+  border: 1px solid color-mix(in srgb, var(--site-white) 80%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--site-white),
+    inset 0 -1px 0 color-mix(in srgb, var(--site-shade) 6%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--site-shade) 10%, transparent),
+    0 10px 28px -12px color-mix(in srgb, var(--site-shade) 35%, transparent);
+}
+.site .ada-button--secondary:hover { background: color-mix(in srgb, var(--site-white) 75%, transparent); }
+
+.site .ada-button--ghost {
+  background: color-mix(in srgb, var(--site-white) 35%, transparent);
+  color: var(--ada-text-primary);
+  border: 1px solid color-mix(in srgb, var(--site-white) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--site-white) 90%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--site-shade) 8%, transparent);
+}
+.site .ada-button--ghost:hover { background: color-mix(in srgb, var(--site-white) 65%, transparent); }
+
+/* Clear glass on dark sections. */
+.site [data-glass="dark"] .ada-button--secondary {
+  background: color-mix(in srgb, var(--site-white) 10%, transparent);
+  color: var(--site-white) !important;
+  border-color: color-mix(in srgb, var(--site-white) 28%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--site-white) 40%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--site-ink) 25%, transparent),
+    0 12px 32px -12px color-mix(in srgb, var(--site-ink) 60%, transparent);
+}
+.site [data-glass="dark"] .ada-button--secondary:hover { background: color-mix(in srgb, var(--site-white) 18%, transparent); }
+.site [data-glass="dark"] .ada-button::before {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--site-white) 22%, transparent),
+    transparent 50%,
+    color-mix(in srgb, var(--site-white) 6%, transparent));
+}
+
+/* Trailing arrows nudge on hover. */
+.site .ada-button:not(.ada-button--icon) span[aria-hidden] { display: inline-block; transition: transform var(--ada-motion-base) var(--ada-motion-ease); }
+.site .ada-button:not(.ada-button--icon):hover span[aria-hidden] { transform: translateX(3px); }
+
+/* The glass shadows would replace the system focus halo; put it back. */
+.site .ada-button:focus-visible {
+  outline: var(--ada-focus-width) solid var(--ada-focus-ring);
+  outline-offset: var(--ada-focus-offset);
+  box-shadow: 0 0 0 var(--ada-focus-halo-width) var(--ada-focus-halo);
+}
+
+/* A glass pill link on dark cards (email buttons). */
+.site-glass-link {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  column-gap: 0.3em;
+  min-height: 48px;
+  padding: var(--ada-space-3) 22px;
+  border-radius: 999px;
+  text-align: center;
+  background: color-mix(in srgb, var(--site-white) 86%, transparent);
+  color: var(--site-ink) !important;
+  text-decoration: none;
+  font-weight: 500;
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--site-white) 90%, transparent);
+  box-shadow:
+    inset 0 1px 0 var(--site-white),
+    inset 0 -1px 0 color-mix(in srgb, var(--site-shade) 8%, transparent),
+    0 12px 32px -12px color-mix(in srgb, var(--site-ink) 55%, transparent);
+  transition: background-color var(--ada-motion-base) var(--ada-motion-ease), transform var(--ada-motion-base) var(--ada-motion-ease);
+}
+.site-glass-link:hover { background: var(--site-white); }
+.site-glass-link:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .site .ada-button, .site .ada-button::after, .site .ada-button span, .site-burger span { transition: none; }
+  .site .ada-button:hover::after { transform: translateX(-160%) skewX(-20deg); }
+  .site .ada-button:active, .site-glass-link:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .site .ada-button--primary { background: var(--ada-action-primary-bg); }
+  .site .ada-button--secondary, .site .ada-button--ghost, .site-glass-link { background: var(--site-white); }
+  .site [data-glass="dark"] .ada-button--secondary { background: var(--site-white); color: var(--site-ink) !important; }
+}
+@media (forced-colors: active) {
+  .site .ada-button, .site-glass-link {
+    background: ButtonFace;
+    color: ButtonText !important;
+    box-shadow: none;
+    border: 1px solid ButtonText;
+    backdrop-filter: none;
+    text-shadow: none;
+  }
+  .site .ada-button::before, .site .ada-button::after { display: none; }
+}
+
+/* ---------- footer ---------- */
+
+.site-footer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-top: 1px solid var(--ada-border-subtle);
+  background: var(--ada-surface-sunken);
+}
+.site-footer__mark {
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin-top: -0.4em;
+  text-align: center;
+  font-weight: 700;
+  font-size: clamp(5rem, 22vw, 20rem);
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  white-space: nowrap;
+  background: linear-gradient(180deg, var(--ada-c-neutral-200), color-mix(in srgb, var(--ada-c-neutral-200) 25%, transparent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  user-select: none;
+  pointer-events: none;
+}
+@media (forced-colors: active) { .site-footer__mark { display: none; } }
+.site-footer__top {
+  position: relative;
+  max-width: var(--site-max);
+  margin: 0 auto;
+  padding: 80px var(--ada-space-5) 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px var(--ada-space-6);
+}
+.site-footer__brand { flex: 2 1 260px; }
+.site-footer__brand .site-brand { min-height: 0; margin: 0; }
+.site-footer__tagline { margin: var(--ada-space-3) 0 0; max-width: 20rem; line-height: 1.6; color: var(--ada-text-secondary); font-size: var(--ada-type-size-sm); }
+.site-footer__col { flex: 1 1 140px; }
+.site-footer__col h2 { margin: 0 0 var(--ada-space-2); font-size: var(--ada-type-size-sm); font-weight: 600; }
+.site-footer__col ul { list-style: none; margin: 0; padding: 0; }
+.site-footer__col a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--ada-text-secondary) !important;
+  text-decoration: none;
+  font-size: var(--ada-type-size-sm);
+}
+.site-footer__col a:hover, .site-footer__col a[aria-current] { color: var(--ada-text-primary) !important; text-decoration: underline; }
+.site-footer__legal {
+  position: relative;
+  max-width: var(--site-max);
+  margin: 64px auto 0;
+  padding: 0 var(--ada-space-5) 48px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ada-space-3) var(--ada-space-5);
+  justify-content: space-between;
+  align-items: center;
+  color: var(--ada-text-secondary);
+  font-size: var(--ada-type-size-xs);
+  font-family: var(--site-mono);
+}
+.site-footer__pill { padding: var(--ada-space-1) 10px; border: 1px solid var(--ada-border-default); border-radius: 999px; background: var(--ada-surface-raised); }
+@media (max-width: 760px) { .site-footer__top { padding-top: 56px; } }
+
+/* ---------- forced colours ----------
+ * The site paints text with palette colours on its own dark and gradient
+ * panels. Forced colours replace those backgrounds with Canvas, so hand the
+ * text back to the system too (the app gets this from tokens.css). */
+
+@media (forced-colors: active) {
+  .site, .site * { color: CanvasText !important; }
+  .site a { color: LinkText !important; }
+  .site .ada-button, .site .ada-button *, .site-glass-link, .site-glass-link * { color: ButtonText !important; }
+  .site [data-glass="dark"], .page-callout { background: Canvas !important; }
+  .landing-cta__grid { display: none; }
+}
+
+/* ---------- scroll reveals (Reveal.tsx) ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .site [data-rv-hidden] { opacity: 0; }
+}

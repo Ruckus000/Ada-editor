@@ -1,0 +1,25 @@
+/* The privacy notice's account form (AccountControls). Ada tokens only; class
+ * prefix `privacy-`. The page itself is laid out by app/_site/page.css. */
+
+.privacy__form { display: flex; flex-direction: column; gap: var(--ada-space-2); }
+
+.privacy__field { display: flex; flex-direction: column; gap: var(--ada-space-2); font-weight: 600; }
+
+.privacy__field textarea {
+  padding: var(--ada-space-3);
+  font: inherit;
+  font-weight: 400;
+  color: var(--ada-text-primary);
+  background: var(--ada-surface-raised);
+  border: 1px solid var(--ada-border-control);
+  border-radius: var(--ada-radius-md);
+  resize: vertical;
+}
+
+.privacy__field textarea[aria-invalid='true'] { border-color: var(--ada-severity-blocker-fg); }
+
+.privacy__hint { color: var(--ada-text-secondary); font-size: var(--ada-type-size-sm); }
+
+.privacy__error { font-weight: 600; color: var(--ada-severity-blocker-fg); }
+
+.privacy__ok { font-weight: 600; }

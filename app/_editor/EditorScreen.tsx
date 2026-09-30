@@ -569,7 +569,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     const done = await removeDoc(doc.id);
     deleting.current = false;
     if (!done) { setDeleteError(true); return; }
-    router.push('/');
+    router.push('/desk');
     announce(`Deleted ${doc.title}.`);
   };
 
@@ -976,7 +976,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           <span className={styles.brandMark} aria-hidden="true">A</span>
           <span className={styles.brandName}>A11y Studio</span>
           <span className={styles.crumbSep} aria-hidden="true">/</span>
-          <Link href="/" className={styles.crumbLink}>Documents</Link>
+          <Link href="/desk" className={styles.crumbLink}>Documents</Link>
         </nav>
         <div className={styles.topbarEnd}>
           <span className={styles.status}>
@@ -990,7 +990,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
       <div className={styles.docHeader}>
         <div className={styles.docHeaderStart}>
-          <Link href="/" className={styles.back} aria-label="Back to all documents">
+          <Link href="/desk" className={styles.back} aria-label="Back to all documents">
             <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4l-6 6 6 6" /></svg>
           </Link>
           <div className={styles.docHeaderText}>

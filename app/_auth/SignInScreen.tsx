@@ -78,7 +78,7 @@ export function SignInScreen() {
     setBusy(false);
     if (failed) { setError(problemFor(failed.code, 'code')); return; }
     announce('Signed in.');
-    router.replace('/');
+    router.replace('/desk');
   };
 
   const changeEmail = () => {

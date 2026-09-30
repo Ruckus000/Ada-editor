@@ -21,7 +21,10 @@ product reports "ADA compliance" as a status.
 
 ## Current state
 
-Working prototype. The homepage and editor screens are built from the design
+Working prototype. The public site (`/` landing page, `/accessibility`,
+`/privacy`; `app/(site)`, light-only, Geist self-hosted from the `geist`
+package) sits in front of the app: the signed-in desk is `/desk`. The desk
+and editor screens are built from the design
 system, and every finding is computed by
 the **real checking engine**: nineteen WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on

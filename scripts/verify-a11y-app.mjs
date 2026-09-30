@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Accessibility gate for the app screens (Homepage, Editor).
+ * Accessibility gate for the app screens (public site, desk, editor).
  *
  * verify-a11y.mjs gates the design-system primitives through the preview
  * harness. That says nothing about the screens built from them: layout,
@@ -227,8 +227,8 @@ const keepDocs = async (send, ids) => {
 };
 
 async function home() {
-  page = '/';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk';
+  const { proc, ws, send } = await openPage('/desk');
   try {
     // Every run starts from the seed. Chrome runs on its default profile, which
     // keeps localStorage per origin, so a reused port would otherwise inherit a
@@ -317,7 +317,7 @@ async function home() {
     // Deleting from a sheet: focus shows its veil, Delete is named for its
     // document, and focus lands on the sheet that takes its place. 8 → 7
     // documents, so the grid stays.
-    page = '/ (delete a sheet)';
+    page = '/desk (delete a sheet)';
     await evaluate(send, `document.querySelector('.home-sheet[href="/editor/shelter-faq"]').focus()`);
     await sleep(400);
     const veil = await evaluate(send, `getComputedStyle(document.activeElement.closest('.home-card').querySelector('.home-card__veil')).opacity`);
@@ -336,7 +336,7 @@ async function home() {
     else note('Delete on a sheet removes it, announces it and focuses the next sheet');
 
     // 2–4 documents: the loose desk.
-    page = '/ (desk)';
+    page = '/desk (desk)';
     await keepDocs(send, ['hearing-notice', 'transit-notice', 'zoning-variance']);
     const sheets = await evaluate(send, `document.querySelectorAll('.home-desk > li').length`);
     if (sheets !== 3 || (await evaluate(send, `!!document.querySelector('.home-grid')`))) fail(`DESK  expected 3 loose sheets and no grid, got ${sheets}`);
@@ -356,12 +356,12 @@ async function home() {
     await sleep(1500);
     const afterDelete = await evaluate(send, `({ path: location.pathname, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-desk > li').length })`);
     const deleted = await liveText(send);
-    if (afterDelete.path !== '/' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
+    if (afterDelete.path !== '/desk' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
     else if (!/^Deleted Transit Service Change Notice\./.test(deleted)) fail(`DELETE  deletion was not announced (got ${JSON.stringify(deleted)})`);
     else note('Delete document removes it, returns to the homepage and announces it');
 
     // Only the sample: the empty desk teaches instead.
-    page = '/ (empty)';
+    page = '/desk (empty)';
     await keepDocs(send, ['hearing-notice']);
     const empty = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sample: !!document.querySelector('a[href="/editor/hearing-notice"]'), search: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Find a document')) })`);
     if (!empty.how || !empty.sample || empty.search) fail(`EMPTY  the sample-only desk should teach, link the sample and hide search: ${JSON.stringify(empty)}`);
@@ -372,7 +372,7 @@ async function home() {
     await checkReflow(send);
 
     // Removing the sample leaves a truly empty desk, which stays empty on reload.
-    page = '/ (sample removed)';
+    page = '/desk (sample removed)';
     await evaluate(send, `window.confirm = () => true`);
     if (!(await focusByName(send, 'button', 'Remove the sample'))) fail('REMOVE  no Remove the sample button');
     await key(send, 'Enter');
@@ -406,8 +406,8 @@ async function fromPlus(send, item) {
 /* ---------- new document ---------- */
 
 async function newDocument() {
-  page = '/ (new document)';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk (new document)';
+  const { proc, ws, send } = await openPage('/desk');
   try {
     await evaluate(send, `localStorage.clear()`);
     await send('Page.reload');
@@ -438,8 +438,8 @@ async function newDocument() {
 // on the hidden input, the importer running in Chromium (its DOMParser and
 // DecompressionStream, not linkedom's), the store, and navigation.
 async function upload() {
-  page = '/ (upload)';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk (upload)';
+  const { proc, ws, send } = await openPage('/desk');
   const choose = async (file) => {
     const { result } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file]')` });
     if (!result.objectId) { fail('UPLOAD  no file input in the import dialog'); return false; }
@@ -502,7 +502,7 @@ async function upload() {
       body: `<w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr>${cellXml(P(R('Floor')))}${cellXml(P(R('Rooms')))}</w:tr>`
         + `<w:tr>${cellXml(P(R('Second')))}${cellXml(`<w:tbl><w:tr>${cellXml(P(R('4B')))}${cellXml(P(R('Clinic')))}</w:tr></w:tbl><w:p/>`)}</w:tr></w:tbl>`,
     }));
-    await send('Page.navigate', { url: `${origin}/` });
+    await send('Page.navigate', { url: `${origin}/desk` });
     await sleep(1500);
     if (!(await fromPlus(send, 'Import a Word file'))) return;
     if (!(await choose(nested))) return;
@@ -889,7 +889,7 @@ async function editor() {
     await evaluate(send, `document.querySelector('a[aria-label="Back to all documents"]').click()`);
     await sleep(800);
     const onDashboard = await evaluate(send, `location.pathname`);
-    if (onDashboard !== '/') fail(`PERSIST  back navigation did not reach the dashboard (at ${JSON.stringify(onDashboard)})`);
+    if (onDashboard !== '/desk') fail(`PERSIST  back navigation did not reach the dashboard (at ${JSON.stringify(onDashboard)})`);
     await evaluate(send, `history.back()`);
     await sleep(1500);
     const markerPersisted = await evaluate(send, `document.getElementById('document-text')?.textContent.includes('persisted-marker') ?? false`);
@@ -1333,7 +1333,82 @@ async function privacyPage() {
     const docTitle = await evaluate(send, `document.title`);
     if (docTitle !== 'Privacy · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
     else note(`title: ${docTitle}`);
-    if (!(await focusByName(send, 'a', 'Back to Ada Editor'))) fail('PRIVACY  no way back to the app');
+    if (!(await focusByName(send, 'a', 'Get started'))) fail('PRIVACY  no way into the app');
+    await checkTabOrder(send);
+    await checkReflow(send);
+    await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
+/** Let entrance animations and scroll reveals finish (the loops never do),
+ *  so contrast is measured on the settled page, not a half-faded one. */
+const settle = (send) => evaluate(send, `Promise.all(document.getAnimations()
+  .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+  .map((a) => a.finished.catch(() => null))).then(() => true)`);
+
+/* ---------- public site ---------- */
+
+// The landing page and the accessibility statement: public, light-only,
+// with a mobile menu below 761px and looping motion that can be paused.
+async function landingPage() {
+  page = '/';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    await sleep(3000); // the scripted check in the product window
+    await settle(send);
+    await runAxe(send, '');
+    await checkTree(send);
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Ada Editor — accessible document editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    else note(`title: ${docTitle}`);
+    if (!(await evaluate(send, `[...document.querySelectorAll('a')].some((a) => a.getAttribute('href') === '/desk')`))) fail('LANDING  no way into the app');
+    await checkTabOrder(send);
+    // SC 2.2.2: the looping animations must be pausable.
+    if (!(await focusByName(send, 'button', 'Pause motion'))) fail('MOTION  no Pause motion button');
+    else {
+      await key(send, 'Enter');
+      await sleep(200);
+      const paused = await evaluate(send, `document.querySelector('.landing')?.dataset.motion === 'paused' && !!document.activeElement?.textContent?.includes('Play motion')`);
+      if (!paused) fail('MOTION  Pause motion did not pause the page');
+      else note('Pause motion stops the looping animations');
+    }
+    await checkReflow(send);
+    // The narrow header: a menu button that opens, and closes on Escape with focus back on it.
+    await send('Emulation.setDeviceMetricsOverride', { width: 375, height: 700, deviceScaleFactor: 1, mobile: false });
+    await sleep(300);
+    await settle(send);
+    if (!(await focusByName(send, 'button', 'Menu'))) fail('MENU  no Menu button at 375px');
+    else {
+      await key(send, 'Enter');
+      await sleep(200);
+      const opened = await evaluate(send, `document.activeElement.getAttribute('aria-expanded') === 'true' && !!document.getElementById('site-mnav')`);
+      await key(send, 'Escape');
+      await sleep(200);
+      const closed = await evaluate(send, `document.activeElement.getAttribute('aria-expanded') === 'false' && !document.getElementById('site-mnav')`);
+      if (!opened || !closed) fail(`MENU  opened: ${opened}, closed on Escape with focus kept: ${closed}`);
+      else note('mobile menu opens, and Escape closes it with focus on the button');
+      await settle(send);
+      await runAxe(send, ' (375px)');
+    }
+    await send('Emulation.clearDeviceMetricsOverride');
+    await sleep(200);
+    await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
+async function accessibilityPage() {
+  page = '/accessibility';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    await runAxe(send, '');
+    await checkTree(send);
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Accessibility statement · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    else note(`title: ${docTitle}`);
     await checkTabOrder(send);
     await checkReflow(send);
     await checkForcedColors(send);
@@ -1398,6 +1473,8 @@ async function checkPdfExport(send, dir) {
 }
 
 try {
+  await landingPage();
+  await accessibilityPage();
   await privacyPage();
   await signIn();
   await home();

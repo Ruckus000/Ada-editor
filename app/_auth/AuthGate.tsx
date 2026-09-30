@@ -15,8 +15,8 @@ import { StatusScreen } from '../_status/StatusScreen';
  * editor keep reading the store synchronously and never race the pull.
  * Local mode (no Supabase env vars) renders straight through.
  */
-/** Readable without an account: signing in, and what signing up means. */
-const PUBLIC_PATHS = new Set(['/sign-in', '/privacy']);
+/** Readable without an account: the landing page, signing in, and what signing up means. */
+const PUBLIC_PATHS = new Set(['/', '/accessibility', '/privacy', '/sign-in']);
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -37,7 +37,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       const uid = session?.user.id ?? null;
       if (!attached || uid === attached) return;
       detachAccount();
-      window.location.assign(uid ? '/' : '/sign-in');
+      window.location.assign(uid ? '/desk' : '/sign-in');
     });
     return () => { data.subscription.unsubscribe(); };
   }, []);

@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // The public pages pin data-theme before hydration (app/_site/PinLightTheme).
+    <html lang="en" suppressHydrationWarning>
       <body>
         {/* One live region for the whole app; every screen announces through it. */}
         <Providers>{children}</Providers>

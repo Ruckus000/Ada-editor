@@ -249,7 +249,7 @@ async function signIn(send, email) {
   await typeInto(send, 'input[autocomplete="one-time-code"]', code);
   await key(send, 'Enter');
   // Signed in = the desk homepage rendered its documents (or its empty desk).
-  const landed = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+  const landed = await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
   if (!landed) { fail(`SIGNIN  did not reach the dashboard (at ${await evaluate(send, 'location.pathname')})`); return null; }
   return evaluate(send, `(() => {
     const k = Object.keys(localStorage).find((n) => /^sb-.*-auth-token$/.test(n));
@@ -308,7 +308,7 @@ const sheetIds = (send) => evaluate(send,
   `[...document.querySelectorAll('a.home-sheet')].map((a) => a.getAttribute('href').replace('/editor/', ''))`);
 
 async function goHome(send) {
-  await go(send, '/');
+  await go(send, '/desk');
   return waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
 }
 
@@ -333,7 +333,7 @@ async function deleteFromEditor(send, id, title) {
   await waitFor(send, `!!document.getElementById('document-text')`);
   await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
   if (!(await clickButton(send, 'Delete document'))) { fail(`DELETE  no Delete document button on ${id}`); return false; }
-  const home = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main')`, 15_000);
+  const home = await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main')`, 15_000);
   const said = await waitFor(send, `(document.querySelector('[role=status]')?.textContent ?? '').startsWith('Deleted ${title}')`, 5_000);
   const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
   if (!asked.some((q) => q.includes('can’t be undone'))) { fail(`DELETE  deleting ${id} did not ask first (asked ${JSON.stringify(asked)})`); return false; }

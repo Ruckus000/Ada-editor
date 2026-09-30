@@ -12,7 +12,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
   return (
     <StatusScreen
       title="This page stopped working"
-      actions={<><Button variant="primary" onClick={reset}>Try again</Button><Link href="/">Back to all documents</Link></>}
+      actions={<><Button variant="primary" onClick={reset}>Try again</Button><Link href="/desk">Back to all documents</Link></>}
     >
       Try again. If it stops again, go back to all documents and open it from there.
     </StatusScreen>
