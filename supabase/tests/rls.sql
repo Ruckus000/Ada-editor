@@ -1,5 +1,5 @@
 -- RLS and privilege check for public.documents (including delete), public.contact_messages,
--- public.contact_attempts and contact_allow(),
+-- public.contact_attempts, contact_gate() and contact_bits(),
 -- the private images bucket and delete_my_account(). Runs in one transaction and rolls back, so
 -- it is safe against a live project: execute it with psql or MCP execute_sql.
 -- Any failed expectation raises and aborts; success returns 'rls ok'.
@@ -53,13 +53,19 @@ do $$ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
--- Privacy: messages are insert-only and always from the signed-in sender.
+-- Privacy: nobody reads messages back through the API, and nobody writes them directly.
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000b", "role": "authenticated", "email": "rls-b@test.invalid"}';
 insert into public.documents (id, title, owner, content, last_checked)
   values ('doc-b', 'B', 'You', '{"type": "doc"}', 0);
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated", "email": "rls-a@test.invalid"}';
-insert into public.contact_messages (message) values ('A asks a question');
+-- Messages arrive only through the server (service role), as app/api/contact
+-- writes them; stage A's that way so the account-deletion cascade below has
+-- one to remove.
+reset role;
+insert into public.contact_messages (user_id, email, message)
+  values ('00000000-0000-0000-0000-00000000000a', 'rls-a@test.invalid', 'A asks a question');
+set local role authenticated;
 -- A deletes a document of their own; doc-a stays for the cascade check below.
 insert into public.documents (id, title, owner, content, last_checked)
   values ('doc-a-2', 'A2', 'You', '{"type": "doc"}', 0);
@@ -67,6 +73,11 @@ do $$ begin
   delete from public.documents where id = 'doc-a-2';
   if not found then raise exception 'A could not delete their own document'; end if;
   if (select count(*) from public.documents) <> 1 then raise exception 'deleting doc-a-2 touched other rows'; end if;
+  -- Not even as themselves: every message goes through the contact route.
+  begin
+    insert into public.contact_messages (message) values ('direct');
+    raise exception 'a signed-in account can insert a message directly, skipping the spam checks';
+  exception when insufficient_privilege then null; end;
   begin
     insert into public.contact_messages (message, email) values ('forged', 'someone@else.invalid');
     raise exception 'a message was sent with a forged email';
@@ -85,8 +96,12 @@ do $$ begin
     raise exception 'authenticated can read contact_attempts';
   exception when insufficient_privilege then null; end;
   begin
-    perform public.contact_allow('x', 'x', 100, 100);
-    raise exception 'authenticated can call contact_allow';
+    perform public.contact_gate('x', 'x', 'x', 1, 1, 1, 1, 1);
+    raise exception 'authenticated can call contact_gate';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.contact_bits('x', 16, 20, 1, 1);
+    raise exception 'authenticated can call contact_bits';
   exception when insufficient_privilege then null; end;
 end $$;
 
@@ -101,12 +116,16 @@ do $$ begin
     raise exception 'anon can call delete_my_account';
   exception when insufficient_privilege then null; end;
   begin
-    insert into public.contact_attempts (ip_hash, challenge) values ('x', 'x');
+    insert into public.contact_attempts (ip_hash, net_hash, challenge) values ('x', 'x', 'x');
     raise exception 'anon can write contact_attempts';
   exception when insufficient_privilege then null; end;
   begin
-    perform public.contact_allow('x', 'x', 100, 100);
-    raise exception 'anon can call contact_allow';
+    perform public.contact_gate('x', 'x', 'x', 1, 1, 1, 1, 1);
+    raise exception 'anon can call contact_gate';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.contact_bits('x', 16, 20, 1, 1);
+    raise exception 'anon can call contact_bits';
   exception when insufficient_privilege then null; end;
 end $$;
 

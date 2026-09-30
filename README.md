@@ -82,19 +82,34 @@ set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign
 documents in this browser's localStorage only, exactly as before accounts.
 
 **Contact.** `/contact` takes messages from anyone, no account needed, through
-`app/api/contact/route.ts`. A signed-in sender's message is stored as them
-(deleted with the account); anyone else's is stored by the server with the
-reply-to they typed, and kept until deleted by hand. Spam layers, none of
-which a person sees: a trap field, a signed challenge (rejects sends under 3
-seconds or over a day old), a small proof of work solved while typing, 3 sends
-per sender and 30 overall per hour (`contact_allow()`, IP addresses kept only
-as an HMAC, for a day), and content rules (`app/_contact/rules.ts`). There is
-no notification: read messages in the Supabase Table Editor
-(`contact_messages`). It needs three more env vars in Vercel:
-`SUPABASE_SERVICE_ROLE_KEY` (server only), `CONTACT_SECRET` (32+ random
-characters, e.g. `openssl rand -base64 48`) and, to show an address on the
-page, `NEXT_PUBLIC_CONTACT_EMAIL`. Without the first two the form says it
-isn't set up.
+`app/api/contact/route.ts`, the only writer of `contact_messages` (signed-in
+users can't insert directly any more). A signed-in sender's account and email
+come from their verified token, and their message is deleted with the
+account; anyone else's is stored with the reply-to they typed and kept until
+deleted by hand. A flood must never lock real people out, so suspicious
+messages are **held, not refused**: stored with `status = 'held'` and a
+`held_reason`, and the sender sees the same "sent". Review them in the
+Supabase Table Editor (filter `status = held`); there is no notification.
+
+The spam layers, all in this repo, no third party, nothing a person sees:
+a trap field; a signed challenge (sends under 3 s or over a day old are
+refused); a proof of work solved in a Web Worker while the sender types,
+whose difficulty follows the traffic (`contact_bits()`: 16 bits normally, up
+to 20 in a flood); per-address, per-network (IPv4 /24, IPv6 /56) and overall
+hourly counts (`contact_gate()`; addresses kept only as HMACs, for a day);
+and content signals in `app/_contact/score.ts` (throwaway reply-to domains
+from the CC0 [disposable-email-domains](https://github.com/disposable-email-domains/disposable-email-domains)
+list, refreshed with `node scripts/update-disposable-domains.mjs`, link
+floods, shorteners, spam phrases, shouting, repetition). Only a hard
+per-address limit (20 an hour) or a full held list (500 a day) refuses.
+
+It needs three env vars in Vercel: `SUPABASE_SERVICE_ROLE_KEY` (server
+only), `CONTACT_SECRET` (32+ random characters, e.g. `openssl rand -base64
+48`) and `NEXT_PUBLIC_CONTACT_EMAIL`, the address shown on the page and in
+the "try again later" refusal. Use a dedicated, monitored mailbox such as
+`accessibility@<your domain>`, not a catch-all like `admin@`, so barrier
+reports don't drown in system mail. Without the first two the form says it
+isn't set up; without the third the email line is hidden.
 
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused

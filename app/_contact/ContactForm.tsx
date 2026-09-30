@@ -4,28 +4,33 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button, useAnnounce } from '../../design-system/primitives';
 import { getClient } from '../_data/supabase';
-import { MAX_MESSAGE, TRAP, checkEmail, checkMessage, zeroBits } from './rules';
+import { MAX_MESSAGE, TRAP, checkEmail, checkMessage } from './rules';
+import { solve } from './solve';
 
 type Proof = { challenge: string; nonce: string } | { unavailable: true };
 type Problem = { text: string; field?: 'email' | 'message' | undefined };
 
-/** Finds a nonce whose SHA-256 (with the challenge) starts with `bits` zero bits. */
-async function solve(challenge: string, bits: number, cancelled: () => boolean): Promise<string | null> {
-  const enc = new TextEncoder();
-  for (let n = 0; ; n++) {
-    if (n % 2048 === 0 && cancelled()) return null;
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(`${challenge}:${n}`)));
-    if (zeroBits(digest) >= bits) return String(n);
-  }
+/** Solves in a worker, so typing never lags; on the main thread if workers
+ *  aren't available. Terminated if the page goes away first. */
+function solveInBackground(challenge: string, bits: number, cancelled: () => boolean): Promise<string | null> {
+  let worker: Worker;
+  try { worker = new Worker(new URL('./pow.worker.ts', import.meta.url)); } catch { return solve(challenge, bits, cancelled); }
+  return new Promise((resolve) => {
+    const stop = setInterval(() => { if (cancelled()) { worker.terminate(); clearInterval(stop); resolve(null); } }, 500);
+    worker.onmessage = (e: MessageEvent<string | null>) => { worker.terminate(); clearInterval(stop); resolve(e.data); };
+    worker.onerror = () => { worker.terminate(); clearInterval(stop); resolve(solve(challenge, bits, cancelled)); };
+    worker.postMessage({ challenge, bits });
+  });
 }
 
-/** Fetches a challenge and solves it in the background, while the sender types. */
+/** Fetches a challenge (its difficulty follows the traffic) and solves it in
+ *  the background, while the sender types. */
 function prepare(cancelled: () => boolean): Promise<Proof | null> {
   return (async () => {
     const res = await fetch('/api/contact/challenge', { cache: 'no-store' }).catch(() => null);
     if (!res?.ok) return { unavailable: true } as const;
     const { challenge, bits } = (await res.json()) as { challenge: string; bits: number };
-    const nonce = await solve(challenge, bits, cancelled);
+    const nonce = await solveInBackground(challenge, bits, cancelled);
     return nonce === null ? null : { challenge, nonce };
   })();
 }
@@ -46,6 +51,7 @@ export function ContactForm() {
   const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [slow, setSlow] = useState(false);
   const proof = useRef<Promise<Proof | null> | null>(null);
   const live = useRef(true);
   const errorRef = useRef<HTMLParagraphElement>(null);
@@ -75,8 +81,12 @@ export function ContactForm() {
 
     setBusy(true);
     setProblem(null);
+    // On a busy day the spam puzzle is harder; say so if it's still running.
+    const slowTimer = setTimeout(() => { setSlow(true); announce('Still checking your message. This can take a little while when we’re busy.'); }, 1500);
     try {
       const p = await proof.current;
+      clearTimeout(slowTimer);
+      setSlow(false);
       if (!p || 'unavailable' in p) { setProblem({ text: 'Messages aren’t set up on this copy of Ada Editor.' }); return; }
       const res = await fetch('/api/contact', {
         method: 'POST',
@@ -96,7 +106,8 @@ export function ContactForm() {
       setSent(true);
       announce('Message sent. Thank you.');
     } finally {
-      if (live.current) setBusy(false);
+      clearTimeout(slowTimer);
+      if (live.current) { setBusy(false); setSlow(false); }
     }
   };
 
@@ -154,6 +165,7 @@ export function ContactForm() {
       <div className="contact-actions">
         <Button type="submit" variant="primary" aria-disabled={busy || undefined}>{busy ? 'Sending…' : 'Send message'}</Button>
         {sent ? <p className="contact-sent">Message sent. Thank you.</p> : null}
+        {slow ? <p className="contact-hint">Still checking your message. This can take a little while when we’re busy.</p> : null}
       </div>
     </form>
   );

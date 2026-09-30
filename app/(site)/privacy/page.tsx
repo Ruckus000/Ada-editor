@@ -77,8 +77,9 @@ export default function Page() {
             you’re signed in, that’s your account’s address and the message is linked to your account.
           </li>
           <li>
-            To stop the contact form being flooded, a scrambled (one-way hashed) form of the sending device’s IP address, for
-            one day. We never store the address itself.
+            To stop the contact form being flooded, scrambled (one-way hashed) forms of the sending device’s IP address and of
+            its network, for one day. We never store the addresses themselves. Messages that look like spam are kept aside
+            for review rather than refused.
           </li>
         </ul>
       </PageSection>

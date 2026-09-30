@@ -234,21 +234,30 @@ async function contactWithoutAccount(send) {
   const trapped = await postContact({ email: from, message: bot, website: 'http://spam.example', ...(await contactProof()) });
   const forged = await postContact({ email: from, message: `${bot} forged`, challenge: '1.2.3', nonce: '0' });
   const quick = await (async () => { const p = await contactProof(); return postContact({ email: from, message: `${bot} quick`, ...p }); })();
-  const stored = (await db.from('contact_messages').select('id').like('message', `${bot}%`)).data ?? [];
+  const stored = (await db.from('contact_messages').select('id').in('message', [bot, `${bot} forged`, `${bot} quick`])).data ?? [];
   if (trapped.status !== 200 || forged.status !== 400 || quick.status !== 400 || stored.length) {
     fail(`CONTACT  spam layers: trap ${trapped.status}, forged ${forged.status}, too fast ${quick.status}, stored ${stored.length}`);
   } else note('the trap field, a forged challenge and a too-fast send all store nothing');
 
-  // Two sends from this address already this hour (signed in, and the page just now); the limit is 3.
-  const limited = [];
-  for (let i = 0; i < 2; i++) {
-    const p = await contactProof();
-    await sleep(MIN_TYPING_MS);
-    limited.push((await postContact({ email: from, message: `${bot} limit ${i}`, ...p })).status);
-  }
-  if (limited.join() !== '200,429') fail(`CONTACT  per-sender hourly limit: expected 200,429, got ${limited.join()}`);
-  else note('the fourth message in an hour from one address is refused with 429');
+  // Suspicious is held, not refused: the sender sees the same "sent".
+  // Sends from this address this hour so far: signed in, and the page above.
+  const status = async (message) => ((await db.from('contact_messages').select('status, held_reason').eq('message', message)).data ?? [])[0] ?? null;
+  const send3 = `${bot} throwaway`;
+  let p3 = await contactProof(); await sleep(MIN_TYPING_MS);
+  const r3 = await postContact({ email: 'someone@mailinator.com', message: send3, ...p3 });
+  const s3 = await status(send3);
+  if (r3.status !== 200 || s3?.status !== 'held' || s3?.held_reason !== 'disposable-email') fail(`CONTACT  a throwaway reply-to should be held: ${r3.status} ${JSON.stringify(s3)}`);
+  else note('a throwaway reply-to address is stored, held for review, and the sender told it was sent');
+  const send4 = `${bot} fourth`;
+  p3 = await contactProof(); await sleep(MIN_TYPING_MS);
+  const r4 = await postContact({ email: from, message: send4, ...p3 });
+  const s4 = await status(send4);
+  if (r4.status !== 200 || s4?.status !== 'held' || s4?.held_reason !== 'ip') fail(`CONTACT  the 4th message in an hour from one address should be held, not refused: ${r4.status} ${JSON.stringify(s4)}`);
+  else note('past the hourly limit, a message is held rather than refused');
+  const openRow = (await db.from('contact_messages').select('status').eq('message', text)).data?.[0];
+  if (openRow?.status !== 'open') fail(`CONTACT  an ordinary message should be open, got ${JSON.stringify(openRow)}`);
 
+  await db.from('contact_messages').delete().like('message', `${bot}%`);
   await db.from('contact_messages').delete().eq('email', from);
   await db.from('contact_attempts').delete().gte('id', 0);
 }

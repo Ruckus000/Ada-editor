@@ -6,7 +6,8 @@ import './contact.css';
 
 export const metadata: Metadata = { title: 'Contact · Ada Editor' };
 
-/** Shown only once it's set (Vercel env), so an invented address never ships. */
+/** Shown only once it's set (Vercel env), so an invented address never ships.
+ *  Meant to be a dedicated mailbox such as accessibility@<domain>. */
 const EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
 
 const TOC = [

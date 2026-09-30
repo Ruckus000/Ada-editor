@@ -1,32 +1,30 @@
 /**
  * Contact form rules shared by the page and the server route, so the form
- * says no for the same reasons the server would.
+ * refuses for the same reasons the server would. Refusals are only for what a
+ * person can fix (empty, too long, not an email address); everything merely
+ * suspicious is held for review instead (see app/_contact/score.ts).
  */
 
-/** Leading zero bits the proof of work needs: ~65k SHA-256s on average, a
- *  second or two in a browser, while the sender is still typing. */
-export const POW_BITS = 16;
+/** Puzzle difficulty in leading zero bits. BASE is ~65k SHA-256s, about a
+ *  quarter second in a desktop browser; the server raises it under load, up
+ *  to MAX (16x: a few seconds, mostly spent while the sender is typing). */
+export const POW_BASE_BITS = 16;
+export const POW_MAX_BITS = 20;
 /** Faster than this after the page loaded, it wasn't a person typing. */
 export const MIN_MS = 3_000;
 /** A challenge older than this has to be fetched again. */
 export const MAX_MS = 24 * 60 * 60_000;
 export const MAX_MESSAGE = 5_000;
-export const MAX_LINKS = 3;
-/** Sends per sender per hour, and for everyone together. */
-export const PER_IP_PER_HOUR = 3;
-export const TOTAL_PER_HOUR = 30;
 /** The hidden field only bots fill in. */
 export const TRAP = 'website';
 
 export const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const LINK = /\b(?:https?:\/\/|www\.)/gi;
 
 /** A visible reason, or null when the message may go. */
 export function checkMessage(message: string): string | null {
   const text = message.trim();
   if (!text) return 'Write a message first.';
   if (text.length > MAX_MESSAGE) return `Keep the message under ${MAX_MESSAGE.toLocaleString('en')} characters.`;
-  if ((text.match(LINK) ?? []).length > MAX_LINKS) return `Include at most ${MAX_LINKS} links.`;
   return null;
 }
 
