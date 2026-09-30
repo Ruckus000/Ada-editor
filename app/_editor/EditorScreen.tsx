@@ -22,7 +22,8 @@ import {
 } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
-import { removeDoc } from '../_data/sync';
+import { removeDoc, setOpenEditor } from '../_data/sync';
+import { openConflicts } from '../_auth/ConflictDialog';
 import { ALIGN_NAMES, AltTextDialog, FigureLayoutDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, SIZE_NAMES, StoredImg, TableCaptionDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
@@ -519,12 +520,20 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     saveNow();
   }, [saveNow]);
   useEffect(() => {
+    // Hidden too: a tab left in the background keeps no edits only in memory,
+    // and sync (a refresh, a conflict choice) flushes first and never replaces
+    // a document still being typed into.
+    const hidden = () => { if (document.visibilityState === 'hidden') flushSave(); };
     window.addEventListener('pagehide', flushSave);
+    document.addEventListener('visibilitychange', hidden);
+    setOpenEditor({ id: doc.id, flush: flushSave, typing: () => saveTimer.current !== undefined });
     return () => {
       window.removeEventListener('pagehide', flushSave);
+      document.removeEventListener('visibilitychange', hidden);
+      setOpenEditor(null);
       clearTimeout(saveTimer.current);
     };
-  }, [flushSave]);
+  }, [flushSave, doc.id]);
   // The mount check counts as a full check: the doc is current as of now.
   useEffect(() => { saveDoc(doc.id, { lastChecked: Date.now() }); }, [doc.id]);
 
@@ -1284,8 +1293,17 @@ function SaveStatus() {
   const prev = useRef(status);
   useEffect(() => {
     if (status === 'unsynced' && prev.current !== 'unsynced') announce('Changes aren’t reaching your account yet. They’re kept in this browser.');
-    if (status === 'saved' && prev.current === 'unsynced') announce('Changes synced to your account.');
+    if (status === 'saved' && (prev.current === 'unsynced' || prev.current === 'conflict')) announce('Changes synced to your account.');
     prev.current = status;
   }, [status, announce]);
+  if (status === 'conflict') {
+    // The dialog announces itself; this reopens it after "Decide later".
+    return (
+      <span className={styles.status}>
+        Not synced — changed on another device{' '}
+        <button type="button" className={styles.linkBtn} onClick={openConflicts}>Resolve</button>
+      </span>
+    );
+  }
   return <span className={styles.status}>{status === 'unsynced' ? 'Not synced — kept in this browser' : status === 'saving' ? 'Saving…' : 'Saved'}</span>;
 }

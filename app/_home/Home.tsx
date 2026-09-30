@@ -8,7 +8,7 @@ import type { ChangeEvent, CSSProperties, DragEvent, KeyboardEvent, ReactNode, T
 import { Button, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, VisuallyHidden, useAnnounce } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
-import { SAMPLE_ID, createDoc, loadDashboardData, saveDoc, seedIfEmpty } from '../_data/store';
+import { SAMPLE_ID, createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
 import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc, signOut } from '../_data/sync';
@@ -415,6 +415,8 @@ export function Home() {
     setDash(loadDashboardData());
     setHello(greeting(new Date().getHours()));
     if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcut('⌘K');
+    // Another device's changes (a refresh), a conflict's copy: the desk follows.
+    return subscribeDocs(() => setDash(loadDashboardData()));
   }, []);
 
   const docs = dash?.docs ?? [];

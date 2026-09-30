@@ -82,6 +82,10 @@ export interface StoredDoc {
   /** What an imported file held that the editor could not (tables flattened,
    *  footnotes left out…), shown until the user dismisses it. */
   importNotes: string[];
+  /** Cloud mode: the server revision this copy was edited from. A save only
+   *  lands while the server still has it (sync.ts); absent until the server
+   *  has the document (or for a copy cached before revisions existed). */
+  revision?: number;
 }
 
 /** `ada.docs.v1` in local mode; `ada.docs.v1:<uid>` per signed-in account, so
@@ -100,6 +104,16 @@ let diskFailed = false;
 /** Ids written locally but not yet confirmed by the server (cloud mode). */
 let memoryDirty: Set<string> | null = null;
 let onDirty: ((ids: string[]) => void) | null = null;
+/** Screens showing documents: told when documents change other than by their
+ *  own typing (a pull, another device's version, a conflict resolved). */
+const docListeners = new Set<(ids: readonly string[]) => void>();
+
+export function subscribeDocs(listener: (ids: readonly string[]) => void): () => void {
+  docListeners.add(listener);
+  return () => { docListeners.delete(listener); };
+}
+
+const docsChanged = (ids: readonly string[]) => { for (const l of [...docListeners]) l(ids); };
 
 /** Switch the store to a signed-in account's cache, or back to local mode (null). */
 export function setStoreUser(uid: string | null): void {
@@ -158,13 +172,24 @@ export function sanitizeStoredDocs(parsed: unknown): StoredDoc[] {
     })
     // Normalize the optional field: payloads written before dismissals existed
     // have none, and localStorage is a trust boundary — keep strings only.
-    .map((d): StoredDoc => ({
-      ...d,
-      dismissed: strings(d.dismissed),
-      importNotes: strings(d.importNotes),
-      headerImage: sectionImageOf(d.headerImage),
-      footerImage: sectionImageOf(d.footerImage),
-    }));
+    .map((d): StoredDoc => {
+      // savedAt: a pulled row's updated_at, for the conflict dialog only.
+      const { revision: raw, savedAt: _savedAt, ...rest } = d as typeof d & { revision?: unknown; savedAt?: unknown };
+      const revision = revisionOf(raw);
+      return {
+        ...rest,
+        dismissed: strings(d.dismissed),
+        importNotes: strings(d.importNotes),
+        headerImage: sectionImageOf(d.headerImage),
+        footerImage: sectionImageOf(d.footerImage),
+        ...(revision ? { revision } : {}),
+      };
+    });
+}
+
+function revisionOf(v: unknown): number | undefined {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isSafeInteger(n) && n > 0 ? n : undefined;
 }
 
 function strings(v: unknown): string[] {
@@ -323,17 +348,20 @@ export function createDoc(draft: Pick<StoredDoc, 'title' | 'header' | 'footer' |
   });
   const persisted = writeAll(all);
   markDirty([id]);
+  docsChanged([id]);
   return { id, persisted };
 }
 
 /** Remove a document from this browser, and from what sync would push.
  *  Cloud mode deletes on the server first (sync.ts removeDoc), then here. */
-export function deleteDoc(id: string): void {
+export function deleteDoc(id: string, { byThisTab = false } = {}): void {
   const all = readAll();
   if (!all.delete(id)) return;
   writeAll(all);
   const dirty = readDirty();
   if (dirty.delete(id)) writeDirty(dirty);
+  // A screen that deleted it moves on by itself; one deleted elsewhere is news.
+  if (!byThisTab) docsChanged([id]);
 }
 
 /* ---------- cloud mode: the sync surface (see ./sync.ts) ---------- */
@@ -391,19 +419,6 @@ export function dirtyDocs(): StoredDoc[] {
   return [...readDirty()].flatMap((id) => all.get(id) ?? []);
 }
 
-/** The server stored these versions. Clear each flag only if nothing was
- *  written since — an edit that landed mid-flight must still be pushed. */
-export function markClean(pushed: StoredDoc[]): void {
-  if (!pushed.length) return;
-  const all = readAll();
-  const dirty = readDirty();
-  for (const doc of pushed) {
-    const current = all.get(doc.id);
-    if (!current || JSON.stringify(current) === JSON.stringify(doc)) dirty.delete(doc.id);
-  }
-  writeDirty(dirty);
-}
-
 /**
  * Replace the cache with the server's rows, except docs with unpushed local
  * edits: those win and are pushed next. Rows are validated like any stored
@@ -417,7 +432,54 @@ export function applyPulled(rows: unknown): void {
     if (mine) next.set(id, mine);
   }
   writeAll(next);
+  docsChanged([...next.keys()]);
 }
+
+/** The server stored these versions, now at these revisions: each copy is
+ *  based on its new revision, and clean unless it was edited meanwhile. */
+export function markPushed(pushed: readonly { doc: StoredDoc; revision: number }[]): void {
+  if (!pushed.length) return;
+  const all = readAll();
+  const dirty = readDirty();
+  const same = (a: StoredDoc, b: StoredDoc) => JSON.stringify({ ...a, revision: 0 }) === JSON.stringify({ ...b, revision: 0 });
+  for (const { doc, revision } of pushed) {
+    const current = all.get(doc.id);
+    if (!current) { dirty.delete(doc.id); continue; }
+    all.set(doc.id, { ...current, revision });
+    if (same(current, doc)) dirty.delete(doc.id);
+  }
+  writeAll(all);
+  writeDirty(dirty);
+}
+
+/** Take the server's version of a document (validated like any stored
+ *  payload), with nothing left to push. False if it didn't pass. */
+export function replaceDoc(row: unknown): boolean {
+  const [doc] = sanitizeStoredDocs([row]);
+  if (!doc) return false;
+  const all = readAll();
+  all.set(doc.id, doc);
+  writeAll(all);
+  const dirty = readDirty();
+  if (dirty.delete(doc.id)) writeDirty(dirty);
+  docsChanged([doc.id]);
+  return true;
+}
+
+/** Base this copy on `revision` and push it again (keep mine, in a conflict). */
+export function rebaseDoc(id: string, revision: number | undefined): void {
+  const all = readAll();
+  const doc = all.get(id);
+  if (!doc) return;
+  const next: StoredDoc = { ...doc };
+  if (revision === undefined) delete next.revision; else next.revision = revision;
+  all.set(id, next);
+  writeAll(all);
+  markDirty([id]);
+}
+
+/** Whether this document has edits the server hasn't confirmed. */
+export const isDirty = (id: string): boolean => readDirty().has(id);
 
 /** The one document a new account starts with: something to practise on
  *  that is not theirs, so the homepage can still greet them as empty. */

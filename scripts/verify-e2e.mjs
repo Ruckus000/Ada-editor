@@ -615,6 +615,120 @@ async function secondBrowser() {
   }
 }
 
+// Two devices open at once, one account, one document: a change made on one
+// reaches the other when it's looked at again, and edits made on both are
+// never silently overwritten: the second device is asked what to keep.
+async function twoDevices() {
+  const C = address('c');
+  const DOC = 'e2e-two-devices';
+  const TITLE = 'E2E two devices';
+  const x = await openBrowser();
+  const y = await openBrowser();
+  try {
+    page = 'two devices';
+    const cid = await signIn(x.tab.send, C);
+    if (!cid) return;
+    if (!(await createDocument(x.tab.send, TITLE, DOC))) return;
+    await typeAtEnd(x.tab.send, ' Base text.');
+    await waitForRow(cid, DOC, (r) => contentHas(r, 'Base text.'));
+    if (!(await signIn(y.tab.send, C))) return;
+    await go(y.tab.send, `/editor/${DOC}`);
+    await waitFor(y.tab.send, `!!document.getElementById('document-text')`);
+    await waitFor(y.tab.send, HYDRATED('#document-text'));
+
+    const text = (send) => evaluate(send, `document.getElementById('document-text')?.textContent ?? ''`);
+    const offline = (send, on) => send('Network.emulateNetworkConditions', { offline: on, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    const said = (send) => evaluate(send, `document.querySelector('[role=status]')?.textContent ?? ''`);
+    await x.tab.send('Network.enable');
+    await y.tab.send('Network.enable');
+
+    // 1. Coming back to the tab brings in what the other device saved.
+    await typeAtEnd(x.tab.send, ' From A.');
+    await waitForRow(cid, DOC, (r) => contentHas(r, 'From A.'));
+    await evaluate(y.tab.send, `window.dispatchEvent(new Event('focus'))`);
+    if (!(await waitFor(y.tab.send, `document.getElementById('document-text')?.textContent.includes('From A.')`, 10_000))) fail('DEVICES  coming back to the tab did not bring in the other device’s edit');
+    else if (!(await said(y.tab.send)).includes('updated with changes from another device')) fail(`DEVICES  the update was not announced (got ${JSON.stringify(await said(y.tab.send))})`);
+    else note('coming back to a tab brings in the other device’s saved edits, announced');
+
+    /** B edits offline while A saves; back online, B is asked. */
+    const clash = async (fromA, fromB) => {
+      await offline(y.tab.send, true);
+      await typeAtEnd(x.tab.send, ` ${fromA}`);
+      await waitForRow(cid, DOC, (r) => contentHas(r, fromA));
+      await typeAtEnd(y.tab.send, ` ${fromB}`);
+      await waitFor(y.tab.send, `[...document.querySelectorAll('header span')].some((s) => s.textContent.trim().startsWith('Not synced'))`, 12_000);
+      await offline(y.tab.send, false);
+      await evaluate(y.tab.send, `window.dispatchEvent(new Event('online'))`);
+      return waitFor(y.tab.send, `document.querySelector('[role=dialog] h2')?.textContent ?? ''`, 15_000);
+    };
+    const choose = async (label) => {
+      const chosen = await evaluate(y.tab.send, `(() => { const b = [...document.querySelectorAll('[role=dialog] button')].find((el) => el.textContent.trim() === ${JSON.stringify(label)}); if (b) b.click(); return !!b; })()`);
+      if (!chosen) fail(`DEVICES  the dialog has no ${label}`);
+      await sleep(300);
+      return chosen;
+    };
+
+    // 2. Keep both: theirs stays, mine becomes a new document.
+    const asked = await clash('Second from A.', 'From B.');
+    const focus = await evaluate(y.tab.send, `document.activeElement?.textContent?.trim() ?? ''`);
+    const status = await saveStatus(y.tab.send);
+    if (!asked.includes(`“${TITLE}” was changed on another device`)) fail(`DEVICES  edits on both devices did not ask what to keep (dialog: ${JSON.stringify(asked)})`);
+    else if (focus !== 'Keep both') fail(`DEVICES  focus should start on Keep both (on ${JSON.stringify(focus)})`);
+    else if (!status?.startsWith('Not synced — changed on another device')) fail(`DEVICES  the save status should say so (got ${JSON.stringify(status)})`);
+    else note('edits on both devices: the second is asked what to keep, focus on Keep both, and the status says why');
+    if (await choose('Keep both')) {
+      const copy = await (async () => { for (let i = 0; i < 50; i++) { const rows = (await docsOf(cid)).filter((r) => contentHas(r, 'From B.') && r.id !== DOC); if (rows.length) return rows[0]; await sleep(300); } return null; })();
+      const row = await docOf(cid, DOC);
+      const shown = await waitFor(y.tab.send, `(() => { const t = document.getElementById('document-text')?.textContent ?? ''; return t.includes('Second from A.') && !t.includes('From B.'); })()`, 10_000);
+      if (!contentHas(row, 'Second from A.') || contentHas(row, 'From B.')) fail('DEVICES  Keep both changed the other device’s version');
+      else if (!copy) fail('DEVICES  Keep both did not save this device’s edits as a new document');
+      else if (!shown) fail(`DEVICES  after Keep both, the editor should show the other device’s version (shows ${JSON.stringify((await text(y.tab.send)).slice(-80))})`);
+      else if (!(await said(y.tab.send)).startsWith('Kept both.') && !(await said(y.tab.send)).includes('updated with changes')) fail(`DEVICES  Keep both was not announced (got ${JSON.stringify(await said(y.tab.send))})`);
+      else note('Keep both: the other version stays, this device’s edits become a new document, and the editor shows theirs');
+    }
+
+    // 3. Keep mine: this device's version replaces theirs.
+    await sleep(5500); // past the refresh gap, so the next focus refreshes
+    if (await clash('Third from A.', 'Mine from B.') && (await choose('Keep mine'))) {
+      const row = await waitForRow(cid, DOC, (r) => contentHas(r, 'Mine from B.'));
+      if (!contentHas(row, 'Mine from B.') || contentHas(row, 'Third from A.')) fail('DEVICES  Keep mine did not replace the other device’s version');
+      else note('Keep mine: this device’s version replaces the other’s on the server');
+      await evaluate(x.tab.send, `window.dispatchEvent(new Event('focus'))`);
+      if (!(await waitFor(x.tab.send, `document.getElementById('document-text')?.textContent.includes('Mine from B.')`, 10_000))) fail('DEVICES  the other device did not pick up the kept version');
+    }
+
+    // 4. Keep theirs: this device's edits are dropped.
+    await sleep(5500);
+    if (await clash('Fourth from A.', 'Discard from B.') && (await choose('Keep theirs'))) {
+      const shown = await waitFor(y.tab.send, `(() => { const t = document.getElementById('document-text')?.textContent ?? ''; return t.includes('Fourth from A.') && !t.includes('Discard from B.'); })()`, 10_000);
+      await sleep(2500); // a push, had one been queued, would land by now
+      const row = await docOf(cid, DOC);
+      if (!shown) fail('DEVICES  after Keep theirs, the editor should show the other device’s version');
+      else if (!contentHas(row, 'Fourth from A.') || contentHas(row, 'Discard from B.')) fail('DEVICES  Keep theirs still pushed this device’s edits');
+      else note('Keep theirs: the other version stays and this device’s edits are dropped');
+    }
+
+    // 5. Deleted on the other device, edited here: restore it.
+    await offline(y.tab.send, true);
+    if (await deleteFromEditor(x.tab.send, DOC, TITLE)) {
+      await typeAtEnd(y.tab.send, ' Restore from B.');
+      await waitFor(y.tab.send, `[...document.querySelectorAll('header span')].some((s) => s.textContent.trim().startsWith('Not synced'))`, 12_000);
+      await offline(y.tab.send, false);
+      await evaluate(y.tab.send, `window.dispatchEvent(new Event('online'))`);
+      const gone = await waitFor(y.tab.send, `document.querySelector('[role=dialog] h2')?.textContent ?? ''`, 15_000);
+      if (!gone.includes('was deleted on another device')) fail(`DEVICES  editing a document deleted elsewhere did not ask (dialog: ${JSON.stringify(gone)})`);
+      else if (await choose('Restore it with my edits')) {
+        const row = await waitForRow(cid, DOC, (r) => contentHas(r, 'Restore from B.'));
+        if (!contentHas(row, 'Restore from B.')) fail('DEVICES  Restore did not bring the document back with this device’s edits');
+        else note('deleted on another device but edited here: asked, and Restore brings it back with the edits');
+      }
+    }
+  } finally {
+    await x.close();
+    await y.close();
+  }
+}
+
 /** SQL as postgres in the stack's own database; throws if it fails. */
 function psql(sql) {
   const run = spawnSync('docker', ['exec', '-i', 'supabase_db_ada-editor', 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-tA'], { input: sql, encoding: 'utf8' });
@@ -636,6 +750,7 @@ try {
   const run = async (fn) => { try { await fn(); } catch (error) { fail(`CRASH  ${error?.stack ?? error}`); } };
   await run(firstBrowser);
   if (uid) await run(secondBrowser);
+  await run(twoDevices);
   await run(rlsTest);
 } finally {
   server.kill();

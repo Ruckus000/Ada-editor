@@ -800,6 +800,7 @@
 .choices { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .choices:disabled .check { opacity: 0.6; }
 .choiceHint { margin: 0; font-size: 13px; color: var(--as-text-subtlest); }
+.conflictOption { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .check input { width: 18px; height: 18px; margin: 0; }
 
 .fieldError { margin: -10px 0 0; font-size: 13px; font-weight: 600; color: var(--as-blocker); }
