@@ -1,0 +1,25 @@
+/* Contact form. Ada tokens only; class prefix `contact-`. */
+
+.contact-form { margin-top: 28px; display: flex; flex-direction: column; gap: var(--ada-space-5); max-width: 36rem; }
+.contact-field { display: flex; flex-direction: column; gap: var(--ada-space-2); }
+.contact-field label { font-weight: 600; }
+.contact-hint { margin: 0; color: var(--ada-text-secondary); font-size: var(--ada-type-size-sm); line-height: 1.6; }
+.contact-field input,
+.contact-field textarea {
+  min-height: var(--ada-target-comfortable);
+  padding: var(--ada-space-3);
+  font: inherit;
+  color: var(--ada-text-primary);
+  background: var(--ada-surface-raised);
+  border: 1px solid var(--ada-border-control);
+  border-radius: var(--ada-radius-md);
+}
+.contact-field textarea { resize: vertical; }
+.contact-field [aria-invalid='true'] { border-color: var(--ada-severity-blocker-fg); border-width: 2px; }
+.contact-error { margin: 0; font-weight: 600; color: var(--ada-severity-blocker-fg); }
+.contact-error:focus { outline: none; }
+.contact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ada-space-4); }
+.contact-sent { margin: 0; font-weight: 600; }
+
+/* Off-screen, not display:none: some bots skip fields they can tell are hidden. */
+.contact-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }

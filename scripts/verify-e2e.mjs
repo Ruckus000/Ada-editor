@@ -98,6 +98,9 @@ const appEnv = {
   NEXT_TELEMETRY_DISABLED: '1',
   NEXT_PUBLIC_SUPABASE_URL: API,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: KEY,
+  // The contact route's server-only key and signing secret (app/_contact).
+  SUPABASE_SERVICE_ROLE_KEY: SERVICE,
+  CONTACT_SECRET: 'e2e-contact-secret-that-is-at-least-32-chars',
 };
 if (!process.argv.includes('--no-build')) {
   const built = spawnSync(NEXT, ['build'], { cwd: ROOT, stdio: VERBOSE ? 'inherit' : 'pipe', env: appEnv });
@@ -192,6 +195,63 @@ const clickButton = (send, name) => evaluate(send, `(() => {
   if (b) b.click();
   return !!b;
 })()`);
+
+/** The contact route rejects anything sent faster than a person types (app/_contact/rules.ts). */
+const MIN_TYPING_MS = 3_200;
+
+/** Solves a contact challenge the way the page does, for direct API checks. */
+async function contactProof() {
+  const { challenge, bits } = await (await fetch(`${origin}/api/contact/challenge`)).json();
+  for (let n = 0; ; n++) {
+    const d = createHash('sha256').update(`${challenge}:${n}`).digest();
+    let z = 0;
+    for (const b of d) { if (b === 0) { z += 8; continue; } z += Math.clz32(b) - 24; break; }
+    if (z >= bits) return { challenge, nonce: String(n) };
+  }
+}
+const postContact = (body) => fetch(`${origin}/api/contact`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+/** Signed out (the account was just deleted): the page, then the spam layers head on. */
+async function contactWithoutAccount(send) {
+  page = 'contact (no account)';
+  const from = 'e2e-anon@example.org';
+  const text = `E2E anonymous message ${Date.now()}: please ignore.`;
+  await go(send, '/contact');
+  if (!(await waitFor(send, `${HYDRATED('input[type=email]')}`))) { fail('CONTACT  no email field when signed out'); return; }
+  await clickButton(send, 'Send message');
+  const empty = await waitFor(send, `document.activeElement?.getAttribute('aria-invalid') === 'true' && document.querySelector('.contact-error')?.textContent`, 5_000);
+  if (!empty) fail('CONTACT  sending an empty form did not mark and focus the field');
+  await typeInto(send, 'input[type=email]', from);
+  await typeInto(send, 'textarea', text);
+  await sleep(MIN_TYPING_MS);
+  await clickButton(send, 'Send message');
+  const sent = await waitFor(send, `document.querySelector('.contact-sent')?.textContent`, 20_000);
+  const rows = (await db.from('contact_messages').select('email, user_id').eq('message', text)).data ?? [];
+  if (!sent || rows.length !== 1 || rows[0].email !== from || rows[0].user_id !== null) fail(`CONTACT  anonymous message: confirmed ${!!sent}, stored ${JSON.stringify(rows)}`);
+  else note('a message without an account is stored once, with the typed reply-to and no account');
+
+  const bot = `E2E bot ${Date.now()}`;
+  const trapped = await postContact({ email: from, message: bot, website: 'http://spam.example', ...(await contactProof()) });
+  const forged = await postContact({ email: from, message: `${bot} forged`, challenge: '1.2.3', nonce: '0' });
+  const quick = await (async () => { const p = await contactProof(); return postContact({ email: from, message: `${bot} quick`, ...p }); })();
+  const stored = (await db.from('contact_messages').select('id').like('message', `${bot}%`)).data ?? [];
+  if (trapped.status !== 200 || forged.status !== 400 || quick.status !== 400 || stored.length) {
+    fail(`CONTACT  spam layers: trap ${trapped.status}, forged ${forged.status}, too fast ${quick.status}, stored ${stored.length}`);
+  } else note('the trap field, a forged challenge and a too-fast send all store nothing');
+
+  // Two sends from this address already this hour (signed in, and the page just now); the limit is 3.
+  const limited = [];
+  for (let i = 0; i < 2; i++) {
+    const p = await contactProof();
+    await sleep(MIN_TYPING_MS);
+    limited.push((await postContact({ email: from, message: `${bot} limit ${i}`, ...p })).status);
+  }
+  if (limited.join() !== '200,429') fail(`CONTACT  per-sender hourly limit: expected 200,429, got ${limited.join()}`);
+  else note('the fourth message in an hour from one address is refused with 429');
+
+  await db.from('contact_messages').delete().eq('email', from);
+  await db.from('contact_attempts').delete().gte('id', 0);
+}
 
 /** Put the caret at the very end of the document text and type there. */
 async function typeAtEnd(send, text) {
@@ -463,7 +523,7 @@ async function firstBrowser() {
 }
 
 // Browser 2, the same account returning: PDF export, deletion, the sample,
-// the message form, account deletion.
+// the contact form (signed in and not), account deletion.
 async function secondBrowser() {
   const browser = await openBrowser();
   const { send } = browser.tab;
@@ -579,16 +639,23 @@ async function secondBrowser() {
       else note('Remove the sample asks first, empties the desk, and the sample does not come back after a reload');
     }
 
+    page = 'contact (signed in)';
+    await db.from('contact_attempts').delete().gte('id', 0); // rate limits from earlier runs
+    await go(send, '/contact');
+    const prefilled = await waitFor(send, `${HYDRATED('textarea')} && document.querySelector('.contact-hint strong')?.textContent`);
+    if (prefilled !== A) { fail(`CONTACT  the signed-in reply-to should be ${A}, got ${JSON.stringify(prefilled)}`); return; }
+    await typeInto(send, 'textarea', 'E2E message: please ignore.');
+    await sleep(MIN_TYPING_MS);
+    await clickButton(send, 'Send message');
+    const sent = await waitFor(send, `document.querySelector('.contact-sent')?.textContent`, 20_000);
+    const messages = (await db.from('contact_messages').select('email, message').eq('user_id', uid)).data ?? [];
+    if (!sent) fail(`CONTACT  sending a message showed no confirmation (${JSON.stringify(await evaluate(send, `document.querySelector('.contact-error')?.textContent ?? null`))})`);
+    else if (messages.length !== 1 || messages[0].email !== A) fail(`CONTACT  expected one message from ${A}, found ${JSON.stringify(messages)}`);
+    else note('a signed-in message is stored once, from the account address, with no email typed');
+
     page = 'privacy';
     await go(send, '/privacy');
-    if (!(await waitFor(send, `!!document.querySelector('textarea')`))) { fail('PRIVACY  no message form for a signed-in account'); return; }
-    await typeInto(send, 'textarea', 'E2E message: please ignore.');
-    await clickButton(send, 'Send message');
-    const sent = await waitFor(send, `document.querySelector('.privacy__ok')?.textContent`);
-    const messages = (await db.from('contact_messages').select('email, message').eq('user_id', uid)).data ?? [];
-    if (!sent) fail('PRIVACY  sending a message showed no confirmation');
-    else if (messages.length !== 1 || messages[0].email !== A) fail(`PRIVACY  expected one message from ${A}, found ${JSON.stringify(messages)}`);
-    else note('a message is stored once, from the signed-in address');
+    if (!(await waitFor(send, `[...document.querySelectorAll('button')].some((b) => b.textContent.includes('Delete my account'))`))) { fail('PRIVACY  no Delete my account for a signed-in account'); return; }
 
     // An image nothing refers to any more (edited out): account deletion must still remove it.
     const stray = 'e'.repeat(64);
@@ -609,6 +676,8 @@ async function secondBrowser() {
     const leftImages = ((await db.storage.from('images').list(uid)).data ?? []).length;
     if (leftImages || (await objectExists(uid, stray))) fail(`ACCOUNT  images were left in the deleted account's folder (${leftImages} listed)`);
     else note('deleting the account empties its image folder');
+
+    await contactWithoutAccount(send);
   } finally {
     tidy(dir);
     await browser.close();

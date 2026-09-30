@@ -81,6 +81,21 @@ upload (`sweepImages` in `app/_data/sync.ts`). Local mode keeps them in IndexedD
 set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
 documents in this browser's localStorage only, exactly as before accounts.
 
+**Contact.** `/contact` takes messages from anyone, no account needed, through
+`app/api/contact/route.ts`. A signed-in sender's message is stored as them
+(deleted with the account); anyone else's is stored by the server with the
+reply-to they typed, and kept until deleted by hand. Spam layers, none of
+which a person sees: a trap field, a signed challenge (rejects sends under 3
+seconds or over a day old), a small proof of work solved while typing, 3 sends
+per sender and 30 overall per hour (`contact_allow()`, IP addresses kept only
+as an HMAC, for a day), and content rules (`app/_contact/rules.ts`). There is
+no notification: read messages in the Supabase Table Editor
+(`contact_messages`). It needs three more env vars in Vercel:
+`SUPABASE_SERVICE_ROLE_KEY` (server only), `CONTACT_SECRET` (32+ random
+characters, e.g. `openssl rand -base64 48`) and, to show an address on the
+page, `NEXT_PUBLIC_CONTACT_EMAIL`. Without the first two the form says it
+isn't set up.
+
 - **[Grammarly UX/UI audit](docs/audit/grammarly-ux-audit.md)** — what we took,
   adapted and refused
 - **[Design system](docs/design-system/README.md)** — principles, tokens,

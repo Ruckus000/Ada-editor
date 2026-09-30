@@ -16,7 +16,7 @@ import { StatusScreen } from '../_status/StatusScreen';
  * Local mode (no Supabase env vars) renders straight through.
  */
 /** Readable without an account: the landing page, signing in, and what signing up means. */
-const PUBLIC_PATHS = new Set(['/', '/accessibility', '/privacy', '/sign-in']);
+const PUBLIC_PATHS = new Set(['/', '/accessibility', '/contact', '/privacy', '/sign-in']);
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();

@@ -1,4 +1,5 @@
 -- RLS and privilege check for public.documents (including delete), public.contact_messages,
+-- public.contact_attempts and contact_allow(),
 -- the private images bucket and delete_my_account(). Runs in one transaction and rolls back, so
 -- it is safe against a live project: execute it with psql or MCP execute_sql.
 -- Any failed expectation raises and aborts; success returns 'rls ok'.
@@ -78,6 +79,15 @@ do $$ begin
     perform 1 from public.contact_messages;
     raise exception 'messages can be read back through the API';
   exception when insufficient_privilege then null; end;
+  -- The contact form's rate limiting is the server's alone.
+  begin
+    perform 1 from public.contact_attempts;
+    raise exception 'authenticated can read contact_attempts';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.contact_allow('x', 'x', 100, 100);
+    raise exception 'authenticated can call contact_allow';
+  exception when insufficient_privilege then null; end;
 end $$;
 
 set local role anon;
@@ -89,6 +99,14 @@ do $$ begin
   begin
     perform public.delete_my_account();
     raise exception 'anon can call delete_my_account';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.contact_attempts (ip_hash, challenge) values ('x', 'x');
+    raise exception 'anon can write contact_attempts';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.contact_allow('x', 'x', 100, 100);
+    raise exception 'anon can call contact_allow';
   exception when insufficient_privilege then null; end;
 end $$;
 

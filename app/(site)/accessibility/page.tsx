@@ -19,10 +19,9 @@ const TOC = [
  * screen-reader workflow) and the limits the README lists. Keep it that way:
  * an accessibility statement that overstates is worse than none.
  *
- * TODO(owner): once there is a public contact address and a reply time you can
- * keep, add them to "Report a barrier" — today the only channel is the
- * signed-in message form, which someone blocked from signing in can't reach.
- * If the app is ever audited independently, update the status and the date.
+ * "Report a barrier" goes to /contact, which needs no account. No reply time
+ * is promised: messages are read by hand. If the app is ever audited
+ * independently, update the status and the date.
  */
 export default function Page() {
   return (
@@ -128,9 +127,9 @@ export default function Page() {
       <section id="feedback" className="page-sec" aria-labelledby="feedback-title">
         <div data-rv="" className="page-callout">
           <h2 id="feedback-title" className="page-h2">If something blocks you, tell a person.</h2>
-          <p>Describe what you were trying to do and what you use to browse. If you’re signed in, you can send us a message from the privacy page.</p>
+          <p>Describe what you were trying to do and what you use to browse. You don’t need an account to write to us.</p>
           <div className="page-callout__actions">
-            <Link href="/privacy#choices" className="site-glass-link">Send us a message</Link>
+            <Link href="/contact" className="site-glass-link">Contact us</Link>
           </div>
         </div>
       </section>

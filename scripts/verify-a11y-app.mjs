@@ -1400,6 +1400,44 @@ async function landingPage() {
   }
 }
 
+// Public, no account needed. CI is local mode, so a complete message ends at
+// the visible, focused "not set up" alert (the send path is in verify-e2e).
+async function contactPage() {
+  page = '/contact';
+  const { proc, ws, send } = await openPage(page);
+  try {
+    await runAxe(send, '');
+    await checkTree(send);
+    const docTitle = await evaluate(send, `document.title`);
+    if (docTitle !== 'Contact · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    else note(`title: ${docTitle}`);
+    await checkTabOrder(send);
+    if (!(await focusByName(send, 'button', 'Send message'))) fail('CONTACT  no Send message button');
+    else {
+      await key(send, 'Enter');
+      await sleep(300);
+      const empty = await evaluate(send, `({ invalid: document.activeElement?.getAttribute('aria-invalid'), described: document.activeElement?.getAttribute('aria-describedby') ?? '', alert: document.querySelector('.contact-error[role=alert]')?.textContent ?? '' })`);
+      if (empty.invalid !== 'true' || !empty.alert || !empty.described.includes(await evaluate(send, `document.querySelector('.contact-error').id`))) fail(`CONTACT  an empty send must focus the field, mark it invalid and describe it by the error (${JSON.stringify(empty)})`);
+      else note('an empty send focuses the message field, marked invalid and described by the error');
+      await runAxe(send, ' (error shown)');
+      await evaluate(send, `document.querySelector('textarea').focus()`);
+      await send('Input.insertText', { text: 'A barrier report.' });
+      await evaluate(send, `document.querySelector('input[type=email]').focus()`);
+      await send('Input.insertText', { text: 'person@example.org' });
+      await focusByName(send, 'button', 'Send message');
+      await key(send, 'Enter');
+      await sleep(800);
+      const alert = await evaluate(send, `document.activeElement?.getAttribute('role') === 'alert' ? document.activeElement.textContent : ''`);
+      if (!/aren’t set up/.test(alert)) fail(`CONTACT  in local mode a send must end at a focused alert (got ${JSON.stringify(alert)})`);
+      else note('a send in local mode ends at a visible, focused alert');
+    }
+    await checkReflow(send);
+    await checkForcedColors(send);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 async function accessibilityPage() {
   page = '/accessibility';
   const { proc, ws, send } = await openPage(page);
@@ -1475,6 +1513,7 @@ async function checkPdfExport(send, dir) {
 try {
   await landingPage();
   await accessibilityPage();
+  await contactPage();
   await privacyPage();
   await signIn();
   await home();

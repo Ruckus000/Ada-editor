@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { AccountControls } from '../../_auth/AccountControls';
 import { PageSection, SitePage } from '../../_site/SitePage';
 import './privacy.css';
@@ -29,7 +30,7 @@ export default function Page() {
       lead="Ada Editor is a writing tool that checks documents for accessibility problems. This page says what it keeps about you, why, who helps run it, and how to remove it."
       heroExtra={
         <>
-          <p data-rv="" data-rv-delay="200" className="page-date site-mono">Last updated <time dateTime="2026-09-28">28 September 2026</time></p>
+          <p data-rv="" data-rv-delay="200" className="page-date site-mono">Last updated <time dateTime="2026-09-30">30 September 2026</time></p>
           <h2 className="ada-visually-hidden">In short</h2>
           <ul data-stagger="" className="page-highlights">
             <li>
@@ -71,7 +72,14 @@ export default function Page() {
             you use Ada Editor once no document of yours uses it and it was added at least a week ago.
           </li>
           <li>A sign-in session, stored in your browser so you stay signed in.</li>
-          <li>Messages you send us from this page, with your email address, so we can reply.</li>
+          <li>
+            Messages you send us from the contact page, with the email address to reply to. If
+            you’re signed in, that’s your account’s address and the message is linked to your account.
+          </li>
+          <li>
+            To stop the contact form being flooded, a scrambled (one-way hashed) form of the sending device’s IP address, for
+            one day. We never store the address itself.
+          </li>
         </ul>
       </PageSection>
 
@@ -89,14 +97,18 @@ export default function Page() {
       </PageSection>
 
       <PageSection id="how-long" title="How long we keep it">
-        <p>Until you delete your account. Deleting it removes your account, every document and image in it and any messages you sent us, straight away.</p>
+        <p>Until you delete your account. Deleting it removes your account, every document and image in it and any messages you sent us while signed in, straight away.</p>
+        <p>
+          Messages sent without an account are kept until we delete them.{' '}
+          <Link href="/contact">Ask us to delete yours</Link> at any time.
+        </p>
       </PageSection>
 
       <PageSection id="choices" title="Your choices">
         <ul>
           <li>Download any document as a web page with <strong>Export HTML</strong> in the editor.</li>
           <li>Delete your account below, at any time.</li>
-          <li>Ask us anything about your data with the form below.</li>
+          <li>Ask us anything about your data, or to delete a message you sent, from the <Link href="/contact">contact page</Link>.</li>
         </ul>
         <div className="page-account"><AccountControls /></div>
       </PageSection>
