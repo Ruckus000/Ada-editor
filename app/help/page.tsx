@@ -6,6 +6,7 @@ import { SEVERITY_ENCODING } from '../../design-system/primitives/severity';
 import { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
 import { RULES } from '../_engine/rules';
 import { Site, Toc } from '../_site/Site';
+import { TourReplay } from '../_tour/TourReplay';
 
 export const metadata: Metadata = { title: 'Help · Ada Editor' };
 
@@ -62,6 +63,7 @@ export default function Page() {
               <li><strong>Work through the findings.</strong> They’re listed beside the page, most serious first. Each says what’s wrong, why it matters and which WCAG criterion it comes from. Go to text takes you to it; Apply fix appears when the fix is certain.</li>
               <li><strong>Export.</strong> When you’re done, Export saves a web page or a tagged PDF.</li>
             </ol>
+            <p>Prefer to be shown? The tour points out each part of your desk and the editor. <TourReplay /></p>
           </section>
 
           <section id="severities" aria-labelledby="sev-title">
