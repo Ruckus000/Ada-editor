@@ -2292,6 +2292,14 @@ await acheck('import rejects hostile or unreadable files with a plain message', 
   await rejects(docx({ body: '<w:p/>'.repeat(401_000) }), 'too large to import', 'an element budget blow-out');
 });
 
+check('display: stored settings are checked before they reach <html>', () => {
+  const { parseDisplay } = mod.display;
+  deepEq(parseDisplay({ theme: 'dark', text: 130 }), { theme: 'dark', text: 130 }, 'valid settings pass through');
+  deepEq(parseDisplay({ theme: '"><script>', text: '150' }), { theme: 'system', text: 100 }, 'junk, and a size as a string, fall back');
+  deepEq(parseDisplay(null), { theme: 'system', text: 100 }, 'nothing stored: the defaults');
+  deepEq(parseDisplay({ theme: 'light', text: 999 }), { theme: 'light', text: 100 }, 'each field checked on its own');
+});
+
 check('store: a sheet’s excerpt skips the title and ends each block as a sentence', () => {
   const { excerptOf } = mod.store;
   eq(excerptOf(doc(heading(1, 'Title'), para('City Planning Commission'), para('Hearing at 6 pm.'))), 'City Planning Commission. Hearing at 6 pm.', 'title skipped, subtitle gets a full stop');

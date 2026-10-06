@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import '../design-system/tokens.css';
 import '../design-system/primitives/primitives.css';
 import { Providers } from './Providers';
+import { PREPAINT } from './_data/display';
 
 // No default title: a server <title> outranks the one a client screen renders
 // (document.title reads the first), so routes that only learn their title in
@@ -14,7 +15,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // The pre-paint script sets data-theme/data-text/data-session on <html>
+    // from this browser's storage, so React must not treat them as a mismatch.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PREPAINT }} />
+      </head>
       <body>
         {/* One live region for the whole app; every screen announces through it. */}
         <Providers>{children}</Providers>
