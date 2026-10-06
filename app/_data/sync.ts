@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { adoptDisplay } from './display';
+import { adoptTours } from './tour';
 import { getClient } from './supabase';
 import { allDocs, applyPulled, clearStore, createDoc, deleteDoc, detachStore, dirtyDocs, isDirty, loadDoc, markPushed, onDocsDirty, rebaseDoc, replaceDoc, setStoreUser } from './store';
 import { imageKeysOf } from './imageFormat';
@@ -297,6 +298,7 @@ export function loadAccount(uid: string): Promise<void> {
     // Display settings follow the person: the account's win on this device.
     const { data: signedIn } = await client.auth.getSession();
     adoptDisplay(signedIn.session?.user.user_metadata?.display);
+    adoptTours(signedIn.session?.user.user_metadata?.tour);
     loadedUid = uid;
     await push();
     void sweepImages(uid);

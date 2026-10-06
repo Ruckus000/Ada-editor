@@ -1426,6 +1426,46 @@ async function checkPdfExport(send, dir) {
   if (violations.length) fail(`PDF  axe on the refusal notice: ${violations.join(', ')}`);
 }
 
+/** The first-run tour: offered without taking focus, keyboard-driven once
+ *  started, ended by Escape without losing focus, and not offered again. */
+async function tour() {
+  page = '/ (tour)';
+  const { proc, ws, send } = await openPage('/');
+  try {
+    await evaluate(send, `localStorage.removeItem('ada.tour')`);
+    await send('Page.reload');
+    await sleep(1500);
+    const offered = await evaluate(send, `({ offer: !!document.querySelector('.tour[role=region]'), focus: document.activeElement?.tagName })`);
+    if (!offered.offer) { fail('TOUR  a first visit is not offered the tour'); return; }
+    if (offered.focus !== 'BODY') fail(`TOUR  offering the tour moved focus (to ${offered.focus})`);
+    else note('the tour is offered on a first visit without moving focus');
+    await runAxe(send, ' (tour offered)');
+    if (!(await focusByName(send, 'button', 'Start tour'))) { fail('TOUR  no Start tour button'); return; }
+    await key(send, 'Enter');
+    await sleep(400);
+    const first = await evaluate(send, `({ heading: document.activeElement?.id === 'tour-step' ? document.activeElement.textContent : '', marked: document.querySelectorAll('[data-tour-current]').length })`);
+    if (!first.heading.startsWith('Start a document') || !/step 1 of \d/.test(first.heading) || first.marked !== 1) fail(`TOUR  starting did not focus the first step and mark its control: ${JSON.stringify(first)}`);
+    else note(`Start tour focuses the first step, which names its place ("${first.heading}") and outlines its control`);
+    await runAxe(send, ' (tour step)');
+    await focusByName(send, 'button', 'Next');
+    await key(send, 'Enter');
+    await sleep(400);
+    const second = await evaluate(send, `document.activeElement?.id === 'tour-step' ? document.activeElement.textContent : ''`);
+    if (!/step 2 of/.test(second)) fail(`TOUR  Next did not move to step 2 (focus on ${JSON.stringify(second)})`);
+    await key(send, 'Escape');
+    await sleep(400);
+    const after = await evaluate(send, `({ open: !!document.querySelector('.tour'), focus: document.activeElement?.tagName, marked: document.querySelectorAll('[data-tour-current]').length, seen: JSON.parse(localStorage.getItem('ada.tour') || '{}').desk })`);
+    if (after.open || after.marked || after.focus === 'BODY' || after.seen !== true) fail(`TOUR  Escape should end the tour, keep focus on the page and remember it: ${JSON.stringify(after)}`);
+    else note('Escape ends the tour, focus lands on the control it was showing, and it is remembered');
+    await send('Page.reload');
+    await sleep(1500);
+    if (await evaluate(send, `!!document.querySelector('.tour')`)) fail('TOUR  offered again after it was ended');
+    else note('a tour once ended is not offered again');
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 /** Display settings: the dialog, a pinned theme that beats the OS, and the
  *  largest text size still reflowing on the desk and in the editor. */
 async function display() {
@@ -1500,6 +1540,7 @@ try {
   await language();
   await editor();
   await display();
+  await tour();
   await statusScreens();
 } finally {
   server.kill();

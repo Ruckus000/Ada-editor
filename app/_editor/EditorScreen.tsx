@@ -26,6 +26,8 @@ import type { DocSummary } from '../_data/seed';
 import { removeDoc, setOpenEditor } from '../_data/sync';
 import { openConflicts } from '../_auth/ConflictDialog';
 import { AccountMenu } from '../_auth/AccountMenu';
+import { Tour } from '../_tour/Tour';
+import type { TourStep } from '../_tour/Tour';
 import { ALIGN_NAMES, AltTextDialog, FigureLayoutDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, SIZE_NAMES, StoredImg, TableCaptionDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
@@ -84,6 +86,14 @@ const figurePos = (state: EditorState, id: string) => {
 
 const wordsIn = (state: EditorState) =>
   state.doc.textBetween(0, state.doc.content.size, ' ', ' ').trim().split(/\s+/).filter(Boolean).length;
+
+/** The editor's first-run tour, offered on the first document opened. */
+const EDITOR_TOUR: TourStep[] = [
+  { target: '#document-text', title: 'Write here', body: 'Structure checks run as you type: headings, links, images, tables, contrast. Wording checks run when you leave the page or choose Recheck.' },
+  { target: 'aside[aria-label="Accessibility findings"]', title: 'Your findings', body: 'Most serious first, each with the WCAG criterion it comes from. Filter by severity at the top.' },
+  { target: 'aside [role="group"][aria-labelledby^="finding-"]', title: 'Work through one', body: 'Go to text takes you to it. Apply fix appears when the fix is certain. Learn more explains the check.' },
+  { target: '.tour-export', title: 'Export when you’re ready', body: 'Save a web page or a tagged PDF. Exports keep the document exactly as it is.' },
+];
 
 export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredDoc }) {
   const announce = useAnnounce();
@@ -1013,7 +1023,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             label="Export"
             variant="secondary"
             showLabel
-            className={styles.barMenu}
+            className={`${styles.barMenu} tour-export`}
             icon={<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13V3M6 9l4 4 4-4M4 15v2h12v-2" /></svg>}
           >
             <li><button type="button" className={styles.barItem} onClick={() => void onExport()}>Export HTML<span>A web page with its structure and alt text</span></button></li>
@@ -1255,6 +1265,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         </aside>
       </div>
 
+      {/* Offered, not started; its steps are looked up when someone starts it. */}
+      <Tour name="editor" ready steps={EDITOR_TOUR} />
       <HeaderFooterDialog
         open={hfOpen}
         onOpenChange={setHfOpen}

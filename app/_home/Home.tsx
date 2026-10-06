@@ -13,6 +13,8 @@ import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc } from '../_data/sync';
 import { AccountMenu } from '../_auth/AccountMenu';
+import { Tour } from '../_tour/Tour';
+import type { TourStep } from '../_tour/Tour';
 import { putImage } from '../_data/images';
 import { MAX_IMAGE_BYTES, remapImageKeys } from '../_data/imageFormat';
 import type { Remapped } from '../_data/imageFormat';
@@ -35,6 +37,14 @@ type Filter = OpenSeverity | 'clear' | 'all';
 type Item = { question: string; docId: string };
 
 const GRID_AT = 5;
+
+/** The desk's first-run tour (only the steps whose controls are on screen run). */
+const DESK_TOUR: TourStep[] = [
+  { target: '.home-new', title: 'Start a document', body: 'Write on a blank page, or import a Word file (.docx). Imports are read in your browser and never uploaded.' },
+  { target: '.home-find', title: 'Find a document', body: 'Search by title. Ctrl K (⌘K on a Mac) opens it from anywhere on your desk.' },
+  { target: '.home-calls', title: 'Questions only you can answer', body: 'Some checks need a person’s judgement, like whether alt text really describes the picture. They wait for you here.' },
+  { target: '.tour-account', title: 'Display, Help and more', body: 'Change the theme or text size, read how every check works, or sign out.' },
+];
 /** 12 fills 2, 3, 4 and 6 columns alike, so the first page never ends ragged. */
 const PAGE = 12;
 const NOTES = 3;
@@ -501,6 +511,7 @@ export function Home() {
           />
         ) : null}
       </main>
+      <Tour name="desk" ready={Boolean(dash)} steps={DESK_TOUR} />
     </div>
   );
 }
