@@ -53,8 +53,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
     void (async () => {
       const { data } = await client.auth.getSession();
       const uid = data.session?.user.id;
-      // ponytail: client-side, so crawlers on / see the loading screen; move to a
-      // server redirect if SEO on / matters.
+      // PREPAINT sends a full load of / to /welcome before paint; this covers
+      // client navigations and a stored session that has expired.
+      // ponytail: non-JS crawlers and link previews of / still see "Your desk";
+      // middleware plus a session cookie if that matters.
       if (!uid) { router.replace(pathname === '/' ? '/welcome' : '/sign-in'); return; }
       try {
         await loadAccount(uid);
