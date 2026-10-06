@@ -25,6 +25,7 @@ import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { removeDoc, setOpenEditor } from '../_data/sync';
 import { openConflicts } from '../_auth/ConflictDialog';
+import { AccountMenu } from '../_auth/AccountMenu';
 import { ALIGN_NAMES, AltTextDialog, FigureLayoutDialog, HeaderFooterDialog, ImageIcon, InsertTableDialog, LinkDialog, SIZE_NAMES, StoredImg, TableCaptionDialog } from './dialogs';
 import type { SectionState } from './dialogs';
 import {
@@ -345,6 +346,16 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         ],
       }),
       nodeViews: { figure: figureView, table: tableView },
+      // A size set in the document is drawn relative to the page's text, so it
+      // grows with the reader's text size. The schema's toDOM (the HTML export)
+      // keeps the pixels the author chose.
+      markViews: {
+        fontSize: (mark) => {
+          const dom = document.createElement('span');
+          dom.style.fontSize = `${Number(mark.attrs.size) / 16}em`;
+          return { dom };
+        },
+      },
       // The document's language, so spellcheck and screen readers use it here too.
       attributes: (state) => ({
         id: 'document-text',
@@ -1026,6 +1037,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             </li>
             <li><button type="button" className={`${styles.barItem} ${styles.barDanger}`} onClick={() => void onDelete()}>Delete document</button></li>
           </Popover>
+          <AccountMenu className={styles.barMenu} />
         </div>
       </header>
 

@@ -135,16 +135,6 @@ body { background: var(--ada-surface-sunken); }
 .home-pop__item > span { display: flex; flex-direction: column; gap: 2px; }
 .home-pop__item strong { font-weight: 700; }
 .home-pop__item > span > span { font-size: var(--ada-type-size-sm); color: var(--ada-text-secondary); }
-.home-pop__item--plain { display: flex; align-items: center; font-weight: 700; }
-
-.home-pop__note {
-  max-inline-size: 16.25rem;
-  padding: var(--ada-space-2) 0.875rem var(--ada-space-3);
-  border-top: 1px solid var(--ada-border-subtle);
-  font-size: var(--ada-type-size-sm);
-  line-height: 1.4;
-  color: var(--ada-text-secondary);
-}
 
 /* ---------- main ---------- */
 

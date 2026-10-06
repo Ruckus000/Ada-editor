@@ -6,6 +6,7 @@ export * as textHelpers from '../../app/_engine/textHelpers';
 export * as rules from '../../app/_engine/rules';
 export * as check from '../../app/_engine/check';
 export * as store from '../../app/_data/store';
+export * as display from '../../app/_data/display';
 export * as editorFindings from '../../app/_editor/findings';
 export * as editorCommands from '../../app/_editor/editorCommands';
 export * as exportHtml from '../../app/_editor/exportHtml';

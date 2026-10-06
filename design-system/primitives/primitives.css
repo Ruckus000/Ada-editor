@@ -216,3 +216,32 @@
   border: 1px solid var(--ada-border-subtle);
   border-radius: var(--ada-radius-lg);
 }
+
+.ada-pop__item {
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-height: var(--ada-target-comfortable);
+  padding: var(--ada-space-2) var(--ada-space-3);
+  border: none;
+  border-radius: var(--ada-radius-md);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ada-text-primary);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ada-pop__item:hover { background: var(--ada-surface-sunken); color: var(--ada-text-primary); }
+.ada-pop__item:focus-visible { outline-offset: -2px; box-shadow: none; }
+
+.ada-pop__note {
+  max-inline-size: 16rem;
+  padding: var(--ada-space-2) var(--ada-space-3);
+  border-top: 1px solid var(--ada-border-subtle);
+  font-size: var(--ada-type-size-sm);
+  line-height: 1.4;
+  color: var(--ada-text-secondary);
+}

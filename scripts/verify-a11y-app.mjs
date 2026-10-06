@@ -304,7 +304,7 @@ async function home() {
     await sleep(200);
     if (!(await focusByName(send, 'a', 'Privacy'))) fail('ACCOUNT  the account button does not reveal Privacy');
     // The gate builds without Supabase (local mode): no Sign out, and the menu says why.
-    const accountNote = await evaluate(send, `document.querySelector('.home-pop__note')?.textContent ?? ''`);
+    const accountNote = await evaluate(send, `document.querySelector('.ada-pop__note')?.textContent ?? ''`);
     if (!accountNote.includes('No account')) fail(`ACCOUNT  local mode does not explain the missing Sign out (got ${JSON.stringify(accountNote)})`);
     await key(send, 'Escape');
 
@@ -1416,6 +1416,66 @@ async function checkPdfExport(send, dir) {
   if (violations.length) fail(`PDF  axe on the refusal notice: ${violations.join(', ')}`);
 }
 
+/** Display settings: the dialog, a pinned theme that beats the OS, and the
+ *  largest text size still reflowing on the desk and in the editor. */
+async function display() {
+  page = '/ (display)';
+  const { proc, ws, send } = await openPage('/');
+  try {
+    await evaluate(send, `localStorage.removeItem('ada.display')`);
+    await focusByName(send, 'button', 'Account');
+    await key(send, 'Enter');
+    await sleep(200);
+    if (!(await focusByName(send, 'button', 'Display'))) { fail('DISPLAY  the account menu has no Display'); return; }
+    await key(send, 'Enter');
+    await sleep(300);
+    if (!(await evaluate(send, `!!document.querySelector('dialog[open]')`))) { fail('DISPLAY  Display did not open a dialog'); return; }
+    await runAxe(send, ' (display dialog)');
+    await evaluate(send, `[...document.querySelectorAll('dialog input[name=display-theme]')].find((i) => i.value === 'dark').click()`);
+    await sleep(300);
+    const pinned = await evaluate(send, `document.documentElement.dataset.theme ?? ''`);
+    const said = await liveText(send);
+    if (pinned !== 'dark' || !/^Theme: Dark\./.test(said)) fail(`DISPLAY  choosing Dark gave data-theme=${JSON.stringify(pinned)}, announced ${JSON.stringify(said)}`);
+    else note('Display: choosing a theme applies it at once and says so');
+    await runAxe(send, ' (display dialog, dark)');
+    await key(send, 'Escape');
+    await sleep(300);
+    const back = await evaluate(send, `!document.querySelector('dialog[open]') && (document.activeElement?.textContent ?? '').includes('Account')`);
+    if (!back) fail('DISPLAY  Escape did not close the dialog and return focus to the account button');
+
+    // A pinned theme beats the OS in both directions, from the first paint.
+    const canvas = () => evaluate(send, `getComputedStyle(document.body).backgroundColor`);
+    await send('Page.reload');
+    await sleep(1200);
+    const darkOnLightOs = await canvas();
+    await evaluate(send, `localStorage.setItem('ada.display', JSON.stringify({ theme: 'light', text: 100 }))`);
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    await send('Page.reload');
+    await sleep(1200);
+    const lightOnDarkOs = await canvas();
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+    const lum = (rgb) => (rgb.match(/\d+/g) ?? []).slice(0, 3).reduce((a, n) => a + Number(n), 0);
+    if (!(lum(darkOnLightOs) < 150 && lum(lightOnDarkOs) > 600)) fail(`DISPLAY  a pinned theme did not beat the OS (dark pinned on a light OS: ${darkOnLightOs}; light pinned on a dark OS: ${lightOnDarkOs})`);
+    else note('a pinned theme wins over the OS setting either way, from the first paint');
+
+    // The largest text size: still no horizontal scroll, desk and editor.
+    await evaluate(send, `localStorage.setItem('ada.display', JSON.stringify({ theme: 'system', text: 150 }))`);
+    for (const path of ['/', '/editor/hearing-notice']) {
+      page = `${path} (text 150%)`;
+      await send('Page.navigate', { url: origin + path });
+      await sleep(1800);
+      const size = await evaluate(send, `getComputedStyle(document.documentElement).fontSize`);
+      if (size !== '24px') fail(`TEXT  the root size at "Largest" is ${size}, not 24px`);
+      const wide = await evaluate(send, `document.documentElement.scrollWidth - document.documentElement.clientWidth`);
+      if (wide > 1) fail(`TEXT  ${wide}px of horizontal scroll at 150% text, 1280px wide`);
+      await checkReflow(send);
+    }
+    await evaluate(send, `localStorage.removeItem('ada.display')`);
+  } finally {
+    await shutdown(send, ws, proc);
+  }
+}
+
 try {
   await staticPage('/welcome', 'Accessible document editor · Ada Editor');
   await staticPage('/accessibility', 'Accessibility · Ada Editor');
@@ -1428,6 +1488,7 @@ try {
   await triage();
   await language();
   await editor();
+  await display();
   await statusScreens();
 } finally {
   server.kill();

@@ -11,7 +11,8 @@ import type { DocSummary } from '../_data/seed';
 import { createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
 import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
-import { removeDoc, signOut } from '../_data/sync';
+import { removeDoc } from '../_data/sync';
+import { AccountMenu } from '../_auth/AccountMenu';
 import { putImage } from '../_data/images';
 import { MAX_IMAGE_BYTES, remapImageKeys } from '../_data/imageFormat';
 import type { Remapped } from '../_data/imageFormat';
@@ -417,11 +418,6 @@ export function Home() {
     }
   };
 
-  // Edits that never reached the server would be lost with the cache, so ask.
-  const onSignOut = async () => {
-    const done = await signOut(() => window.confirm('Some changes haven’t reached your account yet. If you sign out now, they will be lost. Sign out anyway?'));
-    if (done) router.replace('/sign-in');
-  };
 
   const titleOf = (id: string) => docs.find((d) => d.id === id)?.title ?? '';
   const items = dash?.manualItems ?? [];
@@ -475,18 +471,7 @@ export function Home() {
               </button>
             </li>
           </Popover>
-          <Popover
-            label="Account"
-            variant="ghost"
-            buttonClassName="home-round"
-            icon={<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="12" cy="8.5" r="3.5" /><path d="M5 19.5c1.2-3.2 4-5 7-5s5.8 1.8 7 5" /></svg>}
-          >
-            <li><Link href="/privacy" className="home-pop__item home-pop__item--plain">Privacy</Link></li>
-            {isCloud
-              ? <li><button type="button" className="home-pop__item home-pop__item--plain" onClick={() => void onSignOut()}>Sign out</button></li>
-              // Local mode has no account to leave: say so, rather than leave people hunting for Sign out.
-              : <li className="home-pop__note">No account on this copy of Ada Editor. Documents are kept in this browser only.</li>}
-          </Popover>
+          <AccountMenu buttonClassName="home-round" />
         </div>
       </header>
       <NewDocumentDialog open={newOpen} onCreate={onCreate} onClose={() => setNewOpen(false)} />
