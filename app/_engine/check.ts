@@ -183,6 +183,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       from,
       to,
       anchor,
+      ruleId: f.ruleId,
     };
     // The diff UI shows original → suggestion; only the machine-decidable
     // fixes set one, and none is a text replacement (see FindingFix).

@@ -1189,7 +1189,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                   <Glyph severity={active.severity} />
                   {SEVERITY_ENCODING[active.severity].label}
                 </span>
-                <span className={styles.criterionChip}>{`WCAG ${active.criterion}`}</span>
+                <span className={styles.criterionChip}>
+                  {`WCAG ${active.criterion}`}
+                  {active.ruleId ? <>{' '}<Link href={`/help#rule-${active.ruleId}`} className={styles.learnMore}>Learn more<VisuallyHidden>{` about ${active.criterion}`}</VisuallyHidden></Link></> : null}
+                </span>
               </div>
               <h3 id={`finding-${active.id}`} className={styles.cardTitle}>{active.title}</h3>
               <p className={styles.cardBody}>{active.explanation}</p>

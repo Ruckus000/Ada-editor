@@ -17,7 +17,7 @@ import { ConflictDialog } from './ConflictDialog';
  * Local mode (no Supabase env vars) renders straight through.
  */
 /** Readable without an account: signing in, what signing up means, and the landing page. */
-const PUBLIC_PATHS = new Set(['/sign-in', '/sign-up', '/privacy', '/accessibility', '/welcome']);
+const PUBLIC_PATHS = new Set(['/sign-in', '/sign-up', '/privacy', '/accessibility', '/welcome', '/help']);
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
