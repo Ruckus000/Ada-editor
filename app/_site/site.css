@@ -294,6 +294,21 @@ html[data-session] .site-header__out > * { visibility: hidden; }
 .site-col section > p, .site-col section > ul:not([class]) { margin-top: var(--ada-space-4); line-height: 1.7; color: var(--ada-text-secondary); text-wrap: pretty; }
 .site-col section > ul:not([class]) { padding-left: 1.25rem; list-style: disc; }
 .site-col section > ul:not([class]) li + li { margin-top: var(--ada-space-2); }
+.site-col section > ol:not([class]) { margin-top: var(--ada-space-4); padding-left: 1.25rem; line-height: 1.7; color: var(--ada-text-secondary); }
+.site-col section > ol:not([class]) li + li { margin-top: var(--ada-space-3); }
+.site-col section strong { color: var(--ada-text-primary); }
+
+/* Help: severities and checks */
+.site-defs { margin: var(--ada-space-5) 0 0; display: flex; flex-direction: column; gap: var(--ada-space-4); }
+.site-defs dt { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ada-space-3); }
+.site-defs__wcag { font-size: var(--ada-type-size-sm); color: var(--ada-text-secondary); }
+.site-defs dd { margin: var(--ada-space-1) 0 0; line-height: 1.6; color: var(--ada-text-secondary); }
+.site-col section > section { margin-top: var(--ada-space-6); }
+.site-col h4 { margin: 0; font-size: 1.0625rem; font-weight: 700; }
+.site-rule { margin-top: var(--ada-space-4); padding: var(--ada-space-4) 0 0; border-top: 1px solid var(--ada-border-subtle); scroll-margin-top: 6rem; }
+.site-rule p { margin: var(--ada-space-2) 0 0; line-height: 1.65; color: var(--ada-text-secondary); }
+.site-rule .site-rule__crit { margin-top: 2px; font-size: var(--ada-type-size-sm); color: var(--ada-text-tertiary); }
+.site-rule:target { outline: 2px solid var(--ada-focus-ring); outline-offset: var(--ada-space-3); border-radius: var(--ada-radius-sm); }
 .site-col strong { color: var(--ada-text-primary); }
 .site-col a:not(.ada-button) { color: var(--ada-action-primary-bg); }
 

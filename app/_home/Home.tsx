@@ -519,6 +519,7 @@ function EmptyDesk({ onNew, onImport }: { onNew: () => void; onImport: () => voi
           <Button variant="primary" onClick={onNew}>Create a document</Button>
           <Button variant="ghost" onClick={onImport}>Import a Word file</Button>
         </div>
+        <p className="home-how__help">New to accessibility checks? <Link href="/help">How Ada Editor works</Link></p>
       </section>
     </div>
   );

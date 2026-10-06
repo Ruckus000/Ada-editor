@@ -2292,6 +2292,19 @@ await acheck('import rejects hostile or unreadable files with a plain message', 
   await rejects(docx({ body: '<w:p/>'.repeat(401_000) }), 'too large to import', 'an element budget blow-out');
 });
 
+check('help: every rule explains itself, and every finding names its rule', () => {
+  const { RULES } = mod.rules;
+  for (const r of RULES) assert(r.name && r.about && r.fix, `${r.id} is missing its name, about or fix text`);
+  const ids = new Set(RULES.map((r) => r.id));
+  const { SEEDS, buildSeedDocument } = mod.seed;
+  for (const seed of SEEDS) {
+    for (const f of mod.check.checkDocument(buildSeedDocument(seed.content), { prose: true })) {
+      assert(ids.has(f.ruleId), `${seed.id}: finding ${f.id} names no rule (${f.ruleId}), so Learn more would go nowhere`);
+    }
+  }
+  eq(mod.editorFindings.imageFinding('x', 'header image', { kind: 'section', section: 'header' }).ruleId, 'img-alt-missing', 'header and footer image findings name their rule too');
+});
+
 check('display: stored settings are checked before they reach <html>', () => {
   const { parseDisplay } = mod.display;
   deepEq(parseDisplay({ theme: 'dark', text: 130 }), { theme: 'dark', text: 130 }, 'valid settings pass through');

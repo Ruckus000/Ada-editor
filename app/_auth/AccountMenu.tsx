@@ -26,6 +26,7 @@ export function AccountMenu({ className, buttonClassName }: { className?: string
         icon={<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="12" cy="8.5" r="3.5" /><path d="M5 19.5c1.2-3.2 4-5 7-5s5.8 1.8 7 5" /></svg>}
       >
         <li><button type="button" className="ada-pop__item" onClick={() => setDisplayOpen(true)}>Display</button></li>
+        <li><Link href="/help" className="ada-pop__item">Help</Link></li>
         <li><Link href="/privacy" className="ada-pop__item">Privacy</Link></li>
         {isCloud
           ? <li><button type="button" className="ada-pop__item" onClick={() => void onSignOut()}>Sign out</button></li>
