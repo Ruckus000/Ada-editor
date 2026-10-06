@@ -346,9 +346,21 @@ async function firstBrowser() {
   const browser = await openBrowser();
   const { send } = browser.tab;
   try {
+    page = 'landing';
+    await go(send, '/');
+    const toLanding = await waitFor(send, `location.pathname === '/welcome' && !!document.querySelector('h1')`);
+    const start = await evaluate(send, `[...document.querySelectorAll('a')].find((a) => a.textContent.trim() === 'Start writing')?.getAttribute('href')`);
+    if (!toLanding) fail(`LANDING  a signed-out visit to / ended at ${await evaluate(send, 'location.pathname')}, not /welcome`);
+    else if (start !== '/sign-in') fail(`LANDING  "Start writing" goes to ${JSON.stringify(start)}, not /sign-in`);
+    else note('a signed-out visit to / lands on the landing page, whose "Start writing" leads to sign-in');
+
     page = 'sign up';
     uid = await signIn(send, A);
     if (!uid) return;
+    await evaluate(send, `window.e2eBefore = true`); // already on the desk: wait for a new document
+    await go(send, '/sign-in');
+    if (!(await waitFor(send, `!window.e2eBefore && location.pathname === '/' && !!document.querySelector('.home-main')`))) fail(`SIGNIN  a signed-in visit to /sign-in stayed at ${await evaluate(send, 'location.pathname')}`);
+    else note('a signed-in visit to /sign-in goes straight to the desk');
     const onDesk = await sheetIds(send);
     const sampleOnly = await evaluate(send, `!!document.querySelector('.home-how')`);
     const rows = await docsOf(uid);

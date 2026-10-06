@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Accessibility gate for the app screens (Homepage, Editor).
+ * Accessibility gate for the app screens (public pages, Homepage, Editor).
  *
  * verify-a11y.mjs gates the design-system primitives through the preview
  * harness. That says nothing about the screens built from them: layout,
@@ -1322,18 +1322,28 @@ async function signIn() {
 
 /* ---------- privacy notice ---------- */
 
-// Public page (readable before signing up). In local mode the account actions
+// The public pages, readable before signing up: landing, accessibility
+// statement, privacy notice. In local mode the privacy page's account actions
 // (message form, delete account) don't render: there are no accounts.
-async function privacyPage() {
-  page = '/privacy';
+async function staticPage(path, title) {
+  page = path;
   const { proc, ws, send } = await openPage(page);
   try {
+    // The landing's one-shot entrance must finish first: axe reads contrast
+    // off half-faded text otherwise.
+    await evaluate(send, `Promise.all(document.getAnimations().map((a) => a.finished)).then(() => true)`);
     await runAxe(send, '');
     await checkTree(send);
     const docTitle = await evaluate(send, `document.title`);
-    if (docTitle !== 'Privacy · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    if (docTitle !== title) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
     else note(`title: ${docTitle}`);
-    if (!(await focusByName(send, 'a', 'Back to Ada Editor'))) fail('PRIVACY  no way back to the app');
+    if (!(await focusByName(send, 'a', 'Start writing'))) fail('SITE  no way into the app');
+    // The skip link lands on <main>.
+    if (!(await focusByName(send, 'a', 'Skip to content'))) fail('SKIP  no "Skip to content" link');
+    await key(send, 'Enter');
+    await sleep(100);
+    if ((await evaluate(send, `document.activeElement?.id`)) !== 'main') fail('SKIP  "Skip to content" did not move focus to main');
+    else note('skip link moves focus to main');
     await checkTabOrder(send);
     await checkReflow(send);
     await checkForcedColors(send);
@@ -1398,7 +1408,9 @@ async function checkPdfExport(send, dir) {
 }
 
 try {
-  await privacyPage();
+  await staticPage('/welcome', 'Accessible document editor · Ada Editor');
+  await staticPage('/accessibility', 'Accessibility · Ada Editor');
+  await staticPage('/privacy', 'Privacy · Ada Editor');
   await signIn();
   await home();
   await newDocument();
