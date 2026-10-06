@@ -1521,11 +1521,12 @@ check('cloud mode: server rows replace the cache, unpushed local edits win, acco
 
     store.setStoreUser('u2');
     eq(store.loadDashboardData().docs.length, 0, 'another account sees nothing of the first');
-    store.seedAccount();
-    deepEq(store.loadDashboardData().docs.map((d) => d.id), [store.SAMPLE_ID], 'a new account gets the one sample');
-    eq(ids().length, 1, 'queued for the server');
-    store.deleteDoc(store.SAMPLE_ID);
-    eq(store.loadDashboardData().docs.length, 0, 'the sample can be deleted');
+    store.seedIfEmpty();
+    eq(store.loadDashboardData().docs.length, 0, 'a new account starts empty: no samples');
+    const first = store.createDoc({ title: 'First', header: '', footer: '', content: storedDocJSON('x').content, importNotes: [] });
+    eq(ids().length, 1, 'its first document is queued for the server');
+    store.deleteDoc(first.id);
+    eq(store.loadDashboardData().docs.length, 0, 'a document can be deleted');
     eq(ids().length, 0, 'and is no longer queued, so no push recreates it');
     store.clearStore();
     assert(![...disk.keys()].some((k) => k.startsWith('ada.docs.v1:u2')), 'sign-out leaves nothing of the account on disk');
