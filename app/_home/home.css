@@ -8,7 +8,7 @@
  *
  * Breakpoints: phone < 40rem (640px), tablet < 60rem (960px). */
 
-body { margin: 0; background: var(--ada-surface-sunken); }
+body { background: var(--ada-surface-sunken); }
 
 .home {
   --home-shadow: 0 12px 32px rgb(22 28 36 / 0.14);
