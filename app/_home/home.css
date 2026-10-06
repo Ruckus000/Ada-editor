@@ -396,42 +396,6 @@ body { margin: 0; background: var(--ada-surface-sunken); }
 .home-how__actions a.ada-button { text-decoration: none; font-size: var(--ada-type-size-sm); }
 .home-how__actions a.ada-button:hover { color: var(--ada-action-primary-fg); }
 
-.home-sample {
-  position: relative;
-  flex: 0 1 27.5rem;
-  min-width: min(18.75rem, 100%);
-  block-size: 27.5rem;
-}
-
-.home-sample .home-sheet {
-  position: absolute;
-  left: 0;
-  top: 0;
-  inline-size: 14.75rem;
-  block-size: 20rem;
-  animation: home-rise 600ms 320ms var(--ada-motion-ease) both;
-}
-
-.home-sample .home-note {
-  position: absolute;
-  right: 0;
-  top: 9.375rem;
-  animation: home-rise 600ms 440ms var(--ada-motion-ease) both;
-}
-
-.home-sample__caption {
-  position: absolute;
-  left: 0;
-  top: 23.75rem;
-  inline-size: 14.75rem;
-  padding: 0 var(--ada-space-1);
-  font-family: var(--ada-type-family-doc);
-  font-style: italic;
-  color: var(--ada-text-tertiary);
-  text-align: center;
-  animation: home-rise 600ms 520ms var(--ada-motion-ease) both;
-}
-
 /* ---------- loose desk (1–4 documents) ---------- */
 
 .home-desk { display: flex; flex-wrap: wrap; gap: 1.75rem var(--ada-space-4); }
@@ -796,11 +760,7 @@ body { margin: 0; background: var(--ada-surface-sunken); }
   .home-stack { gap: 2.5rem; }
   .home-stack > section { gap: 0.875rem; }
 
-  /* Empty: the note moves below the sample so it never covers its title. */
   .home-how { padding: 1.625rem 1.375rem 1.5rem; }
-  .home-sample { block-size: 32.5rem; }
-  .home-sample .home-note { top: 18.125rem; }
-  .home-sample__caption { top: 30.25rem; }
 
   /* Loose desk: the latest sheet full width, the rest as a stack of slips. */
   .home-desk { flex-direction: column; gap: 0; }

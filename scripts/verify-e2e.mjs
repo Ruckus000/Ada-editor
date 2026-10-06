@@ -22,7 +22,8 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
 import { createClient } from '@supabase/supabase-js';
 import { CHROME, connect, evaluate, key, launch, openTab, shutdown, sleep, track, watchdog } from './cdp.mjs';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
@@ -298,7 +299,19 @@ async function downloadPdf(send, dir, docId) {
 /* ---------- scenarios ---------- */
 
 const A = address('a');
-const SAMPLE = 'hearing-notice'; // the one sample a new account gets (store.ts SAMPLE_ID)
+// Accounts start empty, so the test puts one flagged document on the server
+// itself: the first local-mode seed (app/_data/seed.ts), whose PDF fails on
+// known clauses.
+const FIXTURE = 'hearing-notice';
+const SEED_BUNDLE = join(ROOT, 'scripts', '.e2e-seed.mjs');
+async function putFixture(owner) {
+  await build({ stdin: { contents: `export * from './app/_data/seed';`, resolveDir: ROOT, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', packages: 'external', outfile: SEED_BUNDLE, logLevel: 'warning' });
+  const { SEEDS, buildSeedDocument } = await import(pathToFileURL(SEED_BUNDLE).href);
+  rmSync(SEED_BUNDLE, { force: true });
+  const seed = SEEDS.find((s) => s.id === FIXTURE);
+  const { error } = await db.from('documents').insert({ owner_id: owner, id: FIXTURE, title: seed.title, owner: seed.owner, targets: [...seed.targets], header: seed.content.header, footer: seed.content.footer, content: buildSeedDocument(seed.content).toJSON(), last_checked: Date.now() });
+  return error;
+}
 const SYNCED = 'e2e-sync-document';
 const CLEAN = 'e2e-clean-document';
 let uid = null;
@@ -361,26 +374,26 @@ async function firstBrowser() {
     await go(send, '/sign-in');
     if (!(await waitFor(send, `!window.e2eBefore && location.pathname === '/' && !!document.querySelector('.home-main')`))) fail(`SIGNIN  a signed-in visit to /sign-in stayed at ${await evaluate(send, 'location.pathname')}`);
     else note('a signed-in visit to /sign-in goes straight to the desk');
+    await sleep(2500); // a push, had anything been seeded, would land by now
     const onDesk = await sheetIds(send);
-    const sampleOnly = await evaluate(send, `!!document.querySelector('.home-how')`);
+    const emptyDesk = await evaluate(send, `!!document.querySelector('.home-how')`);
     const rows = await docsOf(uid);
-    if (!sampleOnly || JSON.stringify(onDesk) !== JSON.stringify([SAMPLE])) fail(`SEED  a new account should see only the sample on an empty desk (layout ${sampleOnly ? 'sample-only' : 'other'}, sheets ${JSON.stringify(onDesk)})`);
-    else if (rows.length !== 1 || rows[0].id !== SAMPLE) fail(`SEED  the server should hold just the sample (has ${JSON.stringify(rows.map((r) => r.id))})`);
-    else note('a new account signs up with an emailed code and gets the one sample, on screen and on the server');
-    if (rows.some((r) => r.targets.includes('PDF/UA'))) fail('SEED  the sample claims PDF/UA');
-    let seeded = false;
-    for (let i = 0; i < 25 && !seeded; i++) {
-      seeded = Boolean((await db.auth.admin.getUserById(uid)).data?.user?.user_metadata?.sample_seeded);
-      if (!seeded) await sleep(200);
-    }
-    if (!seeded) fail('SEED  the account was not marked sample_seeded, so removing the sample could bring it back');
+    if (!emptyDesk || onDesk.length) fail(`EMPTY  a new account should land on an empty desk (layout ${emptyDesk ? 'empty' : 'other'}, sheets ${JSON.stringify(onDesk)})`);
+    else if (rows.length) fail(`EMPTY  a new account's server should hold nothing (has ${JSON.stringify(rows.map((r) => r.id))})`);
+    else note('a new account signs up with an emailed code and starts on an empty desk, with nothing on the server');
+
+    const putError = await putFixture(uid);
+    if (putError) { fail(`FIXTURE  could not put ${FIXTURE} on the server: ${putError.message}`); return; }
+    await send('Page.reload');
+    if (!(await waitFor(send, `!!document.querySelector('a.home-sheet[href="/editor/${FIXTURE}"]')`, 20_000))) fail('FIXTURE  a document already on the server does not reach the desk');
+    if ((await docsOf(uid)).some((r) => r.targets.includes('PDF/UA'))) fail('FIXTURE  a document claims PDF/UA');
 
     page = 'opening is not editing';
-    const before = await docOf(uid, SAMPLE);
-    await go(send, `/editor/${SAMPLE}`);
+    const before = await docOf(uid, FIXTURE);
+    await go(send, `/editor/${FIXTURE}`);
     await waitFor(send, `!!document.getElementById('document-text')`);
     await sleep(3000); // longer than the push delay
-    const after = await docOf(uid, SAMPLE);
+    const after = await docOf(uid, FIXTURE);
     if (after?.updated_at !== before?.updated_at) fail('SYNC  opening a document without editing pushed it (could overwrite newer edits from another device)');
     else note('opening a document without editing pushes nothing');
 
@@ -474,7 +487,7 @@ async function firstBrowser() {
   }
 }
 
-// Browser 2, the same account returning: PDF export, deletion, the sample,
+// Browser 2, the same account returning: PDF export, deletion, the empty desk,
 // the message form, account deletion.
 async function secondBrowser() {
   const browser = await openBrowser();
@@ -487,7 +500,7 @@ async function secondBrowser() {
     if (again !== uid) fail('SIGNIN  signing in again created a different account');
     const rows = await docsOf(again);
     const onDesk = (await sheetIds(send)).sort();
-    const want = [SYNCED, SAMPLE].sort();
+    const want = [SYNCED, FIXTURE].sort();
     if (JSON.stringify(rows.map((r) => r.id).sort()) !== JSON.stringify(want) || JSON.stringify(onDesk) !== JSON.stringify(want)) {
       fail(`SEED  a returning account should have ${JSON.stringify(want)} (server ${JSON.stringify(rows.map((r) => r.id))}, desk ${JSON.stringify(onDesk)})`);
     } else note('signing in again reaches the same account, both documents on the desk, nothing seeded twice');
@@ -528,9 +541,9 @@ async function secondBrowser() {
       await typeAtEnd(send, 'This document has one heading and one paragraph.');
       await sleep(700); // the editor's local save debounce
       const clean = await downloadPdf(send, dir, CLEAN);
-      await go(send, `/editor/${SAMPLE}`);
+      await go(send, `/editor/${FIXTURE}`);
       await waitFor(send, `!!document.getElementById('document-text')`);
-      const flagged = await downloadPdf(send, dir, SAMPLE);
+      const flagged = await downloadPdf(send, dir, FIXTURE);
       if (clean && flagged) {
         const vera = ensureVeraPdf({ verbose: VERBOSE });
         if (!vera.ok) {
@@ -544,7 +557,7 @@ async function secondBrowser() {
             const got = results.get(file)?.failed;
             if (JSON.stringify(got) !== JSON.stringify(clauses)) fail(`PDF  ${file.split('/').pop()} failed ${JSON.stringify(got)}; expected ${JSON.stringify(clauses)}`);
           }
-          if (!failures.some((f) => f.includes('PDF  '))) note(`a signed-in export is PDF/UA-1: a clean document passes, and ${SAMPLE} fails on exactly 7.3-1 and 7.4.2-1`);
+          if (!failures.some((f) => f.includes('PDF  '))) note(`a signed-in export is PDF/UA-1: a clean document passes, and ${FIXTURE} fails on exactly 7.3-1 and 7.4.2-1`);
         }
       }
     }
@@ -571,12 +584,12 @@ async function secondBrowser() {
     if (!pictureGone) fail('IMAGE  deleting the only document that used a picture left it in the bucket');
     else note('deleting the only document that used a picture removes it from the bucket');
 
-    page = 'remove the sample';
+    page = 'delete the last document';
     await goHome(send);
-    const emptyDesk = await evaluate(send, `!!document.querySelector('.home-how')`);
     await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
-    if (!emptyDesk || !(await clickButton(send, 'Remove the sample'))) {
-      fail('SAMPLE  with only the sample left, the empty desk has no Remove the sample');
+    const lastDelete = await evaluate(send, `(() => { const b = document.querySelector('button[aria-label^="Delete Notice of Public Hearing"]'); if (b) b.click(); return !!b; })()`);
+    if (!lastDelete) {
+      fail('EMPTY  the last document on the desk has no Delete button');
     } else {
       const gone = await waitFor(send, `document.querySelectorAll('.home-sheet').length === 0 && document.activeElement?.id === 'how-heading'`, 10_000);
       const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
@@ -585,10 +598,10 @@ async function secondBrowser() {
       await waitFor(send, `!!document.querySelector('.home-how')`, 20_000);
       await sleep(2500);
       const afterReload = { screen: (await sheetIds(send)).length, server: (await docsOf(uid)).length };
-      if (!asked.some((q) => q.includes('can’t be undone'))) fail(`SAMPLE  removing the sample did not ask first (asked ${JSON.stringify(asked)})`);
-      else if (!gone || serverRows !== 0) fail(`SAMPLE  removing the sample left ${serverRows} rows, or focus did not reach the heading`);
-      else if (afterReload.screen || afterReload.server) fail(`SAMPLE  the sample came back after a reload (${JSON.stringify(afterReload)})`);
-      else note('Remove the sample asks first, empties the desk, and the sample does not come back after a reload');
+      if (!asked.some((q) => q.includes('can’t be undone'))) fail(`EMPTY  deleting the last document did not ask first (asked ${JSON.stringify(asked)})`);
+      else if (!gone || serverRows !== 0) fail(`EMPTY  deleting the last document left ${serverRows} rows, or focus did not reach the empty desk's heading`);
+      else if (afterReload.screen || afterReload.server) fail(`EMPTY  something came back after a reload (${JSON.stringify(afterReload)})`);
+      else note('deleting the last document asks first, leaves an empty desk, and nothing comes back after a reload');
     }
 
     page = 'privacy';

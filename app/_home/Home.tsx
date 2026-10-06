@@ -8,7 +8,7 @@ import type { ChangeEvent, CSSProperties, DragEvent, KeyboardEvent, ReactNode, T
 import { Button, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, VisuallyHidden, useAnnounce } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
-import { SAMPLE_ID, createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
+import { createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
 import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc, signOut } from '../_data/sync';
@@ -25,8 +25,8 @@ import './home.css';
 
 /**
  * The homepage after sign-in: a desk, not a dashboard. Three layouts, chosen
- * by how many documents there are — the tutorial when the only document is
- * the sample, loose sheets up to four, a filterable grid from five. Layout
+ * by how many documents there are — the tutorial when there are none, loose
+ * sheets up to four, a filterable grid from five. Layout
  * breakpoints are CSS; the only width-dependent behaviour (the question pad)
  * renders every note and lets CSS show one at a time on phones.
  */
@@ -113,13 +113,12 @@ function Sheet({ d, lines, tilt, note, onDelete }: { d: DocSummary; lines: numbe
   );
 }
 
-function Note({ item, doc, tilt }: { item: Item; doc: string | null; tilt: number }) {
-  const from = doc === null ? 'From the sample' : doc;
+function Note({ item, doc, tilt }: { item: Item; doc: string; tilt: number }) {
   return (
-    <Link href={`/editor/${item.docId}`} className="home-note" style={{ '--tilt': `${tilt}deg` } as CSSProperties} aria-label={`Your call: ${item.question}. ${doc === null ? from : `In ${doc}`}.`}>
+    <Link href={`/editor/${item.docId}`} className="home-note" style={{ '--tilt': `${tilt}deg` } as CSSProperties} aria-label={`Your call: ${item.question}. In ${doc}.`}>
       <span className="home-eyebrow">Your call</span>
       <span className="home-note__q">{item.question}</span>
-      <span className="home-note__doc">{from}</span>
+      <span className="home-note__doc">{doc}</span>
     </Link>
   );
 }
@@ -420,7 +419,7 @@ export function Home() {
   }, []);
 
   const docs = dash?.docs ?? [];
-  const mode = !dash ? null : docs.length === 0 || (docs.length === 1 && docs[0]!.id === SAMPLE_ID) ? 'empty' : docs.length >= GRID_AT ? 'grid' : 'desk';
+  const mode = !dash ? null : docs.length === 0 ? 'empty' : docs.length >= GRID_AT ? 'grid' : 'desk';
   const hasDocs = mode === 'desk' || mode === 'grid';
 
   useEffect(() => {
@@ -506,17 +505,6 @@ export function Home() {
   const titleOf = (id: string) => docs.find((d) => d.id === id)?.title ?? '';
   const items = dash?.manualItems ?? [];
   const openImport = () => { setImportError(''); setImportOpen(true); };
-  const [removeError, setRemoveError] = useState(false);
-  const removeSample = async () => {
-    const sample = docs.find((d) => d.id === SAMPLE_ID);
-    if (!sample || !window.confirm(`Remove the sample, “${sample.title}”? This can’t be undone.`)) return;
-    setRemoveError(false);
-    if (!(await removeDoc(SAMPLE_ID))) { setRemoveError(true); return; }
-    setDash(loadDashboardData());
-    announce('Sample removed. Your desk is empty.');
-    // The button that had focus is gone with the sample: land on the page heading.
-    requestAnimationFrame(() => document.getElementById('how-heading')?.focus());
-  };
   const [deleteError, setDeleteError] = useState('');
   const deleteDocument = async (d: DocSummary) => {
     if (!window.confirm(`Delete “${d.title}”? This can’t be undone.`)) return;
@@ -586,7 +574,7 @@ export function Home() {
 
       <main className="home-main">
         {deleteError && hasDocs ? <p role="alert" className="home-alert">“{deleteError}” couldn’t be deleted. Check your connection and try again.</p> : null}
-        {mode === 'empty' ? <EmptyDesk sample={docs[0]} note={items.find((m) => m.docId === SAMPLE_ID)} onImport={openImport} onRemove={() => void removeSample()} removeError={removeError} /> : null}
+        {mode === 'empty' ? <EmptyDesk onNew={() => setNewOpen(true)} onImport={openImport} /> : null}
 
         {mode === 'desk' ? (
           <div className="home-stack">
@@ -628,32 +616,21 @@ export function Home() {
   );
 }
 
-function EmptyDesk({ sample, note, onImport, onRemove, removeError }: {
-  sample: DocSummary | undefined; note: Item | undefined; onImport: () => void; onRemove: () => void; removeError: boolean;
-}) {
+function EmptyDesk({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
   return (
     <div className="home-empty">
       <section aria-labelledby="how-heading" className="home-how">
         <h2 id="how-heading" tabIndex={-1}>Your desk is empty. Here’s how it works.</h2>
         <ol>
-          <li><span><strong>Write, or bring a file.</strong> Use the + to start blank or import a Word file. It lands here as a sheet.</span></li>
+          <li><span><strong>Write, or bring a file.</strong> Start on a blank page or import a Word file. It lands here as a sheet.</span></li>
           <li><span><strong>Ada checks as you go.</strong> Each sheet wears a badge — blocks access, fails AA, advisory — so you can see what stands between it and publishing.</span></li>
-          <li><span><strong>Some calls are yours.</strong> When a machine can’t decide — is this image decorative? — it leaves you a note{note ? ' like the one beside the sample' : ''}.</span></li>
+          <li><span><strong>Some calls are yours.</strong> When a machine can’t decide — is this image decorative? — it leaves you a note here.</span></li>
         </ol>
         <div className="home-how__actions">
-          {sample ? <Link href={`/editor/${sample.id}`} className="ada-button ada-button--primary">Open the sample</Link> : null}
-          <Button variant={sample ? 'ghost' : 'primary'} onClick={onImport}>Import a Word file</Button>
-          {sample ? <Button variant="ghost" onClick={onRemove}>Remove the sample</Button> : null}
+          <Button variant="primary" onClick={onNew}>Create a document</Button>
+          <Button variant="ghost" onClick={onImport}>Import a Word file</Button>
         </div>
-        {removeError ? <p role="alert" className="home-alert">The sample couldn’t be removed. Check your connection and try again.</p> : null}
       </section>
-      {sample ? (
-        <div className="home-sample">
-          <Sheet d={sample} lines={7} tilt={2.5} note="A sample to practise on. Nothing you do here is published." />
-          {note ? <Note item={note} doc={null} tilt={-2} /> : null}
-          <span className="home-sample__caption" aria-hidden="true">Your first document will land about here.</span>
-        </div>
-      ) : null}
     </div>
   );
 }

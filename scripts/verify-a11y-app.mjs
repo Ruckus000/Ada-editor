@@ -360,32 +360,24 @@ async function home() {
     else if (!/^Deleted Transit Service Change Notice\./.test(deleted)) fail(`DELETE  deletion was not announced (got ${JSON.stringify(deleted)})`);
     else note('Delete document removes it, returns to the homepage and announces it');
 
-    // Only the sample: the empty desk teaches instead.
+    // Deleting the last document leaves an empty desk that teaches instead,
+    // and stays empty on reload: accounts get no sample to fall back on.
     page = '/ (empty)';
     await keepDocs(send, ['hearing-notice']);
-    const empty = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sample: !!document.querySelector('a[href="/editor/hearing-notice"]'), search: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Find a document')) })`);
-    if (!empty.how || !empty.sample || empty.search) fail(`EMPTY  the sample-only desk should teach, link the sample and hide search: ${JSON.stringify(empty)}`);
-    else note('a desk holding only the sample shows the how-it-works state');
-    await runAxe(send, '');
-    await checkTree(send);
-    await checkTabOrder(send);
-    await checkReflow(send);
-
-    // Removing the sample leaves a truly empty desk, which stays empty on reload.
-    page = '/ (sample removed)';
     await evaluate(send, `window.confirm = () => true`);
-    if (!(await focusByName(send, 'button', 'Remove the sample'))) fail('REMOVE  no Remove the sample button');
+    if (!(await focusByName(send, 'button', 'Delete Notice of Public Hearing'))) fail('EMPTY  no Delete button on the last document');
     await key(send, 'Enter');
     await sleep(600);
     const focusAfter = await evaluate(send, `document.activeElement?.id ?? ''`);
-    if (focusAfter !== 'how-heading') fail(`REMOVE  focus fell to ${JSON.stringify(focusAfter)} instead of the heading`);
+    if (focusAfter !== 'how-heading') fail(`EMPTY  focus fell to ${JSON.stringify(focusAfter)} instead of the empty desk's heading`);
     await send('Page.reload');
     await sleep(1200);
-    const gone = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sample: !!document.querySelector('a[href="/editor/hearing-notice"]'), sheets: document.querySelectorAll('.home-sheet').length })`);
-    if (!gone.how || gone.sample || gone.sheets !== 0) fail(`REMOVE  the sample came back or the empty state is wrong: ${JSON.stringify(gone)}`);
-    else note('Remove the sample leaves an empty desk that stays empty after a reload');
+    const empty = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sheets: document.querySelectorAll('.home-sheet').length, buttons: [...document.querySelectorAll('.home-how__actions button')].map((b) => b.textContent.trim()), search: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Find a document')) })`);
+    if (!empty.how || empty.sheets !== 0 || empty.search || empty.buttons.join('|') !== 'Create a document|Import a Word file') fail(`EMPTY  the empty desk should teach, offer create and import, and hide search: ${JSON.stringify(empty)}`);
+    else note('deleting the last document leaves the how-it-works desk, which stays empty after a reload');
     await runAxe(send, '');
     await checkTree(send);
+    await checkTabOrder(send);
     await checkReflow(send);
   } finally {
     await shutdown(send, ws, proc);

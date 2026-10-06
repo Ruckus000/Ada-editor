@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getClient } from './supabase';
-import { allDocs, applyPulled, clearStore, createDoc, deleteDoc, detachStore, dirtyDocs, isDirty, loadDoc, markPushed, onDocsDirty, rebaseDoc, replaceDoc, seedAccount, setStoreUser } from './store';
+import { allDocs, applyPulled, clearStore, createDoc, deleteDoc, detachStore, dirtyDocs, isDirty, loadDoc, markPushed, onDocsDirty, rebaseDoc, replaceDoc, setStoreUser } from './store';
 import { imageKeysOf } from './imageFormat';
 import { clearImageScope, listRemote, markPending, markSwept, pendingKeys, purgeFolder, removeRemote, sweptAt, uploadPending } from './images';
 import type { StoredDoc } from './store';
@@ -263,14 +263,14 @@ async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Prom
 
 /**
  * Point the store at this account and pull its docs, once per sign-in. A new
- * account (nothing on the server) gets the sample document, once. Throws when the
- * server can't be reached; the caller decides whether the cache is enough.
+ * account starts empty. Throws when the server can't be reached; the caller
+ * decides whether the cache is enough.
  */
 export function loadAccount(uid: string): Promise<void> {
   const client = getClient();
   if (!client || loadedUid === uid) return Promise.resolve();
   // A second caller mid-load (a quick navigation, Strict Mode's double effect)
-  // shares the pull instead of running it — and the seeding — twice.
+  // shares the pull instead of running it twice.
   if (loading?.uid === uid) return loading.promise;
   const promise = (async () => {
     // Attach once: after an offline start the store already holds this
@@ -293,16 +293,6 @@ export function loadAccount(uid: string): Promise<void> {
     onServer.clear();
     for (const r of rows) onServer.add(String((r as { id?: unknown }).id));
     applyPulled(rows);
-    // The sample is a first-visit gift, not a floor: once given, an account
-    // that deletes everything stays empty. The flag lives in the user's own
-    // metadata; losing it only means the sample is offered once more.
-    if (rows.length === 0) {
-      const { data } = await client.auth.getSession();
-      if (!data.session?.user.user_metadata?.sample_seeded) {
-        seedAccount();
-        void client.auth.updateUser({ data: { sample_seeded: true } }).then(({ error }) => { if (error) console.error('Could not record the sample', error); });
-      }
-    }
     loadedUid = uid;
     await push();
     void sweepImages(uid);

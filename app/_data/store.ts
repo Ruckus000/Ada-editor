@@ -259,9 +259,13 @@ function writeAll(docs: Map<string, StoredDoc>): boolean {
   return false;
 }
 
-/** Populate the store from the seed content on first visit (or after corruption). */
+/** Local mode only: populate the store from the seed content on first visit
+ *  (or after corruption). The eight seeds are the verification gates' fixtures;
+ *  accounts never get them. ponytail: Vercel Preview has no Supabase env vars,
+ *  so it runs in local mode and shows them; set Preview's env vars if it should
+ *  look like production. */
 export function seedIfEmpty(): void {
-  if (cloud) return; // sync.ts seeds an account once the server says it is empty
+  if (cloud) return; // an account starts empty
   if (!diskFailed && hasLocalStorage()) {
     try {
       const raw = window.localStorage.getItem(storageKey ?? '');
@@ -480,21 +484,6 @@ export function rebaseDoc(id: string, revision: number | undefined): void {
 
 /** Whether this document has edits the server hasn't confirmed. */
 export const isDirty = (id: string): boolean => readDirty().has(id);
-
-/** The one document a new account starts with: something to practise on
- *  that is not theirs, so the homepage can still greet them as empty. */
-export const SAMPLE_ID = SEEDS[0]!.id;
-
-/** Give a new account the sample document, queued for the server. Local mode
- *  (CI, plain `npm run dev`) keeps all eight seeds: the verification gates and
- *  the demo rely on the full set. */
-export function seedAccount(): void {
-  const all = readAll();
-  const seeds = seedDocs(SEEDS.slice(0, 1));
-  for (const [id, doc] of seeds) if (!all.has(id)) all.set(id, doc);
-  writeAll(all);
-  markDirty([...seeds.keys()]);
-}
 
 export function hasCachedDocs(): boolean {
   return readAll().size > 0;
