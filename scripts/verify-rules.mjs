@@ -2292,6 +2292,14 @@ await acheck('import rejects hostile or unreadable files with a plain message', 
   await rejects(docx({ body: '<w:p/>'.repeat(401_000) }), 'too large to import', 'an element budget blow-out');
 });
 
+check('store: a sheet’s excerpt skips the title and ends each block as a sentence', () => {
+  const { excerptOf } = mod.store;
+  eq(excerptOf(doc(heading(1, 'Title'), para('City Planning Commission'), para('Hearing at 6 pm.'))), 'City Planning Commission. Hearing at 6 pm.', 'title skipped, subtitle gets a full stop');
+  eq(excerptOf(doc(para('No title here'))), 'No title here.', 'a document with no title keeps its first block');
+  eq(excerptOf(doc(heading(1, 'Only a title'))), '', 'nothing after the title: no excerpt');
+  eq(excerptOf(doc(heading(1, 'T'), para('x'.repeat(500)))).length, 240, 'capped');
+});
+
 await acheck('store: createDoc gives a safe, unique id and keeps import notes', async () => {
   const { store } = await import(`${pathToFileURL(TMP).href}?fresh`);
   const { slugId } = store;

@@ -529,6 +529,7 @@ export function loadDashboardData(): DashboardData {
       counts: countsOf(findings),
       lastChecked: relativeTime(d.lastChecked, now),
       order: docs.length,
+      excerpt: excerptOf(parsed),
     });
     for (const f of findings) {
       // The homepage keys notes by docId+title, so keep that pair unique.
@@ -539,6 +540,19 @@ export function loadDashboardData(): DashboardData {
 }
 
 /* ---------- pure helpers (verified by scripts/verify-rules.mjs) ---------- */
+
+/** The opening words after the title heading: enough for a sheet to show
+ *  what the document says (CSS clamps it to a few lines). */
+export function excerptOf(doc: PMNode): string {
+  const parts: string[] = [];
+  doc.forEach((block, _, i) => {
+    if (i === 0 && block.type.name === 'heading') return;
+    const text = block.textContent.trim();
+    // Blocks become sentences: a subtitle with no full stop shouldn't run into the next line.
+    if (text) parts.push(/[.!?:;…]$/.test(text) ? text : `${text}.`);
+  });
+  return parts.join(' ').replace(/\s+/g, ' ').slice(0, 240);
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
