@@ -719,6 +719,16 @@ async function editor() {
     const docTitle = await evaluate(send, `document.title`);
     if (docTitle !== 'Notice of Public Hearing — Draft · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
     else note(`title: ${docTitle}`);
+    // The open finding's Learn more goes to that rule's entry in Help, and the entry exists.
+    const learn = await evaluate(send, `(async () => {
+      const a = [...document.querySelectorAll('aside a')].find((l) => l.textContent.startsWith('Learn more'));
+      if (!a) return { href: '' };
+      const href = a.getAttribute('href');
+      const html = await (await fetch(href.split('#')[0])).text();
+      return { href, name: a.textContent, found: html.includes('id="' + href.split('#')[1] + '"') };
+    })()`);
+    if (!learn.href || !learn.found) fail(`HELP  the open finding's Learn more (${JSON.stringify(learn)}) doesn't reach an entry in Help`);
+    else note(`Learn more on a finding reaches its rule in Help (${learn.href}), named "${learn.name}"`);
     const stops = await checkTabOrder(send);
     const toolbarStops = stops.filter((s) => /^(BUTTON|SELECT):(Font family|Bold|Italic|Heading 1)/.test(s)).length;
     if (toolbarStops > 1) fail(`TOOLBAR  ${toolbarStops} toolbar controls in the tab order; a toolbar is one tab stop`);
@@ -1480,6 +1490,7 @@ try {
   await staticPage('/welcome', 'Accessible document editor · Ada Editor');
   await staticPage('/accessibility', 'Accessibility · Ada Editor');
   await staticPage('/privacy', 'Privacy · Ada Editor');
+  await staticPage('/help', 'Help · Ada Editor');
   await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
   await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();

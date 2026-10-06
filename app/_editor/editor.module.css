@@ -597,6 +597,7 @@
 .lozenge[data-severity='manual']    { background: var(--as-manual-bg);    color: var(--as-manual); }
 
 .criterionChip { color: var(--as-text-subtlest); font-size: 0.75rem; }
+.learnMore { margin-left: 0.5rem; color: var(--as-primary); font-weight: 600; }
 
 .cardTitle { margin: 0 0 6px; font-size: 0.9375rem; font-weight: 700; color: var(--as-text); }
 

@@ -368,6 +368,8 @@ body { background: var(--ada-surface-sunken); }
 .home-how li::before { content: counter(step); font-weight: 700; color: var(--ada-text-tertiary); }
 .home-how strong { font-weight: 700; }
 .home-how__actions { display: flex; flex-wrap: wrap; gap: var(--ada-space-3); margin-top: var(--ada-space-1); }
+.home-how__help { font-size: var(--ada-type-size-sm); color: var(--ada-text-secondary); }
+.home-how__help a { color: var(--ada-action-primary-bg); font-weight: 700; }
 
 /* ---------- dialogs ---------- */
 

@@ -56,6 +56,8 @@ export interface EditorFinding extends Issue {
   /** What a dismissal of this finding records; `id` when absent. The engine
    *  sets it for duplicate findings (see `dismissKey` in check.ts). */
   dismissKey?: string;
+  /** The rule it came from (app/_engine/rules.ts), for Learn more. */
+  ruleId?: string;
 }
 
 /** The key a dismissal is stored and matched under. */
@@ -159,6 +161,7 @@ export function sectionFindings(images: { headerImage: { id: string; alt: string
 export function imageFinding(imageId: string, label: string, anchor: Anchor, at = 0): EditorFinding {
   return {
     id: `img-alt-${imageId}`,
+    ruleId: 'img-alt-missing',
     severity: 'blocker',
     title: 'Image has no alternative text',
     explanation: `Screen readers will announce nothing for this ${label}, so residents using one will miss its content entirely.`,

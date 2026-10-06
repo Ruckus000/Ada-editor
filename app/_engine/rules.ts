@@ -86,36 +86,80 @@ export interface RuleInfo {
    * AAA as Advisory (verified in scripts/verify-rules.mjs).
    */
   level: 'A' | 'AA' | 'AAA';
+  /** A short name for the check, as Help lists it. */
+  name: string;
+  /** What the rule checks and why it matters, in plain words (Help, Learn more). */
+  about: string;
+  /** How to fix it in this editor. */
+  fix: string;
 }
 
 export const RULES: readonly RuleInfo[] = [
-  { id: 'img-alt-missing', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
-  { id: 'img-alt-suspicious', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
-  { id: 'img-long-description', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural' },
-  { id: 'link-text-generic', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
-  { id: 'link-text-raw-url', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
-  { id: 'link-text-ambiguous', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural' },
-  { id: 'heading-skip', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
-  { id: 'heading-empty', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
-  { id: 'document-no-h1', criterion: '2.4.10 Section Headings', level: 'AAA', kind: 'structural' },
-  { id: 'colour-only-reference', criterion: '1.4.1 Use of Color', level: 'A', kind: 'prose' },
-  { id: 'reading-level', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
-  { id: 'long-sentence', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose' },
-  { id: 'language-of-parts', criterion: '3.1.2 Language of Parts', level: 'AA', kind: 'prose' },
-  { id: 'document-language', criterion: '3.1.1 Language of Page', level: 'A', kind: 'prose' },
+  { id: 'img-alt-missing', name: 'Images without alternative text', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural',
+    about: 'An image with no alternative text is silent to a screen reader: its content simply isn’t there for someone who can’t see it.',
+    fix: 'Select the image’s “Add alt text” and describe what it shows and why it matters here, in a sentence or two.' },
+  { id: 'img-alt-suspicious', name: 'Alternative text that may not describe the image', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural',
+    about: 'Alt text that starts “Image of…” is read twice (screen readers already say it’s an image), and very short or file-name-like alt text often doesn’t describe the picture. Only a person can judge that.',
+    fix: 'Remove the “Image of” prefix, then read the description beside the picture and ask: would someone who can’t see it learn what they need?' },
+  { id: 'img-long-description', name: 'Images that may need a long description', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural',
+    about: 'Charts, maps and diagrams usually carry more than a sentence of alt text can hold.',
+    fix: 'If the picture holds data or detail the text around it doesn’t, add a long description: a paragraph or table nearby that says the same thing in words.' },
+  { id: 'link-text-generic', name: 'Links like “click here”', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
+    about: 'People using screen readers often jump from link to link, hearing only the link text. “Click here” or “read more” tells them nothing about where it goes.',
+    fix: 'Rewrite the link so its words name the destination, for example “the full meeting agenda” instead of “click here”.' },
+  { id: 'link-text-raw-url', name: 'Links that are a bare web address', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
+    about: 'A bare web address is read out character by character, and rarely says what the page is.',
+    fix: 'Select the address and give the link a human label (Insert link), keeping the address as its destination.' },
+  { id: 'link-text-ambiguous', name: 'The same link text going to different places', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
+    about: 'The same link text going to different places is confusing when links are listed out of context.',
+    fix: 'Give each link words that tell its destinations apart, or confirm the surrounding text makes the difference clear.' },
+  { id: 'heading-skip', name: 'Heading levels that skip', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'Headings are how many readers move through a document. Jumping a level (say, from a main heading straight to a third-level one) suggests a section that isn’t there.',
+    fix: 'Use the next level down: H2 under H1, H3 under H2. Apply fix changes the level for you.' },
+  { id: 'heading-empty', name: 'Empty headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'An empty heading is announced as a heading with nothing in it.',
+    fix: 'Type the heading’s text, or turn the line back into a paragraph.' },
+  { id: 'document-no-h1', name: 'No top-level heading', criterion: '2.4.10 Section Headings', level: 'AAA', kind: 'structural',
+    about: 'A top-level heading (H1) is the document’s title in its structure, the first thing a screen reader user can jump to.',
+    fix: 'Make the title the one H1, and use H2 and below for sections.' },
+  { id: 'colour-only-reference', name: 'Instructions that rely on colour', criterion: '1.4.1 Use of Color', level: 'A', kind: 'prose',
+    about: '“The items in red” leaves out everyone who can’t see the colour, including many people with colour blindness and anyone who prints in black and white.',
+    fix: 'Say it in words as well: name the items, or mark them with a symbol or label as well as a colour.' },
+  { id: 'reading-level', name: 'Reading level', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose',
+    about: 'Dense, technical prose is hard for many readers, and plain language is expected of much public-sector writing. This is an AAA check, so it advises rather than fails.',
+    fix: 'Use shorter words and sentences, put the main point first, and explain terms readers may not know.' },
+  { id: 'long-sentence', name: 'Long sentences', criterion: '3.1.5 Reading Level', level: 'AAA', kind: 'prose',
+    about: 'Long sentences are hard to follow, especially when heard rather than read.',
+    fix: 'Split it into two or three sentences, one idea each.' },
+  { id: 'language-of-parts', name: 'Passages in another language', criterion: '3.1.2 Language of Parts', level: 'AA', kind: 'prose',
+    about: 'A passage in another language is read with the wrong pronunciation unless it’s marked, and may be unintelligible.',
+    fix: 'Select the passage and choose its language from the Language menu in the toolbar.' },
+  { id: 'document-language', name: 'The document’s language', criterion: '3.1.1 Language of Page', level: 'A', kind: 'prose',
+    about: 'The document’s language tells screen readers how to pronounce everything in it. Set wrong, the whole document is read in the wrong accent.',
+    fix: 'Choose the right language under More (…) → Document language, or apply the suggested fix.' },
   // Structural, not prose-gated: it must retract the moment a heading is added
   // (prose findings are carried across structural runs until blur).
-  { id: 'document-no-headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  { id: 'document-no-headings', name: 'No headings at all', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'With no headings, screen reader users can only read from top to bottom; they can’t skim or jump to a section.',
+    fix: 'Mark section titles as headings (H1, H2) instead of making them bold or bigger.' },
   // Engine-only (the spike ran on Markdown, which carries no colours).
-  { id: 'contrast-minimum', criterion: '1.4.3 Contrast (Minimum)', level: 'AA', kind: 'structural' },
+  { id: 'contrast-minimum', name: 'Text contrast', criterion: '1.4.3 Contrast (Minimum)', level: 'AA', kind: 'structural',
+    about: 'Text needs enough contrast with its background to be read by people with low vision: 4.5:1 for body text, 3:1 for large text.',
+    fix: 'Use the default text colour, or pick a darker one. Apply fix switches the text back to the default.' },
   // Engine-only. Manual: a blank only fails if the document must be filled in
   // digitally, which only its author knows.
-  { id: 'form-blank', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  { id: 'form-blank', name: 'Fill-in blanks', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'Underscores for people to fill in are read as a run of lines, or not at all, and can’t be filled in on screen.',
+    fix: 'If people will fill it in on paper, this can stay. If they’ll complete it digitally, the final file needs real labelled form fields.' },
   // Structural: turning on a header row must retract it at once.
-  { id: 'table-no-header', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  { id: 'table-no-header', name: 'Tables without header cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'Without header cells, a screen reader can’t say which column or row a value belongs to.',
+    fix: 'Turn on Header row (and Header column if the first column labels the rows) from the Table menu.' },
   // Engine-only. Advisory: merged cells aren't a failure, but a table the
   // editor can't give explicit header links to deserves a human check.
-  { id: 'table-merged-cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural' },
+  { id: 'table-merged-cells', name: 'Tables with merged cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'Merged cells make it hard for screen readers to work out which header a cell belongs to.',
+    fix: 'Split merged cells where you can, or break the table into simpler tables. If you keep them, check the table with a screen reader.' },
 ];
 
 export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
