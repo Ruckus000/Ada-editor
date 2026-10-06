@@ -1,35 +1,12 @@
-/* Privacy notice. Ada tokens only; class prefix `privacy-`. A document-width
- * column: this is reading, not app chrome. */
+/* Privacy notice: layout comes from app/_site/site.css. Here only the account
+ * controls (AccountControls) at the foot of the page. Ada tokens only; class
+ * prefix `privacy-`. */
 
-.privacy {
-  max-width: var(--ada-type-measure);
-  margin: 0 auto;
-  padding: var(--ada-space-6) var(--ada-space-5);
-  color: var(--ada-text-primary);
-}
+.privacy__contact { display: flex; flex-direction: column; align-items: flex-start; gap: var(--ada-space-3); }
 
-.privacy h1 {
-  margin: var(--ada-space-4) 0 var(--ada-space-2);
-  font-size: var(--ada-type-size-xl);
-  line-height: var(--ada-type-line-height-tight);
-}
+.privacy__contact h2:not(:first-child) { margin-top: var(--ada-space-5); font-size: var(--ada-type-size-xl); letter-spacing: -0.02em; }
 
-.privacy h2 {
-  margin: var(--ada-space-6) 0 var(--ada-space-2);
-  font-size: var(--ada-type-size-lg);
-  line-height: var(--ada-type-line-height-tight);
-}
-
-.privacy p,
-.privacy ul { margin: 0 0 var(--ada-space-3); }
-
-.privacy li + li { margin-top: var(--ada-space-2); }
-
-.privacy a { color: var(--ada-focus-ring); }
-
-.privacy__updated { color: var(--ada-text-secondary); }
-
-.privacy__form { display: flex; flex-direction: column; gap: var(--ada-space-2); }
+.privacy__form { align-self: stretch; display: flex; flex-direction: column; gap: var(--ada-space-2); }
 
 .privacy__field { display: flex; flex-direction: column; gap: var(--ada-space-2); font-weight: 600; }
 

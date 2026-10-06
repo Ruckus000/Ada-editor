@@ -16,8 +16,8 @@ import { ConflictDialog } from './ConflictDialog';
  * editor keep reading the store synchronously and never race the pull.
  * Local mode (no Supabase env vars) renders straight through.
  */
-/** Readable without an account: signing in, and what signing up means. */
-const PUBLIC_PATHS = new Set(['/sign-in', '/privacy']);
+/** Readable without an account: signing in, what signing up means, and the landing page. */
+const PUBLIC_PATHS = new Set(['/sign-in', '/privacy', '/accessibility', '/welcome']);
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -53,7 +53,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
     void (async () => {
       const { data } = await client.auth.getSession();
       const uid = data.session?.user.id;
-      if (!uid) { router.replace('/sign-in'); return; }
+      // ponytail: client-side, so crawlers on / see the loading screen; move to a
+      // server redirect if SEO on / matters.
+      if (!uid) { router.replace(pathname === '/' ? '/welcome' : '/sign-in'); return; }
       try {
         await loadAccount(uid);
       } catch (error) {

@@ -38,7 +38,11 @@ export function SignInScreen() {
   // Read after mount, not via useSearchParams: that would opt the whole page
   // out of static rendering for one flag.
   const [deleted, setDeleted] = useState(false);
-  useEffect(() => { setDeleted(new URLSearchParams(window.location.search).has('deleted')); }, []);
+  useEffect(() => {
+    setDeleted(new URLSearchParams(window.location.search).has('deleted'));
+    // Already signed in ("Start writing" from a public page): straight to the desk.
+    void getClient()?.auth.getSession().then(({ data }) => { if (data.session) router.replace('/'); });
+  }, [router]);
   const codeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
