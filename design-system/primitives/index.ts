@@ -3,6 +3,7 @@ export { Glyph } from './Glyph';
 export { IssueCard } from './IssueCard';
 export { IssueList } from './IssueList';
 export { LiveAnnouncer, useAnnounce } from './LiveAnnouncer';
+export { Popover } from './Popover';
 export { SeverityBadge } from './SeverityBadge';
 export { useRegionCycling } from './useRegionCycling';
 export type { RegionRef } from './useRegionCycling';
