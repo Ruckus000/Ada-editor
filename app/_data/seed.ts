@@ -27,6 +27,8 @@ export interface DocSummary {
   lastChecked: string;
   /** Position in "most recently checked" order. */
   order: number;
+  /** The document's opening words after its title, for the desk's sheets. */
+  excerpt?: string;
 }
 
 export interface SeedSpan {

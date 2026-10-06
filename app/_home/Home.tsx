@@ -4,8 +4,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { ChangeEvent, CSSProperties, DragEvent, KeyboardEvent, ReactNode, TouchEvent } from 'react';
-import { Button, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, VisuallyHidden, useAnnounce } from '../../design-system/primitives';
+import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react';
+import { Button, Glyph, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, VisuallyHidden, useAnnounce } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
@@ -24,11 +24,9 @@ import { ImportError, importDocxFile } from '../_import/importDocx';
 import './home.css';
 
 /**
- * The homepage after sign-in: a desk, not a dashboard. Three layouts, chosen
- * by how many documents there are — the tutorial when there are none, loose
- * sheets up to four, a filterable grid from five. Layout
- * breakpoints are CSS; the only width-dependent behaviour (the question pad)
- * renders every note and lets CSS show one at a time on phones.
+ * The homepage after sign-in: a desk, not a dashboard. The tutorial when there
+ * are no documents; otherwise one aligned grid of sheets, with filters and
+ * sorting once there are enough documents to need them.
  */
 
 type SortKey = 'urgency' | 'recent' | 'name';
@@ -39,9 +37,6 @@ const GRID_AT = 5;
 /** 12 fills 2, 3, 4 and 6 columns alike, so the first page never ends ragged. */
 const PAGE = 12;
 const NOTES = 3;
-const DESK = [{ drop: 0, tilt: -3 }, { drop: 2.5, tilt: 2 }, { drop: 0.625, tilt: -1.5 }, { drop: 3.5, tilt: 3 }];
-const GRID_TILT = [-1.5, 1, -0.5, 1.5, -1, 0.5];
-const NOTE_TILT = [2.5, -2, 1.5];
 
 const SORTS: { key: SortKey; label: string; said: string }[] = [
   { key: 'urgency', label: 'Urgency', said: 'urgency' },
@@ -67,35 +62,33 @@ function status(d: DocSummary): string {
   return d.counts.blocker ? `Can’t publish yet — ${list}` : list;
 }
 
-const greeting = (hour: number) => (hour < 12 ? 'Good morning.' : hour < 18 ? 'Good afternoon.' : 'Good evening.');
-
-/** Placeholder text lines, varied per document so sheets don't look stamped. */
-function lineWidths(id: string, n: number) {
-  let seed = [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 997, 7);
-  return Array.from({ length: n }, () => (seed = (seed * 37 + 11) % 997, 55 + (seed % 45)));
+/** What's on the desk, in plain numbers: no verdicts, nothing "compliant". */
+function summary(docs: DocSummary[], questions: number): string {
+  const blocked = docs.filter((d) => d.counts.blocker).length;
+  return [
+    `${plural(docs.length, 'document')}.`,
+    blocked ? `${blocked} can’t be published yet.` : '',
+    questions ? `${plural(questions, 'question')} ${questions === 1 ? 'needs' : 'need'} your call.` : '',
+  ].filter(Boolean).join(' ');
 }
+
+const greeting = (hour: number) => (hour < 12 ? 'Good morning.' : hour < 18 ? 'Good afternoon.' : 'Good evening.');
 
 /* ---------- pieces ---------- */
 
-function Sheet({ d, lines, tilt, note, onDelete }: { d: DocSummary; lines: number; tilt: number; note?: string; onDelete?: (d: DocSummary) => void }) {
+function Sheet({ d, onDelete }: { d: DocSummary; onDelete?: (d: DocSummary) => void }) {
   const w = worst(d);
   const sheet = (
     <Link
       href={`/editor/${d.id}`}
       className="home-sheet"
-      style={{ '--tilt': `${tilt}deg` } as CSSProperties}
-      aria-label={`${d.title}. ${note ?? status(d)}. ${checked(d.lastChecked)}. Open in editor.`}
+      aria-label={`${d.title}. ${status(d)}. ${checked(d.lastChecked)}. Open in editor.`}
     >
-      <span className="home-sheet__lines" aria-hidden="true">
-        {lineWidths(d.id, lines).map((pct, i) => <i key={i} style={{ inlineSize: `${pct}%` }} />)}
-      </span>
-      <span className="home-sheet__meta">
-        {w ? <SeverityBadge severity={w} /> : <span className="home-sheet__none">No open findings</span>}
-        <span className="home-sheet__title">{d.title}</span>
-        <span className="home-sheet__status">{note ?? status(d)}</span>
-        {note ? null : <span className="home-sheet__when">{checked(d.lastChecked)}</span>}
-      </span>
-      <svg className="home-sheet__chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 3 5 5-5 5" /></svg>
+      {w ? <SeverityBadge severity={w} /> : <span className="home-sheet__none">No open findings</span>}
+      <span className="home-sheet__title">{d.title}</span>
+      {d.excerpt ? <span className="home-sheet__excerpt" aria-hidden="true">{d.excerpt}</span> : null}
+      <span className="home-sheet__status">{status(d)}</span>
+      <span className="home-sheet__when">{checked(d.lastChecked)}</span>
     </Link>
   );
   if (!onDelete) return sheet;
@@ -113,59 +106,15 @@ function Sheet({ d, lines, tilt, note, onDelete }: { d: DocSummary; lines: numbe
   );
 }
 
-function Note({ item, doc, tilt }: { item: Item; doc: string; tilt: number }) {
+/** A question only a person can answer. The visible text is the link's whole
+ *  name, so voice control can say what it sees (SC 2.5.3). */
+function Note({ item, doc }: { item: Item; doc: string }) {
   return (
-    <Link href={`/editor/${item.docId}`} className="home-note" style={{ '--tilt': `${tilt}deg` } as CSSProperties} aria-label={`Your call: ${item.question}. In ${doc}.`}>
-      <span className="home-eyebrow">Your call</span>
+    <Link href={`/editor/${item.docId}`} className="home-note">
+      <Glyph severity="manual" className="home-note__glyph" />
       <span className="home-note__q">{item.question}</span>
       <span className="home-note__doc">{doc}</span>
     </Link>
-  );
-}
-
-/** Notes side by side on wide screens; on phones a pad you flip one note at a
- *  time (arrows or swipe). Every note is rendered; CSS hides the others. */
-function NotePad({ items, titleOf }: { items: Item[]; titleOf: (id: string) => string }) {
-  const announce = useAnnounce();
-  const [at, setAt] = useState(0);
-  const touchX = useRef(0);
-  const i = at % items.length;
-  const go = (step: number) => {
-    const next = (i + step + items.length) % items.length;
-    setAt(next);
-    announce(`Question ${next + 1} of ${items.length}: ${items[next]!.question}`);
-  };
-  return (
-    <div className="home-pad">
-      <ul
-        role="list"
-        className="home-pad__notes"
-        onTouchStart={(e: TouchEvent) => { touchX.current = e.touches[0]!.clientX; }}
-        onTouchEnd={(e: TouchEvent) => {
-          const dx = e.changedTouches[0]!.clientX - touchX.current;
-          if (items.length > 1 && Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
-        }}
-      >
-        {items.map((item, n) => (
-          <li key={`${item.docId}:${item.question}`} data-current={n === i}>
-            <Note item={item} doc={titleOf(item.docId)} tilt={NOTE_TILT[n % NOTE_TILT.length]!} />
-          </li>
-        ))}
-      </ul>
-      {items.length > 1 ? (
-        <div className="home-pad__controls">
-          <span className="home-pad__pos" aria-hidden="true">{`${i + 1} of ${items.length}`}</span>
-          <Button variant="ghost" iconOnly className="home-round" onClick={() => go(-1)}>
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m10 3-5 5 5 5" /></svg>
-            <VisuallyHidden>Previous question</VisuallyHidden>
-          </Button>
-          <Button variant="ghost" iconOnly className="home-round" onClick={() => go(1)}>
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 3 5 5-5 5" /></svg>
-            <VisuallyHidden>Next question</VisuallyHidden>
-          </Button>
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -173,7 +122,7 @@ function NotePad({ items, titleOf }: { items: Item[]; titleOf: (id: string) => s
  *  Tab moves through the items). Closes on Escape, outside click, focus
  *  leaving, or choosing an item — and hands focus back to its button first,
  *  so a dialog opened from an item returns focus somewhere that still exists. */
-function Popover({ label, variant, icon, children }: { label: string; variant: 'primary' | 'ghost'; icon: ReactNode; children: ReactNode }) {
+function Popover({ label, variant, icon, showLabel = false, children }: { label: string; variant: 'primary' | 'ghost'; icon: ReactNode; showLabel?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -187,10 +136,10 @@ function Popover({ label, variant, icon, children }: { label: string; variant: '
   }, [open]);
   const close = () => { setOpen(false); button.current?.focus(); };
   return (
-    <div ref={wrap} className="home-pop" onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Escape' && open) { e.stopPropagation(); close(); } }}>
-      <Button ref={button} variant={variant} iconOnly className="home-round" aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
+    <div ref={wrap} className={showLabel ? 'home-pop home-pop--labelled' : 'home-pop'} onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Escape' && open) { e.stopPropagation(); close(); } }}>
+      <Button ref={button} variant={variant} iconOnly={!showLabel} className={showLabel ? undefined : 'home-round'} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
         {icon}
-        <VisuallyHidden>{label}</VisuallyHidden>
+        {showLabel ? <span className="home-pop__label">{label}</span> : <VisuallyHidden>{label}</VisuallyHidden>}
       </Button>
       {open ? <ul role="list" id={id} className="home-pop__panel" onClick={close}>{children}</ul> : null}
     </div>
@@ -419,8 +368,8 @@ export function Home() {
   }, []);
 
   const docs = dash?.docs ?? [];
-  const mode = !dash ? null : docs.length === 0 ? 'empty' : docs.length >= GRID_AT ? 'grid' : 'desk';
-  const hasDocs = mode === 'desk' || mode === 'grid';
+  const mode = !dash ? null : docs.length === 0 ? 'empty' : 'desk';
+  const hasDocs = mode === 'desk';
 
   useEffect(() => {
     if (!hasDocs) return;
@@ -525,10 +474,7 @@ export function Home() {
   return (
     <div className="home">
       <header className="home-header">
-        <div className="home-hello">
-          <span className="home-eyebrow home-brand">Ada Editor</span>
-          <h1>{hello}</h1>
-        </div>
+        <span className="home-brand"><span className="home-brand__mark" aria-hidden="true">A</span>Ada Editor</span>
         <div className="home-actions">
           {hasDocs ? (
             <button type="button" className="home-find" aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K" onClick={() => setSearchOpen(true)}>
@@ -540,6 +486,7 @@ export function Home() {
           <Popover
             label="New document"
             variant="primary"
+            showLabel
             icon={<svg aria-hidden="true" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 2.5v11M2.5 8h11" /></svg>}
           >
             <li>
@@ -573,32 +520,15 @@ export function Home() {
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} docs={docs} />
 
       <main className="home-main">
+        <div className="home-hello">
+          <h1>{hello}</h1>
+          {hasDocs ? <p>{summary(docs, items.length)}</p> : null}
+        </div>
         {deleteError && hasDocs ? <p role="alert" className="home-alert">“{deleteError}” couldn’t be deleted. Check your connection and try again.</p> : null}
         {mode === 'empty' ? <EmptyDesk onNew={() => setNewOpen(true)} onImport={openImport} /> : null}
 
         {mode === 'desk' ? (
-          <div className="home-stack">
-            <section aria-labelledby="docs-heading">
-              <h2 id="docs-heading" className="home-eyebrow">Your documents</h2>
-              <ul role="list" className="home-desk">
-                {docs.map((d, i) => (
-                  <li key={d.id} style={{ '--drop': `${DESK[i]!.drop}rem` } as CSSProperties}>
-                    <Sheet d={d} lines={7} tilt={DESK[i]!.tilt} onDelete={(doc) => void deleteDocument(doc)} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-            {items.length ? (
-              <section aria-labelledby="calls-heading" className="home-calls">
-                <h2 id="calls-heading" className="home-eyebrow home-eyebrow--manual">Your calls</h2>
-                <NotePad items={items.slice(0, NOTES)} titleOf={titleOf} />
-              </section>
-            ) : null}
-          </div>
-        ) : null}
-
-        {mode === 'grid' ? (
-          <GridDesk
+          <Desk
             docs={docs}
             items={items}
             titleOf={titleOf}
@@ -635,7 +565,7 @@ function EmptyDesk({ onNew, onImport }: { onNew: () => void; onImport: () => voi
   );
 }
 
-function GridDesk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSort, onShowAll, onDelete }: {
+function Desk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSort, onShowAll, onDelete }: {
   docs: DocSummary[];
   items: Item[];
   titleOf: (id: string) => string;
@@ -658,48 +588,55 @@ function GridDesk({ docs, items, titleOf, filter, sort, showAll, onFilter, onSor
   );
   const shown = showAll ? rows : rows.slice(0, PAGE);
   const manualDocs = docs.filter((d) => has(d, 'manual')).length;
+  const controls = docs.length >= GRID_AT;
 
   return (
     <div className="home-stack">
       {items.length ? (
         <section aria-labelledby="calls-heading" className="home-calls">
-          <div className="home-calls__bar">
-            <h2 id="calls-heading" className="home-eyebrow home-eyebrow--manual">Waiting on your call</h2>
-            <button type="button" className="home-textbtn" onClick={() => onFilter('manual', `${SEVERITY_ENCODING.manual.label}: ${plural(manualDocs, 'document')}.`)}>
-              {`See all ${items.length}`}
-            </button>
+          <div className="home-section__head">
+            <h2 id="calls-heading">Needs your call</h2>
+            <p>Questions a checker can’t decide</p>
+            {controls && items.length > NOTES ? (
+              <button type="button" className="home-textbtn" onClick={() => onFilter('manual', `${SEVERITY_ENCODING.manual.label}: ${plural(manualDocs, 'document')}.`)}>
+                {`See all ${items.length}`}
+              </button>
+            ) : null}
           </div>
-          <NotePad items={items.slice(0, NOTES)} titleOf={titleOf} />
+          <ul role="list" className="home-calls__list">
+            {items.slice(0, NOTES).map((item) => <li key={`${item.docId}:${item.question}`}><Note item={item} doc={titleOf(item.docId)} /></li>)}
+          </ul>
         </section>
       ) : null}
 
       <section aria-labelledby="all-heading" className="home-all">
         <div className="home-all__bar">
-          <div className="home-all__title">
-            <h2 id="all-heading">Your desk</h2>
-            <span>{filter === 'all' ? plural(docs.length, 'document') : `${rows.length} of ${docs.length}`}</span>
-          </div>
-          <div role="group" aria-label="Filter by status" className="home-chips">
-            {chips.map(({ f, count }) => (
-              <button
-                key={f}
-                type="button"
-                className="home-chip"
-                aria-pressed={filter === f}
-                onClick={() => onFilter(f, f === 'all' ? 'Showing all documents.' : `${filterLabel(f)}: ${plural(count, 'document')}.`)}
-              >
-                {f === 'all' ? 'All' : filterLabel(f)}<span>{count}</span>
-              </button>
-            ))}
-          </div>
-          <div role="group" aria-label="Sort documents" className="home-sort">
-            {SORTS.map((s) => (
-              <button key={s.key} type="button" aria-pressed={sort === s.key} onClick={() => onSort(s)}>{s.label}</button>
-            ))}
-          </div>
+          <h2 id="all-heading">Your documents</h2>
+          {controls ? (
+            <>
+              <div role="group" aria-label="Filter by status" className="home-chips">
+                {chips.map(({ f, count }) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className="home-chip"
+                    aria-pressed={filter === f}
+                    onClick={() => onFilter(f, f === 'all' ? 'Showing all documents.' : `${filterLabel(f)}: ${plural(count, 'document')}.`)}
+                  >
+                    {f === 'all' ? 'All' : filterLabel(f)}<span>{count}</span>
+                  </button>
+                ))}
+              </div>
+              <div role="group" aria-label="Sort documents" className="home-sort">
+                {SORTS.map((s) => (
+                  <button key={s.key} type="button" aria-pressed={sort === s.key} onClick={() => onSort(s)}>{s.label}</button>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
         <ul role="list" aria-label="Documents" className="home-grid">
-          {shown.map((d, i) => <li key={d.id}><Sheet d={d} lines={5} tilt={GRID_TILT[i % GRID_TILT.length]!} onDelete={onDelete} /></li>)}
+          {shown.map((d) => <li key={d.id}><Sheet d={d} onDelete={onDelete} /></li>)}
         </ul>
         {!showAll && rows.length > PAGE ? (
           <button type="button" className="home-more" onClick={() => onShowAll(rows.length)}>{`Show all ${rows.length}`}</button>
