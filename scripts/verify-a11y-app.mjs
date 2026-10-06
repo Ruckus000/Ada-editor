@@ -253,7 +253,7 @@ async function home() {
     // Questions are engine-derived: the notes show real manual finding titles.
     const calls = await evaluate(send, `document.querySelector('.home-calls')?.textContent ?? ''`);
     if (!calls.includes('Alternative text may not describe the image')) fail('CALLS  the notes do not show an engine-derived finding title');
-    else note('"Your call" notes show engine-derived questions');
+    else note('"Needs your call" shows engine-derived questions');
 
     // Search opens as a modal, narrows, announces the count once, and hands focus back.
     if (!(await focusByName(send, 'button', 'Find a document'))) fail('SEARCH  no Find a document button');
@@ -305,17 +305,13 @@ async function home() {
     await checkReflow(send);
     await checkColourSchemes(send);
 
-    // Phones: the questions become a pad showing one note at a time.
+    // Phones: the questions stay a plain list, every one visible and named by its own text.
     await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     await sleep(300);
-    const oneNote = await visibleCount(send, '.home-calls .home-note');
-    if (oneNote !== 1) fail(`PAD  expected one visible note at phone width, got ${oneNote}`);
-    await focusByName(send, 'button', 'Next question');
-    await key(send, 'Enter');
-    await sleep(300);
-    const flipped = await liveText(send);
-    if (!/^Question 2 of 3/.test(flipped)) fail(`PAD  flipping the pad was not announced (got ${JSON.stringify(flipped)})`);
-    else note('phone: one note at a time, flipping is announced');
+    const notes = await visibleCount(send, '.home-calls .home-note');
+    const named = await evaluate(send, `[...document.querySelectorAll('.home-calls .home-note')].every((a) => !a.hasAttribute('aria-label') && a.textContent.trim().length > 0)`);
+    if (notes !== 3 || !named) fail(`CALLS  expected 3 visible questions named by their text at phone width, got ${notes} (named: ${named})`);
+    else note('phone: the questions are a plain list, each link named by its visible text');
     await send('Emulation.clearDeviceMetricsOverride');
     await sleep(200);
 
@@ -340,12 +336,12 @@ async function home() {
     else if (!/^Deleted Winter Shelter Program FAQ\./.test(cardSaid)) fail(`CARD  deletion was not announced (got ${JSON.stringify(cardSaid)})`);
     else note('Delete on a sheet removes it, announces it and focuses the next sheet');
 
-    // 2–4 documents: the loose desk.
+    // 2–4 documents: the same grid, without filters or sorting to manage.
     page = '/ (desk)';
     await keepDocs(send, ['hearing-notice', 'transit-notice', 'zoning-variance']);
-    const sheets = await evaluate(send, `document.querySelectorAll('.home-desk > li').length`);
-    if (sheets !== 3 || (await evaluate(send, `!!document.querySelector('.home-grid')`))) fail(`DESK  expected 3 loose sheets and no grid, got ${sheets}`);
-    else note('under five documents the desk shows loose sheets, not the grid');
+    const sheets = await evaluate(send, `document.querySelectorAll('.home-grid > li').length`);
+    if (sheets !== 3 || (await evaluate(send, `!!document.querySelector('.home-chips, .home-sort')`))) fail(`DESK  expected 3 sheets and no filters, got ${sheets}`);
+    else note('under five documents the desk shows the sheets without filters or sorting');
     await runAxe(send, '');
     await checkTree(send);
     await checkReflow(send);
@@ -359,7 +355,7 @@ async function home() {
     if (!(await focusByName(send, 'button', 'Delete document'))) fail('DELETE  the editor has no Delete document button');
     await key(send, 'Enter');
     await sleep(1500);
-    const afterDelete = await evaluate(send, `({ path: location.pathname, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-desk > li').length })`);
+    const afterDelete = await evaluate(send, `({ path: location.pathname, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-grid > li').length })`);
     const deleted = await liveText(send);
     if (afterDelete.path !== '/' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
     else if (!/^Deleted Transit Service Change Notice\./.test(deleted)) fail(`DELETE  deletion was not announced (got ${JSON.stringify(deleted)})`);
