@@ -184,7 +184,12 @@ async function checkReflow(send) {
   await sleep(200);
 }
 
-async function checkForcedColors(send) {
+async function checkColourSchemes(send) {
+  // Dark on its own: every screen follows the theme (the editor's page stays
+  // paper), and the page pins light, so dark contrast is otherwise untested.
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+  await sleep(200);
+  await runAxe(send, '(dark)');
   // Both schemes: dark + forced colours is where theme blocks can outrank the
   // forced-colors block, and a light-scheme CI runner would never see it.
   for (const scheme of ['light', 'dark']) {
@@ -298,7 +303,7 @@ async function home() {
     await send('Page.reload');
     await sleep(1200);
     await checkReflow(send);
-    await checkForcedColors(send);
+    await checkColourSchemes(send);
 
     // Phones: the questions become a pad showing one note at a time.
     await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
@@ -919,7 +924,7 @@ async function editor() {
     await pictureLayout(send);
 
     await checkReflow(send);
-    await checkForcedColors(send);
+    await checkColourSchemes(send);
     await checkExport(send);
   } finally {
     await shutdown(send, ws, proc);
@@ -1276,7 +1281,7 @@ async function statusScreens() {
       if (!(await focusByName(send, 'a', 'Back to all documents'))) fail('STATUS  no way back to all documents');
       await checkTabOrder(send);
       await checkReflow(send);
-      await checkForcedColors(send);
+      await checkColourSchemes(send);
     } finally {
       await shutdown(send, ws, proc);
     }
@@ -1306,7 +1311,7 @@ async function signIn() {
     else note('a failed sign-in shows a visible role=alert message');
     await runAxe(send, ' (error shown)');
     await checkReflow(send);
-    await checkForcedColors(send);
+    await checkColourSchemes(send);
   } finally {
     await shutdown(send, ws, proc);
   }
@@ -1338,7 +1343,7 @@ async function staticPage(path, title) {
     else note('skip link moves focus to main');
     await checkTabOrder(send);
     await checkReflow(send);
-    await checkForcedColors(send);
+    await checkColourSchemes(send);
   } finally {
     await shutdown(send, ws, proc);
   }

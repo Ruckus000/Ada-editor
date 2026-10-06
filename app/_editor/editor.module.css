@@ -1,63 +1,67 @@
-/* Editor screen, "A11y Studio" look (Editor - Atlassian.dc.html).
+/* Editor screen.
  *
- * This screen deliberately keeps the design's Atlassian palette rather than the
- * Ada tokens. Every literal colour is declared once, here, as a custom property
- * on `.palette`; rules below only reference var(--as-*). `.palette` is applied
- * to the root and to dialog portals, which render outside the root.
+ * The --as-* names are aliases of the Ada tokens (design-system/tokens.css),
+ * so the editor follows the theme like every other screen; rules below only
+ * reference var(--as-*). `.palette` is applied to the root and to dialog
+ * portals, which render outside the root.
  *
- * Deviations from the design, all for WCAG 2.2 AA:
- *   - subtlest text #6B778C / #8B94A3 -> #5E6C84 (>= 4.7:1 on every surface)
+ * The aliases are declared on `.page` too: a custom property resolves where it
+ * is declared, so the page (an .ada-paper light island) must re-resolve them
+ * against its own light tokens or it would inherit the dark ones.
+ *
+ * Kept from the original design, for WCAG 2.2 AA:
  *   - the editing surface gets a visible focus indicator (design: outline none)
  *   - colour swatches grow from 20px to the 24px target minimum (SC 2.5.8)
- *   - avatar #00A3BF -> #00758F so its white initials reach 4.5:1
  */
 
+.palette,
+.page {
+  --as-brand: var(--ada-action-primary-bg);
+  --as-text: var(--ada-text-primary);
+  --as-text-subtle: var(--ada-text-secondary);
+  --as-text-subtlest: var(--ada-text-tertiary);
+  --as-surface: var(--ada-surface-raised);
+  --as-canvas: var(--ada-surface-sunken);
+  --as-border: var(--ada-border-subtle);
+  --as-border-strong: var(--ada-border-control);
+  --as-neutral: var(--ada-action-secondary-bg);
+  --as-neutral-hover: var(--ada-border-subtle);
+  --as-hover: var(--ada-surface-sunken);
+  --as-primary: var(--ada-action-primary-bg);
+  --as-primary-hover: color-mix(in srgb, var(--ada-action-primary-bg), var(--ada-text-primary) 14%);
+  --as-selected-bg: var(--ada-severity-advisory-bg);
+  --as-focus: var(--ada-focus-ring);
+  --as-on-brand: var(--ada-action-primary-fg);
+  --as-on-brand-muted: var(--ada-action-primary-fg);
+  --as-status-ok: var(--ada-severity-checked-fg);
+  --as-status-busy: var(--ada-severity-advisory-fg);
+  --as-avatar: var(--ada-action-primary-bg);
+  --as-shadow: 0 1px 1px rgb(22 28 36 / 0.2), 0 0 1px rgb(22 28 36 / 0.13);
+  --as-shadow-raised: 0 12px 32px rgb(22 28 36 / 0.3);
+  --as-scrim: rgb(22 28 36 / 0.45);
+  --as-placeholder: var(--ada-surface-sunken);
+  --as-placeholder-border: var(--ada-border-control);
+
+  --as-blocker: var(--ada-severity-blocker-fg);
+  --as-blocker-bg: var(--ada-severity-blocker-bg);
+  --as-violation: var(--ada-severity-violation-fg);
+  --as-violation-bg: var(--ada-severity-violation-bg);
+  --as-advisory: var(--ada-severity-advisory-fg);
+  --as-advisory-bg: var(--ada-severity-advisory-bg);
+  --as-manual: var(--ada-severity-manual-fg);
+  --as-manual-bg: var(--ada-severity-manual-bg);
+  --as-manual-rule: var(--ada-severity-manual-fg);
+
+  --as-chip-blue: var(--ada-severity-advisory-fg);
+  --as-chip-blue-bg: var(--ada-severity-advisory-bg);
+  --as-chip-green: var(--ada-severity-checked-fg);
+  --as-chip-green-bg: var(--ada-severity-checked-bg);
+  --as-chip-purple: var(--ada-severity-manual-fg);
+  --as-chip-purple-bg: var(--ada-severity-manual-bg);
+}
+
 .palette {
-  --as-brand: #0052CC;
-  --as-text: #172B4D;
-  --as-text-subtle: #44546F;
-  --as-text-subtlest: #5E6C84;
-  --as-surface: #FBFAF8;
-  --as-canvas: #F3F1EC;
-  --as-border: #DCDFE4;
-  --as-border-strong: #8590A2;
-  --as-neutral: #F1F2F4;
-  --as-neutral-hover: #DCDFE4;
-  --as-hover: #F7F8F9;
-  --as-primary: #0C66E4;
-  --as-primary-hover: #0055CC;
-  --as-selected-bg: #E9F2FF;
-  --as-focus: #388BFF;
-  --as-on-brand: #FFFFFF;
-  --as-on-brand-muted: rgba(255, 255, 255, 0.85);
-  --as-status-ok: #36B37E;
-  --as-status-busy: #4C9AFF;
-  --as-avatar: #00758F;
-  --as-shadow: 0 1px 1px rgba(9, 30, 66, 0.25), 0 0 1px rgba(9, 30, 66, 0.13);
-  --as-shadow-raised: 0 12px 32px rgba(9, 30, 66, 0.35);
-  --as-scrim: rgba(23, 43, 77, 0.45);
-  --as-placeholder: #EDEEF0;
-  --as-placeholder-border: #8590A2;
-
-  --as-blocker: #C9372C;
-  --as-blocker-bg: #FFECEB;
-  --as-violation: #A54800;
-  --as-violation-bg: #FFF3D6;
-  --as-advisory: #0055CC;
-  --as-advisory-bg: #E9F2FF;
-  --as-manual: #5E4DB2;
-  --as-manual-bg: #F3F0FF;
-  --as-manual-rule: #8270DB;
-
-  --as-chip-blue: #0055CC;
-  --as-chip-blue-bg: #E9F2FF;
-  --as-chip-green: #216E4E;
-  --as-chip-green-bg: #E3FCEF;
-  --as-chip-purple: #5E4DB2;
-  --as-chip-purple-bg: #EAE6FF;
-
-  color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--ada-type-family-ui);
   color: var(--as-text);
 }
 
