@@ -176,6 +176,12 @@ ${[['regular', 400, 'normal'], ['bold', 700, 'normal'], ['italic', 400, 'italic'
 *::before,
 *::after { box-sizing: border-box; }
 
+/* Text size, from display settings (app/_data/display.ts): a share of the
+ * browser's own size, so a reader's browser setting still counts. */
+:root[data-text="115"] { font-size: 115%; }
+:root[data-text="130"] { font-size: 130%; }
+:root[data-text="150"] { font-size: 150%; }
+
 body {
   margin: 0;
   background: var(--ada-surface-canvas);

@@ -1,0 +1,40 @@
+/* Display settings dialog. Ada tokens only; class prefix `display-`. */
+
+.display {
+  inline-size: calc(100% - 2rem);
+  max-inline-size: 26rem;
+  padding: 1.75rem;
+  border: 1px solid var(--ada-border-subtle);
+  border-radius: var(--ada-radius-lg);
+  background: var(--ada-surface-overlay);
+  color: var(--ada-text-primary);
+  font-family: var(--ada-type-family-ui);
+}
+
+.display::backdrop { background: rgb(22 28 36 / 0.45); }
+
+.display__title { margin: 0 0 var(--ada-space-5); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.015em; }
+
+.display__group { margin: 0 0 var(--ada-space-5); padding: 0; border: none; }
+.display__group legend { margin-bottom: var(--ada-space-2); padding: 0; font-weight: 700; }
+
+.display__option {
+  display: flex;
+  align-items: center;
+  gap: var(--ada-space-3);
+  min-height: var(--ada-target-comfortable);
+  padding: 0 var(--ada-space-3);
+  border-radius: var(--ada-radius-md);
+  cursor: pointer;
+}
+
+.display__option:hover { background: var(--ada-surface-sunken); }
+.display__option input { inline-size: 1.125rem; block-size: 1.125rem; margin: 0; accent-color: var(--ada-action-primary-bg); }
+.display__option:has(input:checked) { background: var(--ada-action-secondary-bg); font-weight: 700; }
+
+.display__note { margin: 0 0 var(--ada-space-5); font-size: var(--ada-type-size-sm); color: var(--ada-text-secondary); }
+.display__actions { display: flex; justify-content: flex-end; }
+
+@media (forced-colors: active) {
+  .display__option:has(input:checked) { outline: 2px solid Highlight; outline-offset: -2px; }
+}

@@ -40,8 +40,9 @@ if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exi
 const failures = [];
 const notes = [];
 let page = '';
-const fail = (m) => failures.push(`[${page}] ${m}`);
-const note = (m) => notes.push(`  ok  [${page}] ${m}`);
+// --verbose prints as it goes, so a hang shows where it stopped.
+const fail = (m) => { failures.push(`[${page}] ${m}`); if (VERBOSE) console.log(`  FAIL [${page}] ${m}`); };
+const note = (m) => { notes.push(`  ok  [${page}] ${m}`); if (VERBOSE) console.log(`  ok  [${page}] ${m}`); };
 
 /* ---------- the local stack ---------- */
 
@@ -824,7 +825,6 @@ try {
 }
 
 console.log('Ada-editor end-to-end (local Supabase)\n');
-if (VERBOSE) console.log(notes.join('\n') + '\n');
 if (failures.length) {
   console.error(`FAILED (${failures.length})\n`);
   for (const f of failures) console.error('  ' + f);

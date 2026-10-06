@@ -77,8 +77,14 @@ html:has(.site) { scroll-padding-top: 6rem; } /* focus and #anchors clear the st
   font-size: var(--ada-type-size-sm);
   font-weight: 700;
 }
-.site-header__signin { margin-left: auto; display: inline-flex; align-items: center; min-height: var(--ada-target-comfortable); padding-inline: var(--ada-space-3); font-size: var(--ada-type-size-sm); font-weight: 500; text-decoration: none; }
+.site-header__display,
+.site-header__signin { display: inline-flex; align-items: center; min-height: var(--ada-target-comfortable); padding-inline: var(--ada-space-3); font-size: var(--ada-type-size-sm); font-weight: 500; text-decoration: none; }
+.site-header__display { margin-left: auto; border: none; background: none; font-family: inherit; color: inherit; cursor: pointer; }
+.site-header__display:hover,
 .site-header__signin:hover { text-decoration: underline; }
+/* Signed-out links wait, unseen, while a stored session is checked (SiteAccount). */
+.site-header__out { display: contents; }
+html[data-session] .site-header__out > * { visibility: hidden; }
 
 /* ---------- landing: hero ---------- */
 
