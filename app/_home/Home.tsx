@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ChangeEvent, DragEvent, KeyboardEvent, ReactNode } from 'react';
-import { Button, Glyph, OPEN_SEVERITIES, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, VisuallyHidden, useAnnounce } from '../../design-system/primitives';
+import { Button, Glyph, OPEN_SEVERITIES, Popover, SEVERITY_ENCODING, SEVERITY_RANK, SeverityBadge, VisuallyHidden, useAnnounce } from '../../design-system/primitives';
 import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
@@ -115,34 +115,6 @@ function Note({ item, doc }: { item: Item; doc: string }) {
       <span className="home-note__q">{item.question}</span>
       <span className="home-note__doc">{doc}</span>
     </Link>
-  );
-}
-
-/** A button that shows a small panel of links/actions (disclosure pattern:
- *  Tab moves through the items). Closes on Escape, outside click, focus
- *  leaving, or choosing an item — and hands focus back to its button first,
- *  so a dialog opened from an item returns focus somewhere that still exists. */
-function Popover({ label, variant, icon, showLabel = false, children }: { label: string; variant: 'primary' | 'ghost'; icon: ReactNode; showLabel?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  const button = useRef<HTMLButtonElement>(null);
-  const id = useId();
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: Event) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('focusin', away);
-    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('focusin', away); };
-  }, [open]);
-  const close = () => { setOpen(false); button.current?.focus(); };
-  return (
-    <div ref={wrap} className={showLabel ? 'home-pop home-pop--labelled' : 'home-pop'} onKeyDown={(e: KeyboardEvent) => { if (e.key === 'Escape' && open) { e.stopPropagation(); close(); } }}>
-      <Button ref={button} variant={variant} iconOnly={!showLabel} className={showLabel ? undefined : 'home-round'} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
-        {icon}
-        {showLabel ? <span className="home-pop__label">{label}</span> : <VisuallyHidden>{label}</VisuallyHidden>}
-      </Button>
-      {open ? <ul role="list" id={id} className="home-pop__panel" onClick={close}>{children}</ul> : null}
-    </div>
   );
 }
 
@@ -487,6 +459,7 @@ export function Home() {
             label="New document"
             variant="primary"
             showLabel
+            className="home-new"
             icon={<svg aria-hidden="true" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 2.5v11M2.5 8h11" /></svg>}
           >
             <li>
@@ -505,6 +478,7 @@ export function Home() {
           <Popover
             label="Account"
             variant="ghost"
+            buttonClassName="home-round"
             icon={<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="12" cy="8.5" r="3.5" /><path d="M5 19.5c1.2-3.2 4-5 7-5s5.8 1.8 7 5" /></svg>}
           >
             <li><Link href="/privacy" className="home-pop__item home-pop__item--plain">Privacy</Link></li>

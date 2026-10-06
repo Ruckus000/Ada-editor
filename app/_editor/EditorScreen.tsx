@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Glyph,
   OPEN_SEVERITIES,
+  Popover,
   SEVERITY_ENCODING,
   VisuallyHidden,
   issueUnderlineKey,
@@ -67,7 +68,6 @@ import { IMAGE_MIMES, MAX_IMAGE_BYTES, MAX_SOURCE_BYTES, sniffImage, validImageK
 import { UnreadableImage, prepareImage } from './prepareImage';
 import styles from './editor.module.css';
 
-const TARGET_TONE: Record<string, string> = { 'WCAG 2.1 AA': 'blue', 'Section 508': 'green' };
 
 type AltTarget = { kind: 'figure'; id: string; label: string; alt: string } | { kind: 'section'; section: Section; label: string; alt: string };
 
@@ -980,50 +980,55 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   return (
     <div className={`${styles.palette} ${styles.root}`}>
+      {/* One quiet bar: back to the desk, what this is, and what you can do with it. */}
       <header className={styles.topbar}>
-        <nav aria-label="Breadcrumb" className={styles.crumbs}>
-          <span className={styles.brandMark} aria-hidden="true">A</span>
-          <span className={styles.brandName}>A11y Studio</span>
-          <span className={styles.crumbSep} aria-hidden="true">/</span>
-          <Link href="/" className={styles.crumbLink}>Documents</Link>
-        </nav>
+        <Link href="/" className={styles.back} aria-label="Back to all documents">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4l-6 6 6 6" /></svg>
+          <span>Documents</span>
+        </Link>
+        <span className={styles.crumbSep} aria-hidden="true" />
+        <div className={styles.docHeaderText}>
+          <h1 className={styles.docTitle}>{doc.title}</h1>
+          {doc.targets.length ? <p className={styles.targets}>{`Checked against ${doc.targets.join(' and ')}`}</p> : null}
+        </div>
         <div className={styles.topbarEnd}>
           <span className={styles.status}>
             <span className={styles.statusDot} data-checking={checking} aria-hidden="true" />
             {checking ? 'Checking…' : 'Up to date'}
           </span>
           {isCloud ? <SaveStatus /> : null}
-          <span className={styles.avatar} aria-hidden="true">JD</span>
+          <button type="button" className={styles.btnGhost} onClick={onRecheck}>Recheck</button>
+          <Popover
+            label="Export"
+            variant="secondary"
+            showLabel
+            className={styles.barMenu}
+            icon={<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13V3M6 9l4 4 4-4M4 15v2h12v-2" /></svg>}
+          >
+            <li><button type="button" className={styles.barItem} onClick={() => void onExport()}>Export HTML<span>A web page with its structure and alt text</span></button></li>
+            <li><button type="button" className={styles.barItem} onClick={() => void onExportPdf()}>Export PDF<span>A tagged PDF (PDF/UA-1)</span></button></li>
+          </Popover>
+          <Popover
+            label="More actions"
+            closeOnClick={false}
+            className={styles.barMenu}
+            icon={<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="10" r="1.6" /><circle cx="10" cy="10" r="1.6" /><circle cx="15.5" cy="10" r="1.6" /></svg>}
+          >
+            <li>
+              <label className={styles.barField}>
+                Document language
+                <select aria-label="Document language" value={docLang} onChange={(e) => changeDocLanguage(e.target.value)}>
+                  {/* A tag from an imported file ("es-MX") shows as itself until changed. */}
+                  {LANGUAGE_MENU.some((l) => l.code === docLang) ? null : <option value={docLang}>{`${languageName(docLang)} (${docLang})`}</option>}
+                  {LANGUAGE_MENU.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+                </select>
+              </label>
+            </li>
+            <li><button type="button" className={`${styles.barItem} ${styles.barDanger}`} onClick={() => void onDelete()}>Delete document</button></li>
+          </Popover>
         </div>
       </header>
 
-      <div className={styles.docHeader}>
-        <div className={styles.docHeaderStart}>
-          <Link href="/" className={styles.back} aria-label="Back to all documents">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4l-6 6 6 6" /></svg>
-          </Link>
-          <div className={styles.docHeaderText}>
-            <h1 className={styles.docTitle}>{doc.title}</h1>
-            <ul className={styles.chips} aria-label="Conformance targets" role="list">
-              {doc.targets.map((t) => <li key={t} className={styles.chip} data-tone={TARGET_TONE[t] ?? 'blue'}>{t}</li>)}
-            </ul>
-          </div>
-        </div>
-        <div className={styles.docActions}>
-          <label className={styles.docLang}>
-            Language
-            <select aria-label="Document language" value={docLang} onChange={(e) => changeDocLanguage(e.target.value)}>
-              {/* A tag from an imported file ("es-MX") shows as itself until changed. */}
-              {LANGUAGE_MENU.some((l) => l.code === docLang) ? null : <option value={docLang}>{`${languageName(docLang)} (${docLang})`}</option>}
-              {LANGUAGE_MENU.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
-            </select>
-          </label>
-          <button type="button" className={styles.btnSubtle} onClick={() => void onExport()}>Export HTML</button>
-          <button type="button" className={styles.btnSubtle} onClick={() => void onExportPdf()}>Export PDF</button>
-          <button type="button" className={styles.btnSubtle} onClick={onRecheck}>Recheck</button>
-          <button type="button" className={styles.btnSubtle} onClick={() => void onDelete()}>Delete document</button>
-        </div>
-      </div>
       {deleteError ? <p role="alert" className={styles.deleteError}>This document couldn’t be deleted. Check your connection and try again.</p> : null}
       {imageError ? <p role="alert" className={styles.deleteError}>{imageError}</p> : null}
       {/* Insert image's file picker: opened by the toolbar button, never a tab stop of its own. */}
@@ -1090,8 +1095,10 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         </main>
 
         <aside ref={findingsRegion} tabIndex={-1} aria-label="Accessibility findings" className={styles.aside}>
-          <section aria-labelledby="summary-heading" className={styles.summaryCard}>
-            <h2 id="summary-heading" className={styles.summaryHeading}>Findings summary</h2>
+          <h2 id="ada-issues-heading" ref={headingRef} tabIndex={-1} className={styles.findingsHeading}>
+            Findings <span className={styles.findingsCount}>{findings.length ? `${findings.length} open` : 'none open'}</span>
+          </h2>
+          <section aria-label="Summary" className={styles.summary}>
             <div className={styles.sevBar} aria-hidden="true">
               {OPEN_SEVERITIES.filter((s) => counts[s] > 0).map((s) => (
                 <span key={s} className={styles.sevSeg} data-severity={s} style={{ flexGrow: counts[s] }} />
@@ -1110,9 +1117,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                 ))}
               </div>
             ) : null}
-            <p className={styles.summaryLine}>
-              {filter ? `Showing ${SEVERITY_ENCODING[filter].label.toLowerCase()} findings only` : summaryLine(findings)}
-            </p>
+            {filter ? <p className={styles.summaryLine}>{`Showing ${SEVERITY_ENCODING[filter].label.toLowerCase()} findings only`}</p> : null}
             {primaryTag(docLang) === 'en' ? null : (
               <p className={styles.summaryLine}>
                 Wording checks (reading level, sentence length, link text, colour words, alt-text wording) run on English documents only.
@@ -1165,12 +1170,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             </section>
           ) : null}
 
-          <h2 id="ada-issues-heading" ref={headingRef} tabIndex={-1} className={styles.findingsHeading}>
-            Findings <span className={styles.findingsCount}>{`(${findings.length})`}</span>
-          </h2>
-
           {active ? (
-            <div ref={activeCardRef} tabIndex={-1} role="group" className={styles.activeCard} aria-labelledby={`finding-${active.id}`}>
+            <div ref={activeCardRef} tabIndex={-1} role="group" className={styles.activeCard} data-severity={active.severity} aria-labelledby={`finding-${active.id}`}>
               <div className={styles.cardTop}>
                 <span className={styles.lozenge} data-severity={active.severity}>
                   <Glyph severity={active.severity} />
@@ -1224,7 +1225,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                     <span className={styles.glyph} data-severity={f.severity}><Glyph severity={f.severity} /></span>
                     <VisuallyHidden>{`${SEVERITY_ENCODING[f.severity].label}: `}</VisuallyHidden>
                     <span className={styles.excerpt}>{f.excerpt}</span>
-                    <span className={styles.hint}>{`· ${f.hint}`}</span>
+                    <span className={styles.hint}>{f.hint}</span>
                   </button>
                 </li>
               ))}

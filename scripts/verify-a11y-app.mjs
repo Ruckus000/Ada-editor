@@ -209,6 +209,14 @@ const focusByName = (send, selector, name) => evaluate(send, `(() => {
   return !!el && document.activeElement === el;
 })()`);
 
+/** Opens one of the editor bar's menus (Export, More actions) unless it is
+ *  already open: their items exist only while the panel shows. */
+const openMenu = (send, label) => evaluate(send, `(() => {
+  const b = [...document.querySelectorAll('button[aria-expanded]')].find((e) => e.textContent.trim().startsWith(${JSON.stringify(label)}));
+  if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
+  return !!b;
+})()`).then(async (found) => { await sleep(150); return found; });
+
 async function openPage(path) {
   const { proc, target } = await launch(origin + path);
   const { ws, send } = await connect(target);
@@ -352,6 +360,7 @@ async function home() {
     await send('Page.navigate', { url: `${origin}/editor/transit-notice` });
     await sleep(1500);
     await evaluate(send, `window.confirm = () => true`);
+    await openMenu(send, 'More actions');
     if (!(await focusByName(send, 'button', 'Delete document'))) fail('DELETE  the editor has no Delete document button');
     await key(send, 'Enter');
     await sleep(1500);
@@ -643,6 +652,7 @@ async function language() {
     // Document language: set the (English) FAQ to Spanish and it asks once
     // whether that's right; Apply sets it back and says what remains.
     const rootLang = () => evaluate(send, `document.getElementById('document-text').getAttribute('lang')`);
+    await openMenu(send, 'More actions');
     const setDoc = await evaluate(send, `(() => {
       const select = document.querySelector('select[aria-label="Document language"]');
       if (!select) return false;
@@ -1210,6 +1220,7 @@ async function checkExport(send) {
     // Page-scoped: this socket is a page target, where the Browser-domain call is ignored.
     await send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
     const missingAlt = await evaluate(send, `[...document.querySelectorAll('#document-text figcaption')].filter((c) => c.textContent.includes('Missing alt text')).length`);
+    await openMenu(send, 'Export');
     if (!(await focusByName(send, 'button', 'Export HTML'))) { fail('EXPORT  no Export HTML button'); return; }
     await key(send, 'Enter');
     let file;
@@ -1349,6 +1360,7 @@ async function staticPage(path, title) {
 // from public/ (scripts/verify-pdf.mjs validates the file itself against
 // PDF/UA-1). Then a document the font can't draw: refused, visibly and aloud.
 async function checkPdfExport(send, dir) {
+  await openMenu(send, 'Export');
   if (!(await focusByName(send, 'button', 'Export PDF'))) { fail('PDF  no Export PDF button'); return; }
   await key(send, 'Enter');
   let file;
@@ -1380,6 +1392,7 @@ async function checkPdfExport(send, dir) {
   })()`);
   await send('Page.reload');
   await sleep(1200);
+  await openMenu(send, 'Export');
   if (!(await focusByName(send, 'button', 'Export PDF'))) { fail('PDF  no Export PDF button after reload'); return; }
   await key(send, 'Enter');
   let card = null;

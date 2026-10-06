@@ -286,6 +286,7 @@ async function waitForRow(uid, id, test, timeout = 15_000) {
 
 async function downloadPdf(send, dir, docId) {
   await send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
+  await clickButton(send, 'Export'); // opens the Export menu
   if (!(await clickButton(send, 'Export PDF'))) { fail(`PDF  no Export PDF button on ${docId}`); return null; }
   for (let i = 0; i < 75; i++) {
     const file = readdirSync(dir).find((f) => f === `${docId}.pdf`);
@@ -345,6 +346,7 @@ async function deleteFromEditor(send, id, title) {
   await go(send, `/editor/${id}`);
   await waitFor(send, `!!document.getElementById('document-text')`);
   await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
+  await clickButton(send, 'More actions'); // opens the More menu
   if (!(await clickButton(send, 'Delete document'))) { fail(`DELETE  no Delete document button on ${id}`); return false; }
   const home = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main')`, 15_000);
   const said = await waitFor(send, `(document.querySelector('[role=status]')?.textContent ?? '').startsWith('Deleted ${title}')`, 5_000);
@@ -467,7 +469,7 @@ async function firstBrowser() {
     const second = await prepare(other);
     await goHome(second.send);
     await clickButton(second.send, 'Account');
-    if (!(await waitFor(second.send, `[...document.querySelectorAll('.home-pop__panel button')].some((b) => b.textContent.trim() === 'Sign out')`, 5_000))) {
+    if (!(await waitFor(second.send, `[...document.querySelectorAll('.ada-pop__panel button')].some((b) => b.textContent.trim() === 'Sign out')`, 5_000))) {
       fail('TABS  the Account menu has no Sign out');
     } else {
       await clickButton(second.send, 'Sign out');

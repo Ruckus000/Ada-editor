@@ -109,23 +109,7 @@ body { background: var(--ada-surface-sunken); }
 .home-actions .ada-button { font-weight: 700; }
 .home-actions .ada-button--ghost { border-color: var(--ada-border-subtle); background: var(--ada-surface-canvas); }
 
-.home-pop { position: relative; display: inline-flex; }
-
-.home-pop__panel {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 17.5rem;
-  padding: 0.375rem;
-  background: var(--ada-surface-overlay);
-  border: 1px solid var(--ada-border-subtle);
-  border-radius: var(--ada-radius-lg);
-  box-shadow: var(--home-shadow);
-}
+.home-actions .ada-pop__panel { min-width: 17.5rem; box-shadow: var(--home-shadow); }
 
 .home-pop__item {
   display: grid;
@@ -615,8 +599,8 @@ body { background: var(--ada-surface-sunken); }
   .home-find { inline-size: auto; flex: 1 1 auto; }
   .home-find kbd { display: none; }
   /* No room for the label: the round + again; the label stays for screen readers. */
-  .home-pop--labelled .ada-button { inline-size: var(--ada-target-comfortable); padding: 0; border-radius: 50%; }
-  .home-pop__label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .home-new .ada-button { inline-size: var(--ada-target-comfortable); padding: 0; border-radius: 50%; }
+  .home-new .ada-pop__label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .home-main { padding-top: 1.5rem; padding-bottom: 3rem; }
   .home-hello h1 { font-size: 2rem; }
   .home-stack { gap: 1.75rem; margin-top: 1.75rem; }
