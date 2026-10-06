@@ -101,6 +101,14 @@ ${themeBlock('dark', '    ')}
 ${themeBlock('dark')}
 }
 
+/* Paper: a light island in either theme. The editor's document page stays
+ * white because the checker judges in-document colours against white
+ * (app/_engine/contrast.ts), so a dark page could hide what it passed. */
+.ada-paper {
+  color-scheme: light;
+${themeBlock('light')}
+}
+
 /* Windows High Contrast / forced-colors. Hand every colour back to the OS:
  * in forced-colors mode our palette is not ours to choose.
  * The selector list matches the dark blocks' specificity so this block wins by
@@ -109,7 +117,8 @@ ${themeBlock('dark')}
 @media (forced-colors: active) {
   :root,
   :root:not([data-theme="light"]),
-  :root[data-theme="dark"] {
+  :root[data-theme="dark"],
+  .ada-paper {
     --ada-surface-canvas: Canvas;
     --ada-surface-raised: Canvas;
     --ada-surface-sunken: Canvas;
@@ -151,11 +160,24 @@ ${themeBlock('dark')}
 
 /* ---------- base layer ---------- */
 
+/* Atkinson Hyperlegible Next: drawn by the Braille Institute for low-vision
+ * readers, and already shipped for the PDF export, so the page on screen and
+ * the exported PDF share one face. Latin only; other scripts fall back. */
+${[['regular', 400, 'normal'], ['bold', 700, 'normal'], ['italic', 400, 'italic'], ['bold-italic', 700, 'italic']]
+  .map(([file, weight, style]) => `@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/atkinson-hyperlegible-next/${file}.ttf') format('truetype');
+  font-weight: ${weight};
+  font-style: ${style};
+  font-display: swap;
+}`).join('\n')}
+
 *,
 *::before,
 *::after { box-sizing: border-box; }
 
 body {
+  margin: 0;
   background: var(--ada-surface-canvas);
   color: var(--ada-text-primary);
   font-family: var(--ada-type-family-ui);

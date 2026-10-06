@@ -1079,7 +1079,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
             onHeaderFooter={() => { setHfTab('header'); setHfOpen(true); }}
             headerFooterOpen={hfOpen}
           />
-          <div className={styles.page}>
+          <div className={`${styles.page} ada-paper`}>
             {band('header')}
             <div ref={mountRef} />
             {/* The editor's description: how to move through and out of a table. */}

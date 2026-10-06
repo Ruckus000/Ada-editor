@@ -18,6 +18,7 @@
   --ada-c-neutral-300: #C2CCDA;
   --ada-c-neutral-400: #97A4B8;
   --ada-c-neutral-500: #64748B;
+  --ada-c-neutral-550: #5E6E84;
   --ada-c-neutral-600: #4E5B6E;
   --ada-c-neutral-700: #3A4553;
   --ada-c-neutral-800: #252D38;
@@ -62,8 +63,8 @@
   --ada-space-6: 32px;
 
   /* typography */
-  --ada-type-family-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --ada-type-family-doc: Georgia, 'Iowan Old Style', serif;
+  --ada-type-family-ui: 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ada-type-family-doc: 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --ada-type-family-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --ada-type-size-xs: 0.8125rem;
   --ada-type-size-sm: 0.875rem;
@@ -98,7 +99,7 @@
   --ada-surface-overlay: #FFFFFF;
   --ada-text-primary: #161C24;
   --ada-text-secondary: #4E5B6E;
-  --ada-text-tertiary: #64748B;
+  --ada-text-tertiary: #5E6E84;
   --ada-text-inverse: #FFFFFF;
   --ada-border-subtle: #DCE3ED;
   --ada-border-default: #C2CCDA;
@@ -185,6 +186,40 @@
   --ada-severity-checked-bg: #0F2620;
 }
 
+/* Paper: a light island in either theme. The editor's document page stays
+ * white because the checker judges in-document colours against white
+ * (app/_engine/contrast.ts), so a dark page could hide what it passed. */
+.ada-paper {
+  color-scheme: light;
+  --ada-surface-canvas: #FFFFFF;
+  --ada-surface-raised: #FFFFFF;
+  --ada-surface-sunken: #F7F9FC;
+  --ada-surface-overlay: #FFFFFF;
+  --ada-text-primary: #161C24;
+  --ada-text-secondary: #4E5B6E;
+  --ada-text-tertiary: #5E6E84;
+  --ada-text-inverse: #FFFFFF;
+  --ada-border-subtle: #DCE3ED;
+  --ada-border-default: #C2CCDA;
+  --ada-border-control: #64748B;
+  --ada-focus-ring: #0B57D0;
+  --ada-focus-halo: #FFFFFF;
+  --ada-action-primary-bg: #1A4FBF;
+  --ada-action-primary-fg: #FFFFFF;
+  --ada-action-secondary-bg: #EDF1F7;
+  --ada-action-secondary-fg: #161C24;
+  --ada-severity-blocker-fg: #B3261E;
+  --ada-severity-blocker-bg: #FCEEEE;
+  --ada-severity-violation-fg: #8A4B00;
+  --ada-severity-violation-bg: #FDF3E7;
+  --ada-severity-advisory-fg: #1F5EA8;
+  --ada-severity-advisory-bg: #EAF2FC;
+  --ada-severity-manual-fg: #6B3FA0;
+  --ada-severity-manual-bg: #F3EDFB;
+  --ada-severity-checked-fg: #1B6B4A;
+  --ada-severity-checked-bg: #E8F6EF;
+}
+
 /* Windows High Contrast / forced-colors. Hand every colour back to the OS:
  * in forced-colors mode our palette is not ours to choose.
  * The selector list matches the dark blocks' specificity so this block wins by
@@ -193,7 +228,8 @@
 @media (forced-colors: active) {
   :root,
   :root:not([data-theme="light"]),
-  :root[data-theme="dark"] {
+  :root[data-theme="dark"],
+  .ada-paper {
     --ada-surface-canvas: Canvas;
     --ada-surface-raised: Canvas;
     --ada-surface-sunken: Canvas;
@@ -235,11 +271,44 @@
 
 /* ---------- base layer ---------- */
 
+/* Atkinson Hyperlegible Next: drawn by the Braille Institute for low-vision
+ * readers, and already shipped for the PDF export, so the page on screen and
+ * the exported PDF share one face. Latin only; other scripts fall back. */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/atkinson-hyperlegible-next/regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/atkinson-hyperlegible-next/bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/atkinson-hyperlegible-next/italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/atkinson-hyperlegible-next/bold-italic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 *,
 *::before,
 *::after { box-sizing: border-box; }
 
 body {
+  margin: 0;
   background: var(--ada-surface-canvas);
   color: var(--ada-text-primary);
   font-family: var(--ada-type-family-ui);

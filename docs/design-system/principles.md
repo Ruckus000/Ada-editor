@@ -141,8 +141,9 @@ reason, not a quiet edit.
 
 ## 5. The document is the interface; chrome earns its place
 
-The writing surface is 66ch, set in a serif face, on a plain background, with
-no persistent toolbar. Findings live in one fixed region. Nothing floats over
+The writing surface is 66ch, set in Atkinson Hyperlegible Next (the face the
+PDF export embeds, drawn for low-vision readers, so the page on screen is the
+page that ships), on a plain background, with no persistent toolbar. Findings live in one fixed region. Nothing floats over
 prose, nothing moves in response to the caret, nothing animates unless it is
 communicating a state change.
 
