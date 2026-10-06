@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { isCloud } from '../_data/supabase';
+import { SiteAccount } from './SiteAccount';
 import './site.css';
 
-/** Where "Start writing" goes: sign-in when there are accounts, the desk in local mode. */
-export const START = isCloud ? '/sign-in' : '/';
+/** Where the landing page's calls to action go: creating an account when there
+ *  are accounts (a signed-in visitor is sent on to the desk), the desk in local mode. */
+export const START = isCloud ? '/sign-up' : '/';
 
 /**
  * Chrome for the public pages (/welcome, /accessibility, /privacy): skip link,
- * header, main, footer. Server-rendered, no client JS. Every link here has a
+ * header, main, footer. Server-rendered apart from the account links, which
+ * need the session in this browser (SiteAccount). Every link here has a
  * name no other control on the page shares (the a11y gate checks it).
  */
 export function Site({ current, children }: { current?: 'accessibility' | 'privacy'; children: ReactNode }) {
@@ -19,8 +22,7 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
       <header className="site-header">
         <div className="site-header__row">
           <Link href="/welcome" className="site-brand"><span className="site-brand__mark" aria-hidden="true">A</span>Ada Editor</Link>
-          <Link href="/sign-in" className="site-header__signin">Sign in</Link>
-          <Link href={START} className="ada-button ada-button--primary">Start writing</Link>
+          <SiteAccount />
         </div>
       </header>
       <main id="main" tabIndex={-1} className="site-main">{children}</main>
