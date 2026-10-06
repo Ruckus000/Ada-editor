@@ -1300,14 +1300,17 @@ async function statusScreens() {
 // CI builds in local mode (no Supabase env vars), so the gate never reaches a
 // real account — but the screen renders the same, and submitting takes the
 // same visible, announced error path a failed send would.
-async function signIn() {
-  page = '/sign-in';
+/** Both doors: sign in, and create an account. */
+async function signIn(path, title, switchTo) {
+  page = path;
   const { proc, ws, send } = await openPage(page);
   try {
     await runAxe(send, '');
     await checkTree(send);
     const docTitle = await evaluate(send, `document.title`);
-    if (docTitle !== 'Sign in · Ada Editor') fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    if (docTitle !== title) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
+    const other = await evaluate(send, `[...document.querySelectorAll('.signin__switch a')].map((a) => a.getAttribute('href')).join()`);
+    if (other !== switchTo) fail(`SIGNIN  ${path} should link to the other door, ${switchTo} (got ${JSON.stringify(other)})`);
     await checkTabOrder(send);
     if (!(await focusByName(send, 'input', ''))) fail('SIGNIN  no email field');
     await send('Input.insertText', { text: 'person@example.org' });
@@ -1417,7 +1420,8 @@ try {
   await staticPage('/welcome', 'Accessible document editor · Ada Editor');
   await staticPage('/accessibility', 'Accessibility · Ada Editor');
   await staticPage('/privacy', 'Privacy · Ada Editor');
-  await signIn();
+  await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
+  await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();
   await newDocument();
   await upload();
