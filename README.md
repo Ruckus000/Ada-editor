@@ -61,9 +61,13 @@ history uses the files' own versions: a migration applied another way (the
 Supabase MCP, the SQL editor) is recorded under the time it ran, so set its
 row in `supabase_migrations.schema_migrations` to the file's version
 afterwards (or `supabase migration repair`), or the CLI will try to run it
-again. The sign-in email is `supabase/templates/sign-in-code.html`, pasted into
-Supabase's **Confirm signup** and **Magic link** templates (subject: *Your Ada
-Editor sign-in code*); Supabase fills in `{{ .Token }}` and `{{ .Email }}`. The browser keeps a working copy,
+again. Sign-in and creating an account are separate doors (`/sign-in`, `/sign-up`)
+on the same emailed code: sign-in never creates an account. The emails are
+`supabase/templates/sign-in-code.html`, pasted into Supabase's **Magic link**
+template (subject: *Your Ada Editor sign-in code*), and
+`supabase/templates/welcome-code.html`, pasted into **Confirm signup**
+(subject: *Welcome to Ada Editor*); Supabase fills in `{{ .Token }}` and
+`{{ .Email }}`. The browser keeps a working copy,
 so typing never waits on the network and edits made offline sync when the
 connection returns. Each document carries a server-stamped revision: a save
 only lands while the server still has the revision it was edited from, so

@@ -250,15 +250,16 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# The real sign-in email, so the e2e test exercises the template production
-# uses (the hosted project has the same file pasted into both templates).
+# The real emails, so the e2e test exercises the templates production uses
+# (the hosted project has these files pasted into the same two templates):
+# Magic link is the sign-in code, Confirm signup the new account's welcome.
 [auth.email.template.magic_link]
 subject = "Your Ada Editor sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
 
 [auth.email.template.confirmation]
-subject = "Your Ada Editor sign-in code"
-content_path = "./supabase/templates/sign-in-code.html"
+subject = "Welcome to Ada Editor"
+content_path = "./supabase/templates/welcome-code.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

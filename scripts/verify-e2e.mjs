@@ -213,15 +213,24 @@ async function typeAtEnd(send, text) {
 const saveStatus = (send) => evaluate(send,
   `[...document.querySelectorAll('header span')].map((s) => s.textContent.trim()).find((t) => /^(Saved|Saving…|Not synced)/.test(t)) ?? null`);
 
-/** The newest sign-in email for `email`, from Mailpit: its code, checked against our template. */
+/** Our two emails: the sign-in code (Magic link) and a new account's welcome
+ *  (Confirm signup). Which one GoTrue sends depends on whether the address is new. */
+const EMAILS = {
+  'Your Ada Editor sign-in code': 'Your sign-in code',
+  'Welcome to Ada Editor': 'Welcome to Ada Editor',
+};
+
+/** The newest code email for `email`, from Mailpit: its code, checked against our templates. */
 async function codeFor(email) {
   for (let i = 0; i < 50; i++) {
     const found = await (await fetch(`${MAIL}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)).json();
     const latest = found.messages?.[0];
     if (latest) {
       const message = await (await fetch(`${MAIL}/api/v1/message/${latest.ID}`)).json();
-      if (latest.Subject !== 'Your Ada Editor sign-in code') fail(`EMAIL  subject is ${JSON.stringify(latest.Subject)}`);
-      if (!message.HTML.includes('Your sign-in code') || !message.HTML.includes(email)) fail('EMAIL  the sign-in email is not supabase/templates/sign-in-code.html');
+      const heading = EMAILS[latest.Subject];
+      if (!heading) fail(`EMAIL  subject is ${JSON.stringify(latest.Subject)}`);
+      else if (!message.HTML.includes(heading) || !message.HTML.includes(email)) fail(`EMAIL  "${latest.Subject}" is not built from supabase/templates`);
+      seenSubjects.add(latest.Subject);
       const code = message.HTML.match(/>\s*(\d{8})\s*</)?.[1];
       if (!code) fail('EMAIL  no 8-digit code in the email');
       return code;
@@ -232,9 +241,12 @@ async function codeFor(email) {
   return null;
 }
 
-/** Sign in through the real screen; resolves to the account's user id. */
-async function signIn(send, email) {
-  await go(send, '/sign-in');
+const seenSubjects = new Set();
+
+/** Sign in through the real screen (`door`: /sign-in, or /sign-up for a new
+ *  account); resolves to the account's user id. */
+async function signIn(send, email, door = '/sign-in') {
+  await go(send, door);
   if (!(await waitFor(send, `!!document.querySelector('input[type=email]')`))) { fail('SIGNIN  no email field'); return null; }
   // Type as soon as the field exists — before React hydrates, as a person on a
   // slow connection would — then check hydration kept it. A controlled field
@@ -366,12 +378,34 @@ async function firstBrowser() {
     const toLanding = await waitFor(send, `location.pathname === '/welcome' && !!document.querySelector('h1')`);
     const start = await evaluate(send, `[...document.querySelectorAll('a')].find((a) => a.textContent.trim() === 'Start writing')?.getAttribute('href')`);
     if (!toLanding) fail(`LANDING  a signed-out visit to / ended at ${await evaluate(send, 'location.pathname')}, not /welcome`);
-    else if (start !== '/sign-in') fail(`LANDING  "Start writing" goes to ${JSON.stringify(start)}, not /sign-in`);
-    else note('a signed-out visit to / lands on the landing page, whose "Start writing" leads to sign-in');
+    else if (start !== '/sign-up') fail(`LANDING  "Start writing" goes to ${JSON.stringify(start)}, not /sign-up`);
+    else note('a signed-out visit to / lands on the landing page, whose "Start writing" leads to creating an account');
+
+    // Sign-in never creates an account: an unknown address is told so, offered
+    // the other door, and no user appears.
+    page = 'sign in, no account';
+    const stranger = address('nobody');
+    await go(send, '/sign-in');
+    await waitFor(send, HYDRATED('input[type=email]'));
+    await typeInto(send, 'input[type=email]', stranger);
+    await key(send, 'Enter');
+    const refused = await waitFor(send, `(document.querySelector('[role=alert]')?.textContent ?? '').includes('no account for that email')`, 10_000);
+    const offered = await evaluate(send, `document.querySelector('[role=alert] a')?.getAttribute('href') ?? ''`);
+    const made = ((await db.auth.admin.listUsers({ perPage: 1000 })).data?.users ?? []).some((u) => u.email === stranger);
+    if (!refused) fail(`SIGNIN  an unknown address was not told it has no account (alert: ${JSON.stringify(await evaluate(send, `document.querySelector('[role=alert]')?.textContent ?? ''`))})`);
+    else if (offered !== '/sign-up') fail(`SIGNIN  the no-account message does not offer /sign-up (got ${JSON.stringify(offered)})`);
+    else if (made) fail('SIGNIN  signing in with an unknown address created an account');
+    else note('sign-in with an unknown address says there is no account, offers to create one, and creates nothing');
+    await evaluate(send, `document.querySelector('[role=alert] a').click()`);
+    const carried = await waitFor(send, `location.pathname === '/sign-up' && document.querySelector('input[type=email]')?.value === ${JSON.stringify(stranger)}`, 10_000);
+    if (!carried) fail('SIGNUP  "Create an account with this email" did not carry the address to the form');
+    else if (await evaluate(send, `location.search.includes('@') || location.search.includes('%40')`)) fail('SIGNUP  the address was put in the URL');
+    else note('the address carries to the create-account form without touching the URL');
 
     page = 'sign up';
-    uid = await signIn(send, A);
+    uid = await signIn(send, A, '/sign-up');
     if (!uid) return;
+    note(`a new account's code came by "${[...seenSubjects].join('", "')}"`);
     await evaluate(send, `window.e2eBefore = true`); // already on the desk: wait for a new document
     await go(send, '/sign-in');
     if (!(await waitFor(send, `!window.e2eBefore && location.pathname === '/' && !!document.querySelector('.home-main')`))) fail(`SIGNIN  a signed-in visit to /sign-in stayed at ${await evaluate(send, 'location.pathname')}`);
@@ -608,6 +642,11 @@ async function secondBrowser() {
 
     page = 'privacy';
     await go(send, '/privacy');
+    // The public header knows who's signed in: the way back to the desk, not "Sign in".
+    const header = await waitFor(send, `[...document.querySelectorAll('.site-header a')].some((a) => a.textContent.trim() === 'Your desk')`, 10_000);
+    const stillSignIn = await evaluate(send, `[...document.querySelectorAll('.site-header a')].some((a) => a.textContent.trim() === 'Sign in')`);
+    if (!header || stillSignIn) fail(`HEADER  signed in, the public header shows ${header ? '' : 'no "Your desk" '}${stillSignIn ? '"Sign in"' : ''}`);
+    else note('signed in, the public pages’ header offers "Your desk" instead of "Sign in"');
     if (!(await waitFor(send, `!!document.querySelector('textarea')`))) { fail('PRIVACY  no message form for a signed-in account'); return; }
     await typeInto(send, 'textarea', 'E2E message: please ignore.');
     await clickButton(send, 'Send message');
@@ -653,7 +692,7 @@ async function twoDevices() {
   const y = await openBrowser();
   try {
     page = 'two devices';
-    const cid = await signIn(x.tab.send, C);
+    const cid = await signIn(x.tab.send, C, '/sign-up');
     if (!cid) return;
     if (!(await createDocument(x.tab.send, TITLE, DOC))) return;
     await typeAtEnd(x.tab.send, ' Base text.');
