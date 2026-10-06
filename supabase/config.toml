@@ -65,7 +65,7 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# No seed: sample documents come from the app (seedAccount), per account.
+# No seed: accounts start empty. Local mode (no Supabase env) seeds its own fixtures.
 enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
