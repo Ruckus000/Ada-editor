@@ -208,7 +208,7 @@ manual), anchor to text ranges (95%), and are plentiful (median 12 per
 document). One failed: **only 4.8% carry an automatic fix**, which moved the
 card's primary action from "Apply fix" to "Go to text".
 
-## Three decisions worth knowing up front
+## Decisions and trade-offs
 
 1. **Colour never carries meaning alone.** Severity is encoded in underline
    shape, glyph and visible text. Measured with CIEDE2000, most severity pairs
