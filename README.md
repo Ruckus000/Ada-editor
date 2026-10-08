@@ -45,6 +45,31 @@ actually cite:
 Every finding cites the specific success criterion it comes from. Nothing in the
 product reports "ADA compliance" as a status.
 
+## Screenshots
+
+Captured from a local production build in local mode (no account), using the
+sample documents the app seeds on first visit.
+
+**The desk** — every document, ranked by what stops it being published.
+
+![The desk: a summary line reading "8 documents. 4 can't be published yet. 7 questions need your call", a list of questions the checker can't decide, and document cards labelled "Blocks access" with their counts of blocking, failing-AA and advisory findings](docs/images/desk.png)
+
+**The editor** — findings sit beside the document, each citing its WCAG
+criterion, with "Go to text" as the primary action.
+
+![The editor open on a draft public-hearing notice. The findings panel lists 8 open findings by severity; the top card, marked "Blocks access", cites WCAG 1.1.1 Non-text Content for an image with no alternative text. In the document the image is labelled "Missing alt text" and the link text "click here" is underlined](docs/images/editor.png)
+
+<table>
+<tr>
+<td width="62%"><img src="docs/images/export.png" alt="The Export menu open in the editor, offering Export HTML (a web page with its structure and alt text) and Export PDF (a tagged PDF, PDF/UA-1)"></td>
+<td><img src="docs/images/phone.png" alt="The same document in the editor at phone width, with the toolbar wrapping above the page and the missing alt text marker under the image"></td>
+</tr>
+<tr>
+<td><b>Export</b> — HTML or tagged PDF (PDF/UA-1)</td>
+<td><b>Phone width</b></td>
+</tr>
+</table>
+
 ## Current state
 
 Working prototype. The homepage and editor screens are built from the design
