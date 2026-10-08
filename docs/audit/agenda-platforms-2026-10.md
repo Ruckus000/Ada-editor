@@ -77,6 +77,12 @@ The vendors' move to HTML copies helps this position. Ada isn't competing to mak
 
 `npm run check-posted` takes the original Ada PDF and the posted copy (a file or a public link). It reports whether the file was served unchanged, and whether its tags were kept, removed or flattened. It also reports whether the language and title survived, which PDF/UA rules newly fail (veraPDF), and whether the posted copy looks like a packet.
 
+Before relying on it, I ran it on two pairs of public files from the research:
+- **Eatonville's agenda against its Municode Meetings packet** gave "removed": no tree, 26 pages still pointing into one, and the language dropped.
+- **Fort Lauderdale's stored Legistar attachment against the copy the public link serves** gave "kept": 515 elements on both sides, but the title replaced with the file number.
+
+Both match what the research found by hand. It compares veraPDF results rule by rule, so a rule can show as "new" only because a different rule failed in the original. For example, Word's PDF fails "no metadata" while the packet fails "metadata without the PDF/UA identifier". Ada's exports always carry metadata, so the pilot won't see this.
+
 **Why a script first (the owner's choice):**
 - **No server code yet.** Ada Editor runs on Vercel, but no code of ours runs there: Vercel serves the pages, and checking and export run in the browser. A checker that fetches a pasted link would be the app's first server route.
 - **The route needs guarding** so it can't be pointed at internal or arbitrary addresses.

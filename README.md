@@ -202,6 +202,12 @@ and Maven (it fetches veraPDF from Maven Central on first run); without them it
 checks the PDF's structure only and says so. `npm run pdf -- --out pdfs` keeps
 the exported PDFs for a look in a real reader.
 
+`npm run check-posted -- --original <file|url> --posted <file|url>` compares an
+exported PDF with the copy a town's agenda system published: whether its tags,
+language, title and PDF/UA identifier survived, and (with Java) which PDF/UA
+rules veraPDF newly fails. Why it exists:
+[Agenda platforms and tagged PDFs](docs/audit/agenda-platforms-2026-10.md).
+
 ## Is the form right?
 
 Tested, not assumed. [The rule-set spike](docs/audit/rule-set-spike.md) ran 13

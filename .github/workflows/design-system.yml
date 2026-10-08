@@ -70,6 +70,9 @@ jobs:
       - name: PDF export gate (structure + veraPDF PDF/UA-1)
         run: node scripts/verify-pdf.mjs --verbose
 
+      - name: Posted-PDF checker gate (what agenda systems do to an export)
+        run: node scripts/verify-check-posted.mjs
+
   # The account path end to end, against a local Supabase stack in Docker
   # (supabase/config.toml): sign-in by emailed code (read from Mailpit), sync,
   # offline, cross-tab sign-out, a signed-in PDF export through veraPDF, the
