@@ -1,5 +1,31 @@
 # Ada-editor
 
+**A browser-based document editor that checks your writing against WCAG 2.1 AA
+and Section 508 as you type — and never tells you a document is "compliant".**
+
+**Live demo:** <https://ada-editor-umber.vercel.app>
+
+**Stack:** Next.js 15 · React 19 · TypeScript · ProseMirror · Tailwind CSS 4 ·
+Supabase (Auth, Postgres + row-level security, Storage) · pdfkit · veraPDF and
+axe-core in CI
+
+- **Checks as you write.** Nineteen WCAG rules run in the browser against the
+  live ProseMirror document, and every finding cites the success criterion it
+  comes from.
+- **Imports Word files without uploading them.** `.docx` tables (header rows,
+  merged cells) and image alt text come across; anything the editor can't hold
+  is listed on the document instead of dropped.
+- **Exports accessible HTML and tagged PDF (PDF/UA-1).** CI validates the PDF
+  exporter with veraPDF.
+- **Works with or without an account.** Local mode keeps documents in the
+  browser; signed-in documents sync through Supabase with revision checks, so
+  edits from two devices are never silently overwritten.
+- **Honest about its limits.** Findings that need a human get their own
+  severity ("Needs your call"), because automated checking covers roughly a
+  third of WCAG.
+
+---
+
 Write documents that meet WCAG 2.1 AA and Section 508.
 
 A writing tool that checks documents for accessibility problems as you write —
