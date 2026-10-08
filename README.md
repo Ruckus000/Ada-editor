@@ -147,12 +147,43 @@ documents in this browser's localStorage only, exactly as before accounts.
   — architecture, rule porting, persistence and performance behind the engine
   that replaced the editor's fixture findings
 
-## Quick start
+## Architecture
+
+Everything that reads the document runs in the browser; the server only stores
+it.
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    IM[".docx import<br/>app/_import"] --> ED["ProseMirror editor<br/>app/_editor"]
+    ED -- "document tree" --> EN["Checking engine<br/>app/_engine · 19 rules"]
+    EN -- "findings" --> ED
+    ED --> EX["HTML and PDF/UA-1 export<br/>exportHtml.ts · exportPdf.ts"]
+    ED <--> ST["Working copy<br/>localStorage + IndexedDB"]
+  end
+  ST <-- "revisioned sync<br/>app/_data/sync.ts" --> SB[("Supabase<br/>Auth · Postgres + RLS · Storage")]
+  EX -. "checked in CI" .-> VP["veraPDF"]
+```
+
+- The engine walks the ProseMirror tree directly (no HTML round-trip, no API
+  route). Structural rules re-run on each change; prose rules run on blur or
+  Recheck, memoised per text block.
+- Without Supabase environment variables the sync arrow simply isn't there:
+  local mode, no sign-in.
+- Row-level security keeps each account's documents to itself
+  (`supabase/tests/rls.sql` tests it), and storage policies do the same for
+  its images.
+
+## How to run it
+
+Node 22 (`.nvmrc`). No environment variables are needed: without them the app
+runs in local mode with eight sample documents.
 
 ```bash
 npm install
-npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates (Node 22)
-npm run preview    # serve the live preview at http://127.0.0.1:8080
+npm run dev        # the app, in local mode, at http://localhost:3000
+npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates
+npm run preview    # the design-system preview at http://127.0.0.1:8080
 ```
 
 `npm run e2e` (needs Docker) runs the account path end to end against a **local**
