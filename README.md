@@ -1,5 +1,31 @@
 # Ada-editor
 
+**A browser-based document editor that checks your writing against WCAG 2.1 AA
+and Section 508 as you type — and never tells you a document is "compliant".**
+
+**Live demo:** <https://ada-editor-umber.vercel.app>
+
+**Stack:** Next.js 15 · React 19 · TypeScript · ProseMirror · Tailwind CSS 4 ·
+Supabase (Auth, Postgres + row-level security, Storage) · pdfkit · veraPDF and
+axe-core in CI
+
+- **Checks as you write.** Nineteen WCAG rules run in the browser against the
+  live ProseMirror document, and every finding cites the success criterion it
+  comes from.
+- **Imports Word files without uploading them.** `.docx` tables (header rows,
+  merged cells) and image alt text come across; anything the editor can't hold
+  is listed on the document instead of dropped.
+- **Exports accessible HTML and tagged PDF (PDF/UA-1).** CI validates the PDF
+  exporter with veraPDF.
+- **Works with or without an account.** Local mode keeps documents in the
+  browser; signed-in documents sync through Supabase with revision checks, so
+  edits from two devices are never silently overwritten.
+- **Honest about its limits.** Findings that need a human get their own
+  severity ("Needs your call"), because automated checking covers roughly a
+  third of WCAG.
+
+---
+
 Write documents that meet WCAG 2.1 AA and Section 508.
 
 A writing tool that checks documents for accessibility problems as you write —
@@ -18,6 +44,31 @@ actually cite:
 
 Every finding cites the specific success criterion it comes from. Nothing in the
 product reports "ADA compliance" as a status.
+
+## Screenshots
+
+Captured from a local production build in local mode (no account), using the
+sample documents the app seeds on first visit.
+
+**The desk** — every document, ranked by what stops it being published.
+
+![The desk: a summary line reading "8 documents. 4 can't be published yet. 7 questions need your call", a list of questions the checker can't decide, and document cards labelled "Blocks access" with their counts of blocking, failing-AA and advisory findings](docs/images/desk.png)
+
+**The editor** — findings sit beside the document, each citing its WCAG
+criterion, with "Go to text" as the primary action.
+
+![The editor open on a draft public-hearing notice. The findings panel lists 8 open findings by severity; the top card, marked "Blocks access", cites WCAG 1.1.1 Non-text Content for an image with no alternative text. In the document the image is labelled "Missing alt text" and the link text "click here" is underlined](docs/images/editor.png)
+
+<table>
+<tr>
+<td width="62%"><img src="docs/images/export.png" alt="The Export menu open in the editor, offering Export HTML (a web page with its structure and alt text) and Export PDF (a tagged PDF, PDF/UA-1)"></td>
+<td><img src="docs/images/phone.png" alt="The same document in the editor at phone width, with the toolbar wrapping above the page and the missing alt text marker under the image"></td>
+</tr>
+<tr>
+<td><b>Export</b> — HTML or tagged PDF (PDF/UA-1)</td>
+<td><b>Phone width</b></td>
+</tr>
+</table>
 
 ## Current state
 
@@ -96,12 +147,43 @@ documents in this browser's localStorage only, exactly as before accounts.
   — architecture, rule porting, persistence and performance behind the engine
   that replaced the editor's fixture findings
 
-## Quick start
+## Architecture
+
+Everything that reads the document runs in the browser; the server only stores
+it.
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    IM[".docx import<br/>app/_import"] --> ED["ProseMirror editor<br/>app/_editor"]
+    ED -- "document tree" --> EN["Checking engine<br/>app/_engine · 19 rules"]
+    EN -- "findings" --> ED
+    ED --> EX["HTML and PDF/UA-1 export<br/>exportHtml.ts · exportPdf.ts"]
+    ED <--> ST["Working copy<br/>localStorage + IndexedDB"]
+  end
+  ST <-- "revisioned sync<br/>app/_data/sync.ts" --> SB[("Supabase<br/>Auth · Postgres + RLS · Storage")]
+  EX -. "checked in CI" .-> VP["veraPDF"]
+```
+
+- The engine walks the ProseMirror tree directly (no HTML round-trip, no API
+  route). Structural rules re-run on each change; prose rules run on blur or
+  Recheck, memoised per text block.
+- Without Supabase environment variables the sync arrow simply isn't there:
+  local mode, no sign-in.
+- Row-level security keeps each account's documents to itself
+  (`supabase/tests/rls.sql` tests it), and storage policies do the same for
+  its images.
+
+## How to run it
+
+Node 22 (`.nvmrc`). No environment variables are needed: without them the app
+runs in local mode with eight sample documents.
 
 ```bash
 npm install
-npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates (Node 22)
-npm run preview    # serve the live preview at http://127.0.0.1:8080
+npm run dev        # the app, in local mode, at http://localhost:3000
+npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates
+npm run preview    # the design-system preview at http://127.0.0.1:8080
 ```
 
 `npm run e2e` (needs Docker) runs the account path end to end against a **local**
@@ -126,7 +208,7 @@ manual), anchor to text ranges (95%), and are plentiful (median 12 per
 document). One failed: **only 4.8% carry an automatic fix**, which moved the
 card's primary action from "Apply fix" to "Go to text".
 
-## Three decisions worth knowing up front
+## Decisions and trade-offs
 
 1. **Colour never carries meaning alone.** Severity is encoded in underline
    shape, glyph and visible text. Measured with CIEDE2000, most severity pairs
