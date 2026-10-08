@@ -53,7 +53,7 @@ export default function Page() {
       </section>
 
       <div className="site-wrap site-statement">
-        <Toc items={[['start', 'Getting started'], ['severities', 'What the findings mean'], ['checks', 'Every check'], ['keys', 'Keyboard shortcuts'], ['export', 'Exporting'], ['display', 'Display settings'], ['contact', 'Still stuck?']]} />
+        <Toc items={[['start', 'Getting started'], ['severities', 'What the findings mean'], ['checks', 'Every check'], ['keys', 'Keyboard shortcuts'], ['export', 'Exporting'], ['posting', 'Posting to an agenda system'], ['display', 'Display settings'], ['contact', 'Still stuck?']]} />
         <div className="site-col">
           <section id="start" aria-labelledby="start-title">
             <h2 id="start-title">Getting started</h2>
@@ -115,6 +115,17 @@ export default function Page() {
             <h2 id="export-title">Exporting</h2>
             <p><strong>Export HTML</strong> saves a standalone web page: the language, headings, links, tables and images with their alt text. <strong>Export PDF</strong> saves a tagged PDF (PDF/UA-1) built from the same structure.</p>
             <p>Exports keep the document as it is. Whatever the checker flags is still wrong in the export: an image without alt text is exported without it. The PDF’s font covers Latin scripts only; a document with Greek, Cyrillic, Hebrew, Arabic or CJK text is refused for PDF (with the characters listed), and Export HTML keeps every script.</p>
+          </section>
+
+          <section id="posting" aria-labelledby="posting-title">
+            <h2 id="posting-title">Posting a PDF to your agenda system</h2>
+            <p>Agenda systems change files as they publish them. We tested the ones Florida towns use, and the tags a screen reader relies on survived on some paths and not others.</p>
+            <ul>
+              <li><strong>Upload the PDF, not the Word file.</strong> Agenda systems convert Word files themselves, and most of the conversions we tested lost the headings and tables.</li>
+              <li><strong>Link people to the document itself.</strong> Many systems also combine every item into one agenda packet. In our tests the packet usually lost the tags or the document’s language, while the document’s own link kept them.</li>
+              <li><strong>If your system publishes only a packet,</strong> post the PDF on your website as well, and link to it from the agenda.</li>
+            </ul>
+            <p>Want to know whether a posted copy kept its structure? Signed in, you can <Link href="/privacy#contact">ask us to check a posted copy</Link> against the original.</p>
           </section>
 
           <section id="display" aria-labelledby="display-title">

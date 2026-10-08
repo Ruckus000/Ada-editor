@@ -146,6 +146,9 @@ documents in this browser's localStorage only, exactly as before accounts.
 - **[Checking engine implementation plan](docs/audit/checking-engine-plan.md)**
   — architecture, rule porting, persistence and performance behind the engine
   that replaced the editor's fixture findings
+- **[Agenda platforms and tagged PDFs](docs/audit/agenda-platforms-2026-10.md)**
+  — what happens to an exported PDF when a clerk posts it, and the decisions
+  that follow
 
 ## Architecture
 
