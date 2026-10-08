@@ -23,19 +23,17 @@
  * --out keeps the exported PDFs for a look in a real reader.
  */
 
-import { build } from 'esbuild';
+import { loadPdfHarness } from './harness/pdf-harness.mjs';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
 import { inflateSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { JPEG_3X2, png, withOrientation } from './harness/images.mjs';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(HERE, '..');
-const TMP = resolve(HERE, '.pdf-bundle.mjs');
 const VERAPDF = resolve(HERE, 'verapdf');
 const VERBOSE = process.argv.includes('--verbose');
 const outArg = process.argv.indexOf('--out');
@@ -59,25 +57,11 @@ const eq = (actual, expected, what = '') =>
 
 /* ---------- bundle the exporter ---------- */
 
-await build({
-  entryPoints: [resolve(HERE, 'harness/pdf-entry.ts')],
-  bundle: true,
-  format: 'esm',
-  platform: 'node',
-  target: 'es2022',
-  packages: 'external',
-  outfile: TMP,
-  logLevel: 'warning',
-});
-process.on('exit', () => rmSync(TMP, { force: true }));
-const mod = await import(pathToFileURL(TMP).href);
+const { mod, fonts } = await loadPdfHarness('pdf');
 const { schema } = mod;
 const { exportPdf } = mod.exportPdf;
 const N = schema.nodes;
 const M = schema.marks;
-
-// The same bytes the browser fetches from public/.
-const fonts = Object.fromEntries(Object.entries(mod.exportPdf.PDF_FONT_FILES).map(([face, url]) => [face, readFileSync(join(ROOT, 'public', url))]));
 
 /* ---------- documents ---------- */
 
