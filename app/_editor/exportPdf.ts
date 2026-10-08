@@ -852,7 +852,10 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     }
   };
 
-  const documentElem = pdf.struct('Document');
+  // The root element repeats the catalog's /Lang. Agenda platforms that merge
+  // files into one packet were seen dropping the catalog entry while keeping
+  // each file's structure tree (docs/audit/agenda-platforms-2026-10.md).
+  const documentElem = pdf.struct('Document', { lang });
   pdf.addStructure(documentElem);
   for (const elem of root) emit(elem, documentElem, null);
   documentElem.end();

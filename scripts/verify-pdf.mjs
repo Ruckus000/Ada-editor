@@ -194,6 +194,7 @@ await check('exports every construct, across pages', async () => {
   const { text, objects } = file;
   assert(text.startsWith('%PDF-1.7'), 'PDF 1.7');
   assert(/\/Lang \(en\)/.test(text), 'document language in the catalog (WCAG 3.1.1)');
+  assert(withType(objects, 'Document')[0]?.includes('/Lang (en)'), 'the root element carries the language too, so it survives a packet merge');
   assert(/\/DisplayDocTitle true/.test(text), 'the title, not the file name, is what a reader shows');
   eq(infoEntry(file, 'Title'), 'Exporter feature sheet', 'title in the info dictionary');
   assert(text.includes('<pdfuaid:part>1</pdfuaid:part>'), 'PDF/UA identification in the XMP metadata');
@@ -333,6 +334,7 @@ await check('the document language and title reach the file', async () => {
   const file = objectsOf(result.bytes);
   const { text, objects } = file;
   assert(/\/Lang \(es\)/.test(text), 'catalog /Lang is the document language');
+  assert(withType(objects, 'Document')[0]?.includes('/Lang (es)'), 'the root element carries the document language');
   eq(infoEntry(file, 'Title'), 'Untitled document', 'a blank title falls back, as the HTML export does');
   eq(withType(objects, 'Span').length, 0, 'text in the page language is not a language change');
 });
