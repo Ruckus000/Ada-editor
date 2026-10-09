@@ -103,28 +103,76 @@ Both match what the research found by hand. It compares veraPDF results rule by 
 - **A vendor ships packets that keep tags:** update the Help guidance and the platform table above. Granicus's 2026 release notes already mention a fix for attachments losing "accessibility features" in publishing; it hadn't reached Boulder's files in September 2026.
 - **The pilot contradicts a row of the table:** the pilot wins. The table is structural inspection of a few towns; the pilot is a known file through a real account.
 
-## Pilot: one known file through each platform
+## Pilot: one real document through each platform
 
-The decisive test the research couldn't run. A cooperating clerk posts a known Ada test file, and we compare what the public receives.
+This is the test the research couldn't run: a document of known quality, posted by a real clerk on a real platform, with what the public receives compared against what Ada exported. I decided how to frame it on October 9, 2026. The one-page explainer for clerks is [`agenda-platforms-2026-10/pilot-explainer.md`](agenda-platforms-2026-10/pilot-explainer.md).
 
-1. **Make the test file.** Export a seed document that has headings, a table with header cells, a figure with alt text, a Spanish passage and a title. Keep the file.
-2. **The clerk posts it** as an item attachment at a real meeting, or in a test meeting if the platform allows one, uploading the PDF, not Word.
-3. **Check both copies.** Run `npm run check-posted -- --original test.pdf --posted <attachment link>`, then again with `--posted <packet link>`. If a portal blocks the download, save the file in a browser and pass the file.
-4. **Record the result** below, and update the table in "What we found" if it differs.
+### How it's framed: research on the software, not a sale and not an audit
 
-Order, by what each test settles:
-1. CivicClerk: do headings, alt text and the root `/Lang` survive the packet?
-2. Municode Meetings: can a clerk supply their own packet?
-3. A second Florida OneMeeting town: settles Oviedo against Boulder.
-4. Legistar: does the PDF/UA identifier survive its re-save?
-5. Diligent: are rich tags flattened to paragraphs?
-6. eSCRIBE and BoardDocs, by a person using a normal browser.
+The opener to a clerk: *"We're testing which agenda systems keep accessible PDFs accessible after a clerk posts them. Would you help us find out for yours?"*
 
-| Platform | Town | Date | Attachment: tags / language / title | Packet: tags / language / title | New PDF/UA failures | Notes |
-|---|---|---|---|---|---|---|
-| | | | | | | |
+**Why this framing:**
+- **It's true, and nobody else answers it.** No vendor publishes what its packets do to tags, and a clerk can't easily check.
+- **It's about the vendor's software, not the town's compliance.** A report telling a town manager "your packets are inaccessible" may count as notice under the deliberate-indifference standard (the business review's legal point, still to be put to a lawyer). If it does, town attorneys tell staff not to engage. "Here's what your agenda system does to a file" says nothing about the town's own documents.
+- **There's nothing to buy.** That keeps purchase splitting and purchasing thresholds out of the conversation until there's something to sell.
+
+### The ask: one real document, not a test file
+
+The first draft of this protocol had the clerk post a test file at a real meeting. I changed that: it would put a fake document into the town's official public record. Instead:
+
+1. The clerk writes **one item they'd post anyway** in Ada Editor: the next agenda, a public notice or a staff memo.
+2. They export the PDF and **post it the usual way**, uploading the PDF, not Word.
+3. They send us **two links**: the item's own attachment and the packet, if there is one.
+4. We run `npm run check-posted -- --original <their export> --posted <link>` on each link. If a portal blocks the download, we save the file in a browser and pass the file.
+5. We send the clerk a one-page result and record it below.
+
+A real document is also real use of the product. That is the demand evidence the business review found missing.
+
+### What the clerk gets
+
+- A one-page result for their system: which link keeps the document accessible, and what to point residents to.
+- Ada Editor at no cost for the pilot. It's a working account for the town's documents, not a personal gift. Nothing else of value is offered.
+- Credit in the published summary, if they want it. Otherwise their town isn't named.
+
+### Ground rules
+
+- **Write everything as if it will be published.** Under Chapter 119, every email, explainer and result note is a public record. Plan to publish the combined results: "How Florida agenda systems handle accessible PDFs" is something clerks and the Florida Association of City Clerks would pass around.
+- **Test only the clerk's own Ada document.** Never assess the town's existing posts, and never send unsolicited findings about its website.
+- **No town with a pending solicitation for this work.** Okeechobee is out: its ADA website work is headed for a bid, so contact could cost the right to bid, or break a contact ban.
+- **Check lobbyist registration before contacting a town.** Palm Beach County's ordinance covers its cities. Every email carries a mailing address and an opt-out line.
+- **Lawyer first.** The explainer goes through the one-hour legal review the business review recommended (notice, public records, outreach rules) before anyone receives it.
+- **Recruit at the end of a discovery call**, not by cold email. The pilot is an offer that follows a conversation.
+
+### What we're measuring
+
+| Question | Evidence |
+|---|---|
+| What each platform does to the file | The checker's verdict for the attachment link and the packet |
+| Whether clerks will use Ada | Whether they write a second document without being asked |
+| Whether a packet builder is ever worth it | The clerk's estimate of how many packet pages start in Word, against scans and outside PDFs |
+| How a purchase would happen | Who signs, and the amount that needs quotes or council approval |
+
+### Size, order and timing
+
+About five towns, one per platform. Councils meet every two weeks or monthly, so allow four to six weeks. Order, by what each result settles:
+1. **CivicClerk:** do headings, alt text and the root `/Lang` survive the packet?
+2. **Municode Meetings:** can a clerk supply their own packet?
+3. **A second Florida OneMeeting town:** settles Oviedo against Boulder.
+4. **Legistar:** does the PDF/UA identifier survive its re-save?
+5. **Diligent:** are rich tags flattened to paragraphs?
+
+eSCRIBE and BoardDocs blocked scripted downloads in the research. For those, the clerk or I save the posted files in a browser.
+
+### Results
+
+Update the table in "What we found" whenever a result contradicts it.
+
+| Platform | Town (if credited) | Date | Document | Attachment: tags / language / title | Packet: tags / language / title | New PDF/UA failures | Second document unprompted? | Packet pages from Word | Who signs, and at what amount |
+|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | |
 
 ## Sources
 
+- [Pilot explainer for clerks](agenda-platforms-2026-10/pilot-explainer.md).
 - [Report: agenda packets break what attachments preserve](agenda-platforms-2026-10/report.md), which has every citation, file URL and producer string.
 - Research notes: [Granicus](agenda-platforms-2026-10/notes/granicus.md), [CivicPlus and Municode](agenda-platforms-2026-10/notes/civicplus_municode.md), [Diligent, eSCRIBE, OnBase and others](agenda-platforms-2026-10/notes/diligent_escribe_onbase_others.md), and [the Florida file tests](agenda-platforms-2026-10/notes/empirical_florida_samples.md).
