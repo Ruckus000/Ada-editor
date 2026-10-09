@@ -1,4 +1,4 @@
-import { getClient } from './supabase';
+import { getClient, isCloud } from './supabase';
 
 /**
  * Display preferences: theme and text size. Kept in this browser so the very
@@ -65,7 +65,9 @@ export function adoptDisplay(fromAccount: unknown): void {
  * Runs in <head> before the first paint, so a dark-mode reader never sees a
  * white flash and text never jumps size. Plain JS, no imports; keep it in step
  * with parseDisplay. Also marks that a session exists, so the public header
- * can hide signed-out links until it knows (SiteAccount).
+ * can hide signed-out links until it knows (SiteAccount); with accounts and
+ * none stored, sends / on to the landing page before the desk's loading
+ * screen can paint (AuthGate covers what this can't see).
  */
 export const PREPAINT = `(() => {
   try {
@@ -74,5 +76,6 @@ export const PREPAINT = `(() => {
     if (d.theme === 'light' || d.theme === 'dark') root.dataset.theme = d.theme;
     if ([115, 130, 150].includes(d.text)) root.dataset.text = String(d.text);
     if (Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k))) root.dataset.session = '';
+    else if (${isCloud} && location.pathname === '/') location.replace('/welcome');
   } catch (e) {}
 })();`;
