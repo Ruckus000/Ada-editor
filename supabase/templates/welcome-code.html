@@ -22,7 +22,9 @@
   .t-sub { color: #B6C1D1 !important; }
   .bd { border-color: #2C3748 !important; }
   .band { background-color: #1A4FBF !important; }
-  .mark { background-color: #FFFFFF !important; color: #1A4FBF !important; }
+  .mark { background-color: #A8C7FA !important; }
+  .mark-ink { color: #12203A !important; }
+  .mark-bar { background-color: #12203A !important; }
 }
 </style>
 </head>
@@ -38,7 +40,15 @@
 <td class="px" style="padding:28px 40px 0 40px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
 <tr>
-<td class="mark" width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;background-color:#1A4FBF;border-radius:6px;color:#FFFFFF;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:17px;line-height:28px;font-weight:700;mso-line-height-rule:exactly;" aria-hidden="true">A</td>
+<td class="mark" width="28" height="28" align="center" valign="middle" bgcolor="#1A4FBF" style="width:28px;height:28px;background-color:#1A4FBF;border-radius:4px;" aria-hidden="true">
+<!-- The Caret mark (a lowercase a and a text cursor) built from cells, not an image, so it shows when images are blocked. -->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;">
+<tr>
+<td class="mark-ink" valign="middle" style="padding:0 3px 0 0;color:#FFFFFF;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:19px;line-height:16px;font-weight:700;mso-line-height-rule:exactly;">a</td>
+<td class="mark-bar" valign="middle" width="2" height="16" bgcolor="#FFFFFF" style="width:2px;height:16px;background-color:#FFFFFF;font-size:0;line-height:0;mso-line-height-rule:exactly;">&nbsp;</td>
+</tr>
+</table>
+</td>
 <td class="t-ink" style="padding-left:10px;color:#161C24;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:17px;line-height:28px;font-weight:600;mso-line-height-rule:exactly;">Ada Editor</td>
 </tr>
 </table>
