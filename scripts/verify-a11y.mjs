@@ -315,7 +315,7 @@ try {
   server.close();
 }
 
-console.log('Ada-editor accessibility verification\n');
+console.log('Ada Editor accessibility verification\n');
 if (VERBOSE) console.log(notes.join('\n') + '\n');
 if (failures.length) {
   console.error(`FAILED (${failures.length})\n`);

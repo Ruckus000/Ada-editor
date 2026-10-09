@@ -1,4 +1,4 @@
-# design-sync notes: Ada-editor
+# design-sync notes: Ada Editor
 
 ## How this repo builds for the sync
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ada-editor design token verifier.
+ * Ada Editor design token verifier.
  *
  * Grammarly shipped a suggestion UI whose four categories are distinguished by
  * underline colour alone, on a brand colour that measures 2.26:1 against white.
@@ -423,7 +423,7 @@ if (!invokedDirectly) {
   checkCssVarIntegrity();
 
   const verbose = argv.includes('--verbose');
-  console.log('Ada-editor token verification\n');
+  console.log('Ada Editor token verification\n');
   if (verbose) console.log(notes.join('\n') + '\n');
 
   if (failures.length) {

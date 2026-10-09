@@ -163,7 +163,7 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     tagged: true,
     displayTitle: true,
     lang,
-    info: { Title: title, Creator: 'Ada-editor' },
+    info: { Title: title, Creator: 'Ada Editor' },
     // The default face, so PDFKit never touches an unembedded standard font.
     font: fonts.regular as unknown as string,
   });

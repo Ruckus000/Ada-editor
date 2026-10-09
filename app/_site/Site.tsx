@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { isCloud } from '../_data/supabase';
+import { BrandMark } from './BrandMark';
 import { SiteAccount } from './SiteAccount';
 import './site.css';
 
@@ -21,7 +22,7 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
       <a href="#main" className="site-skip">Skip to content</a>
       <header className="site-header">
         <div className="site-header__row">
-          <Link href="/welcome" className="site-brand"><span className="site-brand__mark" aria-hidden="true">A</span>Ada Editor</Link>
+          <Link href="/welcome" className="site-brand"><span className="site-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
           <SiteAccount />
         </div>
       </header>
@@ -29,7 +30,7 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
       <footer className="site-footer">
         <div className="site-footer__cols">
           <div className="site-footer__about">
-            <p className="site-brand"><span className="site-brand__mark" aria-hidden="true">A</span>Ada Editor</p>
+            <p className="site-brand"><span className="site-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</p>
             <p>Write documents that meet WCAG 2.1 AA and Section 508, and know exactly what a checker can’t tell you.</p>
           </div>
           <nav aria-labelledby="site-foot-product">

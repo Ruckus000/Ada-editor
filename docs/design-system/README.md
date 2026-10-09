@@ -1,4 +1,4 @@
-# Ada-editor design system
+# Ada Editor design system
 
 A design system for a writing tool that checks documents for accessibility
 compliance. Derived from an audit of Grammarly — substantially by rejecting what

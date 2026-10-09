@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button, useAnnounce } from '../../design-system/primitives';
 import { getClient } from '../_data/supabase';
+import { BrandMark } from '../_site/BrandMark';
 import './signin.css';
 
 type Mode = 'sign-in' | 'sign-up';
@@ -194,7 +195,7 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
   return (
     <div className="signin" data-mode={mode}>
       <header className="signin__top">
-        <Link href="/welcome" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true">A</span>Ada Editor</Link>
+        <Link href="/welcome" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
       </header>
       <main className="signin__main">
         <div className="signin__sheet">

@@ -824,7 +824,7 @@ try {
   stopStack();
 }
 
-console.log('Ada-editor end-to-end (local Supabase)\n');
+console.log('Ada Editor end-to-end (local Supabase)\n');
 if (failures.length) {
   console.error(`FAILED (${failures.length})\n`);
   for (const f of failures) console.error('  ' + f);

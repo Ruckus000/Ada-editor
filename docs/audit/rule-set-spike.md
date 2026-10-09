@@ -2,7 +2,7 @@
 
 ## The question
 
-The design system assumes Ada-editor is a **Grammarly-shaped inline assistant**:
+The design system assumes Ada Editor is a **Grammarly-shaped inline assistant**:
 findings underlined in prose, fixed one at a time as you write. That form was
 chosen in the first planning round and everything since has been built on it.
 

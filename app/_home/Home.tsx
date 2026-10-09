@@ -13,6 +13,7 @@ import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc } from '../_data/sync';
 import { AccountMenu } from '../_auth/AccountMenu';
+import { BrandMark } from '../_site/BrandMark';
 import { Tour } from '../_tour/Tour';
 import type { TourStep } from '../_tour/Tour';
 import { putImage } from '../_data/images';
@@ -452,7 +453,7 @@ export function Home() {
   return (
     <div className="home">
       <header className="home-header">
-        <span className="ada-brand"><span className="ada-brand__mark" aria-hidden="true">A</span>Ada Editor</span>
+        <span className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</span>
         <div className="home-actions">
           {hasDocs ? (
             <button type="button" className="home-find" aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K" onClick={() => setSearchOpen(true)}>

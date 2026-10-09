@@ -1,4 +1,4 @@
-# Ada-editor conventions
+# Ada Editor conventions
 
 An accessibility-first editor UI: WCAG 2.1 AA is the floor, not a goal. Every rule below exists to keep designs from introducing a violation.
 

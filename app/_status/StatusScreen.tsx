@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import { BrandMark } from '../_site/BrandMark';
 import './status.css';
 
 /**
@@ -16,7 +17,7 @@ export function StatusScreen({ title, children, actions }: { title: string; chil
   // to the desk would compete.
   return (
     <div className="status">
-      <header className="status__top"><span className="ada-brand"><span className="ada-brand__mark" aria-hidden="true">A</span>Ada Editor</span></header>
+      <header className="status__top"><span className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</span></header>
       <main className="status__main">
         <title>{`${title} · Ada Editor`}</title>
         <div className="status__sheet">
