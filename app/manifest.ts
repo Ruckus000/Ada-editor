@@ -10,7 +10,10 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Ada Editor',
     short_name: 'Ada Editor',
     description: 'Write documents that meet WCAG 2.1 AA and Section 508.',
-    start_url: '/',
+    // Opens on the desk (sign-in first when signed out). The id keeps the
+    // identity home-screen shortcuts were saved with when start_url was /.
+    id: '/',
+    start_url: '/desk',
     display: 'browser',
     background_color: '#FFFFFF',
     icons: [

@@ -28,7 +28,7 @@ import { ImportError, importDocxFile } from '../_import/importDocx';
 import './home.css';
 
 /**
- * The homepage after sign-in: a desk, not a dashboard. The tutorial when there
+ * The desk (/desk), home after sign-in: not a dashboard. The tutorial when there
  * are no documents; otherwise one aligned grid of sheets, with filters and
  * sorting once there are enough documents to need them.
  */

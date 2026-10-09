@@ -7,6 +7,7 @@ import type { FormEvent } from 'react';
 import { Button, useAnnounce } from '../../design-system/primitives';
 import { getClient } from '../_data/supabase';
 import { BrandMark } from '../_site/BrandMark';
+import { DESK } from '../_site/routes';
 import './signin.css';
 
 type Mode = 'sign-in' | 'sign-up';
@@ -81,7 +82,7 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
       } catch { /* storage blocked: the field just starts empty */ }
     }
     // Already signed in ("Start writing" from a public page): straight to the desk.
-    void getClient()?.auth.getSession().then(({ data }) => { if (data.session) router.replace('/'); });
+    void getClient()?.auth.getSession().then(({ data }) => { if (data.session) router.replace(DESK); });
   }, [router, mode]);
 
   const sendCode = async (address: string) => {
@@ -120,7 +121,10 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
     setBusy(false);
     if (failed) { setError(problemFor(failed, 'code', mode)); return; }
     announce('Signed in.');
-    router.replace('/');
+    // What the pre-paint script marks on a full load: the public header then
+    // hides "Sign in" at once on any page this tab opens next.
+    document.documentElement.dataset.session = '';
+    router.replace(DESK);
   };
 
   const changeEmail = () => {
@@ -195,7 +199,7 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
   return (
     <div className="signin" data-mode={mode}>
       <header className="signin__top">
-        <Link href="/welcome" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
+        <Link href="/" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
       </header>
       <main className="signin__main">
         <div className="signin__sheet">

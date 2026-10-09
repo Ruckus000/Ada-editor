@@ -1,5 +1,6 @@
 'use client';
 
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -7,29 +8,31 @@ import { Button } from '../../design-system/primitives';
 import { hasCachedDocs } from '../_data/store';
 import { getClient, isCloud } from '../_data/supabase';
 import { attachedAccount, detachAccount, loadAccount } from '../_data/sync';
+import { DESK, isAppPath } from '../_site/routes';
 import { StatusScreen } from '../_status/StatusScreen';
 import { ConflictDialog } from './ConflictDialog';
 
 /**
- * Cloud mode only: no session → /sign-in; a session → load the account's
- * documents into the store BEFORE rendering the app, so the dashboard and
- * editor keep reading the store synchronously and never race the pull.
+ * Cloud mode only, and only on the app's own screens (isAppPath: the desk and
+ * the editor): no session → /sign-in; a session → load the account's
+ * documents into the store BEFORE rendering the app, so the desk and editor
+ * keep reading the store synchronously and never race the pull. Everything
+ * else renders for anyone: the public pages, sign-in, "Page not found".
  * Local mode (no Supabase env vars) renders straight through.
  */
-/** Readable without an account: signing in, what signing up means, and the landing page. */
-const PUBLIC_PATHS = new Set(['/sign-in', '/sign-up', '/privacy', '/accessibility', '/welcome', '/help']);
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [attempt, setAttempt] = useState(0);
-  const open = !isCloud || PUBLIC_PATHS.has(pathname);
+  const open = !isCloud || !isAppPath(pathname);
 
   // The session can end or change under this tab: sign-out or sign-in in
   // another tab (auth-js relays those between tabs), or a revoked session.
   // Stop syncing first, so nothing of one account is written or pushed under
-  // another, then reload so no screen keeps showing the old account's work.
+  // another, then load afresh so no screen keeps showing the old account's
+  // work: the desk or sign-in from the app, the same page from a public one.
   useEffect(() => {
     const client = getClient();
     if (!client) return;
@@ -38,7 +41,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
       const uid = session?.user.id ?? null;
       if (!attached || uid === attached) return;
       detachAccount();
-      window.location.assign(uid ? '/' : '/sign-in');
+      if (isAppPath(window.location.pathname)) window.location.assign(uid ? DESK : '/sign-in');
+      else window.location.reload();
     });
     return () => { data.subscription.unsubscribe(); };
   }, []);
@@ -46,18 +50,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     const client = getClient();
     if (!client) return;
-    // Leaving the app for sign-in ends the session's "ready": the next account
+    // Leaving the app's screens ends the session's "ready": the next account
     // must load before anything reads the store.
-    if (PUBLIC_PATHS.has(pathname)) { setState('loading'); return; }
+    if (!isAppPath(pathname)) { setState('loading'); return; }
     let live = true;
     void (async () => {
-      const { data } = await client.auth.getSession();
+      const { data, error } = await client.auth.getSession();
       const uid = data.session?.user.id;
-      // PREPAINT sends a full load of / to /welcome before paint; this covers
-      // client navigations and a stored session that has expired.
-      // ponytail: non-JS crawlers and link previews of / still see "Your desk";
-      // middleware plus a session cookie if that matters.
-      if (!uid) { router.replace(pathname === '/' ? '/welcome' : '/sign-in'); return; }
+      if (!uid) {
+        // An expired token that couldn't be refreshed for want of a network is
+        // still this browser's account: say the documents couldn't load (Try
+        // again), not sign in, which couldn't send a code either.
+        if (isAuthRetryableFetchError(error)) { if (live) setState('failed'); return; }
+        router.replace('/sign-in');
+        return;
+      }
       try {
         await loadAccount(uid);
       } catch (error) {

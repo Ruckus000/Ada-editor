@@ -263,7 +263,7 @@ async function signIn(send, email, door = '/sign-in') {
   await typeInto(send, 'input[autocomplete="one-time-code"]', code);
   await key(send, 'Enter');
   // Signed in = the desk homepage rendered its documents (or its empty desk).
-  const landed = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+  const landed = await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
   if (!landed) { fail(`SIGNIN  did not reach the dashboard (at ${await evaluate(send, 'location.pathname')})`); return null; }
   return evaluate(send, `(() => {
     const k = Object.keys(localStorage).find((n) => /^sb-.*-auth-token$/.test(n));
@@ -335,7 +335,7 @@ const sheetIds = (send) => evaluate(send,
   `[...document.querySelectorAll('a.home-sheet')].map((a) => a.getAttribute('href').replace('/editor/', ''))`);
 
 async function goHome(send) {
-  await go(send, '/');
+  await go(send, '/desk');
   return waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
 }
 
@@ -361,7 +361,7 @@ async function deleteFromEditor(send, id, title) {
   await evaluate(send, `sessionStorage.removeItem('e2e.confirms')`);
   await clickButton(send, 'More actions'); // opens the More menu
   if (!(await clickButton(send, 'Delete document'))) { fail(`DELETE  no Delete document button on ${id}`); return false; }
-  const home = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.home-main')`, 15_000);
+  const home = await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main')`, 15_000);
   const said = await waitFor(send, `(document.querySelector('[role=status]')?.textContent ?? '').startsWith('Deleted ${title}')`, 5_000);
   const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
   if (!asked.some((q) => q.includes('can’t be undone'))) { fail(`DELETE  deleting ${id} did not ask first (asked ${JSON.stringify(asked)})`); return false; }
@@ -376,11 +376,19 @@ async function firstBrowser() {
   try {
     page = 'landing';
     await go(send, '/');
-    const toLanding = await waitFor(send, `location.pathname === '/welcome' && !!document.querySelector('h1')`);
+    await sleep(1500); // time for any redirect to happen
+    const onLanding = await waitFor(send, `location.pathname === '/' && !!document.querySelector('.site-hero h1')`);
     const start = await evaluate(send, `[...document.querySelectorAll('a')].find((a) => a.textContent.trim() === 'Start writing')?.getAttribute('href')`);
-    if (!toLanding) fail(`LANDING  a signed-out visit to / ended at ${await evaluate(send, 'location.pathname')}, not /welcome`);
+    if (!onLanding) fail(`LANDING  a signed-out visit to / ended at ${await evaluate(send, 'location.pathname')}, not the landing page at /`);
     else if (start !== '/sign-up') fail(`LANDING  "Start writing" goes to ${JSON.stringify(start)}, not /sign-up`);
-    else note('a signed-out visit to / lands on the landing page, whose "Start writing" leads to creating an account');
+    else note('a signed-out visit to / stays on the landing page, whose "Start writing" leads to creating an account');
+    await go(send, '/welcome');
+    if (!(await waitFor(send, `location.pathname === '/' && !!document.querySelector('.site-hero h1')`))) fail(`LANDING  /welcome, the landing page's old address, ended at ${await evaluate(send, 'location.pathname')}, not /`);
+    else note('/welcome, the old address, lands on /');
+    page = 'desk, signed out';
+    await go(send, '/desk');
+    if (!(await waitFor(send, `location.pathname === '/sign-in'`))) fail(`DESK  a signed-out visit to /desk ended at ${await evaluate(send, 'location.pathname')}, not /sign-in`);
+    else note('a signed-out visit to /desk is sent to sign in');
 
     // Sign-in never creates an account: an unknown address is told so, offered
     // the other door, and no user appears.
@@ -409,8 +417,40 @@ async function firstBrowser() {
     note(`a new account's code came by "${[...seenSubjects].join('", "')}"`);
     await evaluate(send, `window.e2eBefore = true`); // already on the desk: wait for a new document
     await go(send, '/sign-in');
-    if (!(await waitFor(send, `!window.e2eBefore && location.pathname === '/' && !!document.querySelector('.home-main')`))) fail(`SIGNIN  a signed-in visit to /sign-in stayed at ${await evaluate(send, 'location.pathname')}`);
+    if (!(await waitFor(send, `!window.e2eBefore && location.pathname === '/desk' && !!document.querySelector('.home-main')`))) fail(`SIGNIN  a signed-in visit to /sign-in stayed at ${await evaluate(send, 'location.pathname')}`);
     else note('a signed-in visit to /sign-in goes straight to the desk');
+    page = 'home, signed in';
+    await go(send, '/');
+    if (!(await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main')`))) fail(`HOME  a signed-in visit to / ended at ${await evaluate(send, 'location.pathname')}, not /desk`);
+    else note('a signed-in visit to / goes straight to the desk');
+    await go(send, '/#engine');
+    await sleep(1500);
+    if (!(await evaluate(send, `location.pathname === '/' && location.hash === '#engine' && !!document.querySelector('#engine')`))) fail(`HOME  a signed-in link to /#engine ended at ${await evaluate(send, 'location.pathname + location.hash')}`);
+    else note('a signed-in link into the landing page (/#engine) stays there');
+
+    // An expired access token that can't be refreshed for want of a network:
+    // the account is still this browser's, so say the documents couldn't
+    // load (Try again), never send it to a sign-in that can't send a code.
+    page = 'desk, auth unreachable';
+    await send('Network.enable');
+    await evaluate(send, `(() => {
+      const k = Object.keys(localStorage).find((n) => /^sb-.*-auth-token$/.test(n));
+      const s = JSON.parse(localStorage.getItem(k));
+      s.expires_at = Math.floor(Date.now() / 1000) - 3600;
+      localStorage.setItem(k, JSON.stringify(s));
+    })()`);
+    await send('Network.setBlockedURLs', { urls: ['*/auth/v1/token*'] });
+    await go(send, '/desk');
+    // auth-js retries a refresh that fails on the network, backing off, for up
+    // to 30 s before it gives up and says so.
+    const couldnt = await waitFor(send, `[...document.querySelectorAll('h1')].some((h) => h.textContent.includes('couldn’t load'))`, 45_000);
+    const where = await evaluate(send, 'location.pathname');
+    await send('Network.setBlockedURLs', { urls: [] });
+    if (!couldnt || where !== '/desk') fail(`OFFLINE  with the auth server unreachable and the token expired, /desk ended at ${where}${couldnt ? '' : ' without saying the documents couldn’t load'}`);
+    else note('auth unreachable with an expired token: "couldn’t load", Try again, not a sign-in dead end');
+    await send('Page.reload');
+    if (!(await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main')`, 20_000))) fail(`OFFLINE  back online, the desk did not load (at ${await evaluate(send, 'location.pathname')})`);
+    page = 'sign up';
     await sleep(2500); // a push, had anything been seeded, would land by now
     const onDesk = await sheetIds(send);
     const emptyDesk = await evaluate(send, `!!document.querySelector('.home-how')`);
@@ -646,8 +686,10 @@ async function secondBrowser() {
     // The public header knows who's signed in: the way back to the desk, not "Sign in".
     const header = await waitFor(send, `[...document.querySelectorAll('.site-header a')].some((a) => a.textContent.trim() === 'Your desk')`, 10_000);
     const stillSignIn = await evaluate(send, `[...document.querySelectorAll('.site-header a')].some((a) => a.textContent.trim() === 'Sign in')`);
+    const deskHref = await evaluate(send, `[...document.querySelectorAll('.site-header a')].find((a) => a.textContent.trim() === 'Your desk')?.getAttribute('href') ?? ''`);
     if (!header || stillSignIn) fail(`HEADER  signed in, the public header shows ${header ? '' : 'no "Your desk" '}${stillSignIn ? '"Sign in"' : ''}`);
-    else note('signed in, the public pages’ header offers "Your desk" instead of "Sign in"');
+    else if (deskHref !== '/desk') fail(`HEADER  "Your desk" goes to ${JSON.stringify(deskHref)}, not /desk`);
+    else note('signed in, the public pages’ header offers "Your desk" (/desk) instead of "Sign in"');
     if (!(await waitFor(send, `!!document.querySelector('textarea')`))) { fail('PRIVACY  no message form for a signed-in account'); return; }
     await typeInto(send, 'textarea', 'E2E message: please ignore.');
     await clickButton(send, 'Send message');

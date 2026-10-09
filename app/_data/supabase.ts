@@ -16,7 +16,7 @@ export const isCloud = Boolean(URL && KEY);
 /**
  * The browser's Supabase client, or null in local mode: no env vars (CI, plain
  * `npm run dev`) or no window (prerender). Local mode is the pre-account app,
- * documents in this browser only. Created lazily — `/` is prerendered during
+ * documents in this browser only. Created lazily — the desk is prerendered during
  * `next build`, where a module-level createClient would throw without a URL.
  */
 export function getClient(): SupabaseClient | null {

@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
   // ponytail: no script-src CSP — Next's inline bootstrap scripts need a
   // per-request nonce (middleware + dynamic rendering). Add it if the app ever
   // renders untrusted HTML outside React.
+  // The landing page moved to / when the desk moved to /desk (search engines
+  // and AI crawlers read / without running JavaScript). Old links still work.
+  async redirects() {
+    return [{ source: '/welcome', destination: '/', permanent: true }];
+  },
   async headers() {
     return [{
       source: '/:path*',
