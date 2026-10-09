@@ -1574,7 +1574,7 @@ async function display() {
 }
 
 try {
-  await staticPage('/', 'Accessible document editor · Ada Editor');
+  await staticPage('/', 'Ada Editor · The accessible document editor (WCAG 2.1 AA)');
   await staticPage('/accessibility', 'Accessibility · Ada Editor');
   await staticPage('/privacy', 'Privacy · Ada Editor');
   await staticPage('/help', 'Help · Ada Editor');

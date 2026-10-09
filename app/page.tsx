@@ -2,13 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 // The file, not the barrel: index.ts also exports client hooks, and this page renders on the server.
 import { SeverityBadge } from '../design-system/primitives/SeverityBadge';
+import { HOME_DATA, JsonLd } from './_site/JsonLd';
+import { pageMetadata } from './_site/pages';
 import { START } from './_site/routes';
 import { Site } from './_site/Site';
 
-export const metadata: Metadata = {
-  title: 'Accessible document editor · Ada Editor',
-  description: 'Ada Editor checks documents against WCAG 2.1 AA as you write, cites the criterion for every finding, and marks what a person has to check.',
-};
+export const metadata: Metadata = pageMetadata('/');
 
 /* Copy is held to what the code does: 19 rules (rules.ts, 3 of them AAA, so
  * never "19 AA rules"); prose rules run on blur, not on a pause; codes are 8
@@ -30,6 +29,7 @@ const STANDARDS = [
 export default function Page() {
   return (
     <Site>
+      <JsonLd data={HOME_DATA} />
       <section className="site-hero" aria-labelledby="hero-title">
         <div className="site-hero__intro">
           <h1 id="hero-title">The accessible way to write documents.</h1>
@@ -41,6 +41,8 @@ export default function Page() {
             <Link href={START} className="ada-button ada-button--secondary">Upload a .docx</Link>
             {/* ponytail: both go to sign-in; add an ?import deep link if the upload CTA should open the picker */}
           </div>
+          {/* Also in the description and structured data (app/_site/): keep all three in step. */}
+          <p className="site-hero__note">Free during early access.</p>
         </div>
 
         <figure id="product" className="site-figure" aria-label="Product preview: a document with three underlined problems and a matching list of findings">
