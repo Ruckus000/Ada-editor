@@ -27,7 +27,6 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
       </header>
       <main id="main" tabIndex={-1} className="site-main">{children}</main>
       <footer className="site-footer">
-        <span className="site-footer__word" aria-hidden="true">Ada</span>
         <div className="site-footer__cols">
           <div className="site-footer__about">
             <p className="site-brand"><span className="site-brand__mark" aria-hidden="true">A</span>Ada Editor</p>

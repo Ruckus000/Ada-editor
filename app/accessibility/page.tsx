@@ -68,22 +68,22 @@ export default function Page() {
             <p>Written with the same severity labels the editor uses for your documents.</p>
             <ul className="site-limits">
               <li>
-                <div><SeverityBadge severity="manual" /><span className="site-mono">1.1.1 Non-text Content</span></div>
+                <div><SeverityBadge severity="manual" /><span className="site-small">1.1.1 Non-text Content</span></div>
                 <h3>We can check that alt text exists, not that it’s good</h3>
                 <p>Whether a description is accurate and useful needs a person. The editor flags what it can spot, like alt text that only says it’s an image.</p>
               </li>
               <li>
-                <div><SeverityBadge severity="advisory" /><span className="site-mono">1.3.1 Info and Relationships</span></div>
+                <div><SeverityBadge severity="advisory" /><span className="site-small">1.3.1 Info and Relationships</span></div>
                 <h3>Tables with merged cells can’t be fully linked to their headers</h3>
                 <p>The editor flags them. If you can, split merged cells or break the table into simpler tables; otherwise check it with a screen reader.</p>
               </li>
               <li>
-                <div><SeverityBadge severity="advisory" /><span className="site-mono">3.1.5 Reading Level</span></div>
+                <div><SeverityBadge severity="advisory" /><span className="site-small">3.1.5 Reading Level</span></div>
                 <h3>Reading-level and word checks are English only</h3>
                 <p>Rules that rely on English words and syllables run only on documents set to English.</p>
               </li>
               <li>
-                <div><SeverityBadge severity="advisory" /><span className="site-mono">PDF/UA-1</span></div>
+                <div><SeverityBadge severity="advisory" /><span className="site-small">PDF/UA-1</span></div>
                 <h3>PDF export covers Latin scripts only</h3>
                 <p>A document with Greek, Cyrillic, Hebrew, Arabic or CJK text is not exported as PDF, rather than exported with missing characters. Export HTML works for every language.</p>
               </li>
@@ -117,7 +117,7 @@ export default function Page() {
               <h2 id="fb-title">If something blocks you, tell a person.</h2>
               <p>Describe what you were trying to do and what you use to browse. Messages go to the team that builds Ada Editor.</p>
               {/* ponytail: the form needs an account; add a monitored address here before announcing this statement */}
-              <Link href="/privacy#contact" className="ada-button ada-button--secondary">Send us a message</Link>
+              <Link href="/privacy#contact" className="ada-button ada-button--primary">Send us a message</Link>
             </div>
           </section>
         </div>
