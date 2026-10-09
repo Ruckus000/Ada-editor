@@ -37,6 +37,18 @@ if (typeof WebSocket === 'undefined') {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** SIGTERM, then SIGKILL if it's still running after 3 s. Orca stuck on
+ *  speech-dispatcher ignores SIGTERM, and a live child keeps Node (and the CI
+ *  job) running until the job timeout: twice, after the gate had passed. */
+const stop = async (child, name) => {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise((r) => child.once('exit', () => r(true)));
+  child.kill('SIGTERM');
+  if (await Promise.race([exited, sleep(3000).then(() => false)])) return;
+  console.log(`${name} ignored SIGTERM; killed.`);
+  child.kill('SIGKILL');
+  await Promise.race([exited, sleep(3000)]);
+};
 const failures = [];
 const notes = [];
 const fail = (m) => failures.push(m);
@@ -289,8 +301,8 @@ try {
     fail(`ORCA  gate error: ${error.message}`);
   }
 } finally {
-  orca.kill();
-  chrome.kill();
+  await Promise.all([stop(orca, 'Orca'), stop(chrome, 'Chrome')]);
+  server.closeAllConnections();
   server.close();
 }
 
@@ -309,3 +321,5 @@ if (failures.length) {
 console.log(`PASSED — ${notes.length} checks, 0 failures.`);
 console.log('Orca only. NVDA, JAWS and VoiceOver have different browse-mode');
 console.log('semantics; see docs/design-system/screen-reader-test-plan.md.');
+// Exit now: anything still running (a stuck speech-dispatcher) must not hold the job open.
+process.exit(0);

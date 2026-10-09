@@ -144,6 +144,8 @@ jobs:
     runs-on: ubuntu-latest
     # About 4x a normal run: a hung speech-dispatcher once held a PR for 25
     # minutes (GitHub waits 6 hours by default). Fail fast and re-run instead.
+    # verify-orca.mjs SIGKILLs an Orca that ignores SIGTERM and exits when done;
+    # before that, a passed gate twice sat here until this timeout.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
