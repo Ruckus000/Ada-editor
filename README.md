@@ -3,7 +3,7 @@
 **A browser-based document editor that checks your writing against WCAG 2.1 AA
 and Section 508 as you type — and never tells you a document is "compliant".**
 
-**Live demo:** <https://ada-editor-umber.vercel.app>
+**Live:** <https://www.adaedit.com>
 
 **Stack:** Next.js 15 · React 19 · TypeScript · ProseMirror · Tailwind CSS 4 ·
 Supabase (Auth, Postgres + row-level security, Storage) · pdfkit · veraPDF and
@@ -151,6 +151,9 @@ documents in this browser's localStorage only, exactly as before accounts.
   that follow
 - **[The Ada Editor logo](docs/audit/logo-2026-10.md)** — why the mark is a
   lowercase a and a text cursor, and the rules for using it
+- **[Search and AI visibility](docs/audit/search-and-ai-2026-10.md)** — what
+  search engines and AI assistants actually need (and which "AI optimization"
+  is folklore), the metrics, the audit of the site, and the plan
 
 ## Architecture
 
@@ -186,8 +189,9 @@ runs in local mode with eight sample documents.
 
 ```bash
 npm install
-npm run dev        # the app, in local mode, at http://localhost:3000
-npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates
+npm run dev        # the app, in local mode: the landing page at http://localhost:3000, the desk at /desk
+npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates, search gate
+npm run seo        # the public pages as a crawler that runs no JavaScript sees them (titles, canonicals, sitemap, noindex)
 npm run preview    # the design-system preview at http://127.0.0.1:8080
 ```
 
