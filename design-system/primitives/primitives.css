@@ -1,4 +1,4 @@
-/* Component styles for the Ada-editor primitives.
+/* Component styles for the Ada Editor primitives.
  * Every value comes from tokens.css. No literal colours, sizes or durations. */
 
 .ada-visually-hidden {
@@ -254,11 +254,13 @@
 
 .ada-brand__mark {
   display: grid;
+  flex: none;
   place-items: center;
   inline-size: 1.625rem;
   block-size: 1.625rem;
-  border-radius: 6px;
+  /* The Caret mark's corner: 8 on its 64-unit tile. */
+  border-radius: 12.5%;
   background: var(--ada-text-primary);
   color: var(--ada-surface-canvas);
-  font-size: var(--ada-type-size-sm);
 }
+.ada-brand__mark svg { inline-size: 100%; block-size: 100%; }

@@ -1,4 +1,4 @@
-# Ada-editor
+# Ada Editor
 
 **A browser-based document editor that checks your writing against WCAG 2.1 AA
 and Section 508 as you type — and never tells you a document is "compliant".**
@@ -33,7 +33,7 @@ and is honest about the limits of what a checker can know.
 
 **Conformance targets.** The ADA specifies no document technical standard, so
 "ADA compliant" is a marketing claim rather than something a tool can check
-against. Ada-editor checks against the standards that regulators and procurement
+against. Ada Editor checks against the standards that regulators and procurement
 actually cite:
 
 | Standard | Applies to | Why it is here |
@@ -149,6 +149,8 @@ documents in this browser's localStorage only, exactly as before accounts.
 - **[Agenda platforms and tagged PDFs](docs/audit/agenda-platforms-2026-10.md)**
   — what happens to an exported PDF when a clerk posts it, and the decisions
   that follow
+- **[The Ada Editor logo](docs/audit/logo-2026-10.md)** — why the mark is a
+  lowercase a and a text cursor, and the rules for using it
 
 ## Architecture
 

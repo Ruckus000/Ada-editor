@@ -1,7 +1,7 @@
 # Grammarly UX/UI audit
 
 **Scope.** A heuristic audit of Grammarly's writing-assistant interface, done to
-decide what Ada-editor should inherit and what it must not. Ada-editor is a
+decide what Ada Editor should inherit and what it must not. Ada Editor is a
 writing tool for producing accessible documents, so Grammarly is the obvious
 reference implementation — and, as it turns out, the obvious cautionary tale.
 
@@ -53,7 +53,7 @@ category is a nice-to-have, and the suggestion text carries the actual meaning.
 For an accessibility product it is disqualifying, because the category *is* the
 finding's severity.
 
-**What Ada-editor does instead:** see
+**What Ada Editor does instead:** see
 [`patterns-suggestion.md`](../design-system/patterns-suggestion.md). Severity is
 carried by underline *shape* (`double` / `wavy` / `dotted` / `dashed`), a glyph
 with a distinct silhouette, and a visible text label. Colour is applied last and
@@ -85,7 +85,7 @@ $ node scripts/verify-tokens.mjs --pair '#15C39A' '#FFFFFF'
   non-text (3.0:1) FAIL
 ```
 
-**Lesson taken:** Ada-editor picks its brand colour *after* the contrast
+**Lesson taken:** Ada Editor picks its brand colour *after* the contrast
 constraint, not before. Any colour that cannot clear 3:1 against both surfaces
 never becomes a semantic token.
 
@@ -105,7 +105,7 @@ large editing surface and a parallel findings region, and it is under-used on
 the web generally. Accept-on-`Enter` / dismiss-on-`Esc` is the correct mapping
 because it matches the dialog conventions users already hold.
 
-**Adopted with one change:** in Ada-editor these keys operate on the **issue
+**Adopted with one change:** in Ada Editor these keys operate on the **issue
 list**, which is a permanent region, rather than on a floating card whose
 existence depends on caret position. See
 [`patterns-suggestion.md`](../design-system/patterns-suggestion.md).
@@ -124,7 +124,7 @@ Obscured) was added in WCAG 2.2 to address. Published reviews echo this: several
 reviewers describe the interface as disruptive to the act of writing, with
 elements interfering with composition.
 
-**What Ada-editor does instead:** the findings region is fixed, not floating.
+**What Ada Editor does instead:** the findings region is fixed, not floating.
 Cards never overlap prose, never move in response to the caret, and never
 obscure a focused element. Focusing a card highlights the corresponding range
 but does **not** steal focus from the list.
@@ -153,7 +153,7 @@ reachable and comprehensible to a screen reader:
 Grammarly's own position is that the editor "can be used with" assistive
 software while noting they "still have some tweaks to make."
 
-**This is the finding that sets Ada-editor's architecture.** If the inline
+**This is the finding that sets Ada Editor's architecture.** If the inline
 annotation cannot be relied on to reach every user, it cannot be the interface —
 it can only be an enhancement on top of one.
 
@@ -182,7 +182,7 @@ Compounding it: **"ADA compliant" is not a technical standard.** The ADA
 specifies no document conformance requirement. The operative references are
 WCAG 2.1 AA (via the DOJ's April 2024 Title II rule), Section 508, and PDF/UA.
 
-**What Ada-editor does instead:**
+**What Ada Editor does instead:**
 
 - A fourth severity, **`manual`** — "Needs your call" — for findings that are
   not machine-decidable. Grammarly has no analogue, because grammar rarely
@@ -205,7 +205,7 @@ description. Third-party scans of the marketing site have continued to score it
 poorly.
 
 This is included not as a cheap shot but as the reason the brief needed
-adjusting. Ada-editor's value proposition is accessibility compliance. Adopting
+adjusting. Ada Editor's value proposition is accessibility compliance. Adopting
 the interface conventions of a company that has been sued over accessibility —
 conventions that, as sections 1 and 2 show, do contain real conformance
 problems — would be an unforced error.
@@ -218,7 +218,7 @@ system, the floating card, and the compliance-implying empty state.
 
 ## What carried over
 
-| Grammarly behaviour | Verdict | Ada-editor |
+| Grammarly behaviour | Verdict | Ada Editor |
 |---|---|---|
 | `F6` region cycling, `Tab`/`Enter`/`Esc` on suggestions | ADOPT | Same keys, applied to the issue list |
 | Calm, low-chrome writing surface; advanced features tucked into a side panel | ADOPT | Same restraint; 66ch measure, serif document face |

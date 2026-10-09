@@ -1,6 +1,6 @@
 # The conformance bar
 
-The standard Ada-editor's own interface is held to. This is separate from what
+The standard Ada Editor's own interface is held to. This is separate from what
 the product checks *in the user's document* — this is about the app itself.
 
 **Target: WCAG 2.2 Level AA, plus three Level AAA criteria adopted as AA.**

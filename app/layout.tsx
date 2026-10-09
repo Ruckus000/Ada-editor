@@ -9,7 +9,11 @@ import { PREPAINT } from './_data/display';
 // (document.title reads the first), so routes that only learn their title in
 // the browser — the editor, not-found, the error boundary — own it via
 // React's <title>. Server-known pages set metadata.title themselves.
+// metadataBase makes the generated social card URLs absolute on the canonical
+// domain. Icons and the card are generated: `npm run icons:build`.
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.adaedit.com'),
+  applicationName: 'Ada Editor',
   description: 'Write documents that meet WCAG 2.1 AA and Section 508.',
 };
 
