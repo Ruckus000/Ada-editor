@@ -323,6 +323,19 @@ await check('the document language and title reach the file', async () => {
   eq(withType(objects, 'Span').length, 0, 'text in the page language is not a language change');
 });
 
+await check('a title with & < > is escaped in the XMP and kept as written in the info dictionary', async () => {
+  const TITLE = 'Parks & Recreation <draft> agenda';
+  const result = await exportPdf(N.doc.create(null, [heading(1, 'Agenda'), para('Item 1.')]), { title: TITLE, header: '', footer: '' }, fonts);
+  assert(result.ok, 'exported');
+  save('title-with-markup', result.bytes);
+  const file = objectsOf(result.bytes);
+  eq(infoEntry(file, 'Title'), TITLE, 'the info dictionary keeps the title as written');
+  const xmp = /<\?xpacket begin[\s\S]*?<\?xpacket end[^>]*>/.exec(file.text)?.[0] ?? '';
+  assert(xmp, 'an XMP packet');
+  assert(xmp.includes('<rdf:li xml:lang="x-default">Parks &amp; Recreation &lt;draft&gt; agenda</rdf:li>'), 'dc:title is the escaped title');
+  assert(!/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/.test(xmp), 'no bare & in the XMP (it must parse as XML)');
+});
+
 await check('refuses text the embedded font cannot draw, naming the characters', async () => {
   const result = await exportPdf(N.doc.create(null, [para('Status: Готово — Ελληνικά')]), { title: 'x', header: 'עברית', footer: '' }, fonts);
   assert(!result.ok, 'refused rather than drawn as empty boxes');
@@ -358,7 +371,7 @@ for (const seed of mod.seed.SEEDS) {
   const findings = mod.check.checkDocument(doc, { prose: true });
   seedClauses.set(`seed-${seed.id}`, [...new Set(findings.map((f) => CLAUSE_FOR_RULE[ruleOf(f.id)]).filter(Boolean))].sort());
 }
-const expected = new Map([['features', []], ['spanish', []], ['figure-without-alt', ['7.3-1']], ['tables', []], ['table-without-header', []], ...seedClauses]);
+const expected = new Map([['features', []], ['spanish', []], ['figure-without-alt', ['7.3-1']], ['tables', []], ['table-without-header', []], ['title-with-markup', []], ...seedClauses]);
 
 console.log('\nPDF export — PDF/UA-1 conformance (veraPDF)');
 
