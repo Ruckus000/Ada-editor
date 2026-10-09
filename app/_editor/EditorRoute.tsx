@@ -7,6 +7,7 @@ import type { DocSummary } from '../_data/seed';
 import { loadDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
 import type { StoredDoc } from '../_data/store';
 import { isCloud } from '../_data/supabase';
+import { DESK } from '../_site/routes';
 import { StatusScreen } from '../_status/StatusScreen';
 import { EditorScreen } from './EditorScreen';
 import { useAnnounce } from '../../design-system/primitives';
@@ -46,14 +47,14 @@ export function EditorRoute() {
   if (!ready) return <title>Document · Ada Editor</title>;
   if (!stored && goneElsewhere) {
     return (
-      <StatusScreen title="Document deleted" actions={<Link href="/">Back to all documents</Link>}>
+      <StatusScreen title="Document deleted" actions={<Link href={DESK}>Back to all documents</Link>}>
         This document was deleted on another device.
       </StatusScreen>
     );
   }
   if (!stored) {
     return (
-      <StatusScreen title="Document not found" actions={<Link href="/">Back to all documents</Link>}>
+      <StatusScreen title="Document not found" actions={<Link href={DESK}>Back to all documents</Link>}>
         {isCloud ? 'There’s no document with that id in your account.' : 'No document with that id is stored in this browser.'}
       </StatusScreen>
     );

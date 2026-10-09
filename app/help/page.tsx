@@ -5,10 +5,11 @@ import { SeverityBadge } from '../../design-system/primitives/SeverityBadge';
 import { SEVERITY_ENCODING } from '../../design-system/primitives/severity';
 import { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
 import { RULES } from '../_engine/rules';
+import { pageMetadata } from '../_site/pages';
 import { Site, Toc } from '../_site/Site';
 import { TourReplay } from '../_tour/TourReplay';
 
-export const metadata: Metadata = { title: 'Help · Ada Editor' };
+export const metadata: Metadata = pageMetadata('/help');
 
 /* Every check's text comes from the rules registry (app/_engine/rules.ts), the
  * same words a finding's "Learn more" points at, so Help can't drift from what

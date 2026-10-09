@@ -1,16 +1,11 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { isCloud } from '../_data/supabase';
 import { BrandMark } from './BrandMark';
 import { SiteAccount } from './SiteAccount';
 import './site.css';
 
-/** Where the landing page's calls to action go: creating an account when there
- *  are accounts (a signed-in visitor is sent on to the desk), the desk in local mode. */
-export const START = isCloud ? '/sign-up' : '/';
-
 /**
- * Chrome for the public pages (/welcome, /accessibility, /privacy): skip link,
+ * Chrome for the public pages (the home page, /help, /accessibility, /privacy): skip link,
  * header, main, footer. Server-rendered apart from the account links, which
  * need the session in this browser (SiteAccount). Every link here has a
  * name no other control on the page shares (the a11y gate checks it).
@@ -22,7 +17,7 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
       <a href="#main" className="site-skip">Skip to content</a>
       <header className="site-header">
         <div className="site-header__row">
-          <Link href="/welcome" className="site-brand"><span className="site-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
+          <Link href="/" className="site-brand"><span className="site-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
           <SiteAccount />
         </div>
       </header>
@@ -35,9 +30,9 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
           </div>
           <nav aria-labelledby="site-foot-product">
             <h2 id="site-foot-product">Product</h2>
-            <Link href="/welcome#product">Features</Link>
-            <Link href="/welcome#engine">Engine</Link>
-            <Link href="/welcome#promise">Promise</Link>
+            <Link href="/#product">Features</Link>
+            <Link href="/#engine">Engine</Link>
+            <Link href="/#promise">Promise</Link>
           </nav>
           <nav aria-labelledby="site-foot-company">
             <h2 id="site-foot-company">Company</h2>

@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DisplayDialog } from '../_auth/DisplayDialog';
-import { getClient, isCloud } from '../_data/supabase';
+import { getClient } from '../_data/supabase';
+import { DESK, START } from './routes';
 
 /**
  * The public header's controls. Display settings for everyone; then, as the
@@ -30,11 +31,11 @@ export function SiteAccount() {
     <>
       <button type="button" className="site-header__display" onClick={() => setDisplayOpen(true)}>Display</button>
       {signedIn ? (
-        <Link href="/" className="ada-button ada-button--primary">Your desk</Link>
+        <Link href={DESK} className="ada-button ada-button--primary">Your desk</Link>
       ) : (
         <span className="site-header__out">
           <Link href="/sign-in" className="site-header__signin">Sign in</Link>
-          <Link href={isCloud ? '/sign-up' : '/'} className="ada-button ada-button--primary">Start writing</Link>
+          <Link href={START} className="ada-button ada-button--primary">Start writing</Link>
         </span>
       )}
       <DisplayDialog open={displayOpen} onClose={() => setDisplayOpen(false)} />

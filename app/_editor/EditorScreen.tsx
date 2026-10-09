@@ -58,6 +58,7 @@ import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { useSyncStatus } from '../_data/sync';
+import { DESK } from '../_site/routes';
 import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sectionFindings, sortFindings, summaryLine } from './findings';
@@ -599,7 +600,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     const done = await removeDoc(doc.id);
     deleting.current = false;
     if (!done) { setDeleteError(true); return; }
-    router.push('/');
+    router.push(DESK);
     announce(`Deleted ${doc.title}.`);
   };
 
@@ -1003,7 +1004,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     <div className={`${styles.palette} ${styles.root}`}>
       {/* One quiet bar: back to the desk, what this is, and what you can do with it. */}
       <header className={styles.topbar}>
-        <Link href="/" className={styles.back} aria-label="Back to all documents">
+        <Link href={DESK} className={styles.back} aria-label="Back to all documents">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4l-6 6 6 6" /></svg>
           <span>Documents</span>
         </Link>

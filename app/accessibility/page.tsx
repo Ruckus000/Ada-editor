@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 // The file, not the barrel: index.ts also exports client hooks, and this page renders on the server.
 import { SeverityBadge } from '../../design-system/primitives/SeverityBadge';
+import { pageMetadata } from '../_site/pages';
 import { Site, Toc } from '../_site/Site';
 
-export const metadata: Metadata = { title: 'Accessibility · Ada Editor' };
+export const metadata: Metadata = pageMetadata('/accessibility');
 
 /* Every claim here has a check or a line of code behind it: the gates in
  * scripts/verify-a11y-app.mjs and verify-a11y.mjs, verify-pdf.mjs (veraPDF),

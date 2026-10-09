@@ -134,6 +134,11 @@ jobs:
       - name: App accessibility gate (Homepage + Editor, builds the Next app)
         run: node scripts/verify-a11y-app.mjs --verbose
 
+      # Serves the build the gate above made, and reads it as a crawler that
+      # runs no JavaScript: titles, canonicals, sitemap, noindex, redirects.
+      - name: Search gate (the public pages as crawlers see them)
+        run: node scripts/verify-seo.mjs --verbose --no-build
+
   # Blocking since 2026-09-23. It was non-blocking while a runner transcript read
   # only "Screen reader on." and the browser frame: Orca's main thread was stuck
   # forever waiting on speech-dispatcher's reply to a cancel, so it processed no

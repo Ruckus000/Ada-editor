@@ -240,8 +240,8 @@ const keepDocs = async (send, ids) => {
 };
 
 async function home() {
-  page = '/';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk';
+  const { proc, ws, send } = await openPage('/desk');
   try {
     // Every run starts from the seed. Chrome runs on its default profile, which
     // keeps localStorage per origin, so a reused port would otherwise inherit a
@@ -326,7 +326,7 @@ async function home() {
     // Deleting from a sheet: focus shows its veil, Delete is named for its
     // document, and focus lands on the sheet that takes its place. 8 → 7
     // documents, so the grid stays.
-    page = '/ (delete a sheet)';
+    page = '/desk (delete a sheet)';
     await evaluate(send, `document.querySelector('.home-sheet[href="/editor/shelter-faq"]').focus()`);
     await sleep(400);
     const veil = await evaluate(send, `getComputedStyle(document.activeElement.closest('.home-card').querySelector('.home-card__veil')).opacity`);
@@ -345,7 +345,7 @@ async function home() {
     else note('Delete on a sheet removes it, announces it and focuses the next sheet');
 
     // 2–4 documents: the same grid, without filters or sorting to manage.
-    page = '/ (desk)';
+    page = '/desk (desk)';
     await keepDocs(send, ['hearing-notice', 'transit-notice', 'zoning-variance']);
     const sheets = await evaluate(send, `document.querySelectorAll('.home-grid > li').length`);
     if (sheets !== 3 || (await evaluate(send, `!!document.querySelector('.home-chips, .home-sort')`))) fail(`DESK  expected 3 sheets and no filters, got ${sheets}`);
@@ -366,13 +366,13 @@ async function home() {
     await sleep(1500);
     const afterDelete = await evaluate(send, `({ path: location.pathname, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).map((d) => d.id), sheets: document.querySelectorAll('.home-grid > li').length })`);
     const deleted = await liveText(send);
-    if (afterDelete.path !== '/' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
+    if (afterDelete.path !== '/desk' || afterDelete.stored.includes('transit-notice') || afterDelete.sheets !== 2) fail(`DELETE  deleting did not remove the document and return home: ${JSON.stringify(afterDelete)}`);
     else if (!/^Deleted Transit Service Change Notice\./.test(deleted)) fail(`DELETE  deletion was not announced (got ${JSON.stringify(deleted)})`);
     else note('Delete document removes it, returns to the homepage and announces it');
 
     // Deleting the last document leaves an empty desk that teaches instead,
     // and stays empty on reload: accounts get no sample to fall back on.
-    page = '/ (empty)';
+    page = '/desk (empty)';
     await keepDocs(send, ['hearing-notice']);
     await evaluate(send, `window.confirm = () => true`);
     if (!(await focusByName(send, 'button', 'Delete Notice of Public Hearing'))) fail('EMPTY  no Delete button on the last document');
@@ -408,8 +408,8 @@ async function fromPlus(send, item) {
 /* ---------- new document ---------- */
 
 async function newDocument() {
-  page = '/ (new document)';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk (new document)';
+  const { proc, ws, send } = await openPage('/desk');
   try {
     await evaluate(send, `localStorage.clear()`);
     await send('Page.reload');
@@ -440,8 +440,8 @@ async function newDocument() {
 // on the hidden input, the importer running in Chromium (its DOMParser and
 // DecompressionStream, not linkedom's), the store, and navigation.
 async function upload() {
-  page = '/ (upload)';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk (upload)';
+  const { proc, ws, send } = await openPage('/desk');
   const choose = async (file) => {
     const { result } = await send('Runtime.evaluate', { expression: `document.querySelector('input[type=file]')` });
     if (!result.objectId) { fail('UPLOAD  no file input in the import dialog'); return false; }
@@ -504,7 +504,7 @@ async function upload() {
       body: `<w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr>${cellXml(P(R('Floor')))}${cellXml(P(R('Rooms')))}</w:tr>`
         + `<w:tr>${cellXml(P(R('Second')))}${cellXml(`<w:tbl><w:tr>${cellXml(P(R('4B')))}${cellXml(P(R('Clinic')))}</w:tr></w:tbl><w:p/>`)}</w:tr></w:tbl>`,
     }));
-    await send('Page.navigate', { url: `${origin}/` });
+    await send('Page.navigate', { url: `${origin}/desk` });
     await sleep(1500);
     if (!(await fromPlus(send, 'Import a Word file'))) return;
     if (!(await choose(nested))) return;
@@ -902,7 +902,7 @@ async function editor() {
     await evaluate(send, `document.querySelector('a[aria-label="Back to all documents"]').click()`);
     await sleep(800);
     const onDashboard = await evaluate(send, `location.pathname`);
-    if (onDashboard !== '/') fail(`PERSIST  back navigation did not reach the dashboard (at ${JSON.stringify(onDashboard)})`);
+    if (onDashboard !== '/desk') fail(`PERSIST  back navigation did not reach the dashboard (at ${JSON.stringify(onDashboard)})`);
     await evaluate(send, `history.back()`);
     await sleep(1500);
     const markerPersisted = await evaluate(send, `document.getElementById('document-text')?.textContent.includes('persisted-marker') ?? false`);
@@ -1296,7 +1296,10 @@ async function checkExport(send) {
 // deterministic trigger in a production build, so it is covered through the
 // two screens that do: same component, same markup, same focus handling.
 async function statusScreens() {
-  for (const [path, title] of [['/editor/does-not-exist', 'Document not found'], ['/no-such-page', 'Page not found']]) {
+  for (const [path, title, way, href] of [
+    ['/editor/does-not-exist', 'Document not found', 'Back to all documents', '/desk'],
+    ['/no-such-page', 'Page not found', 'Go to the home page', '/'],
+  ]) {
     page = path;
     const { proc, ws, send } = await openPage(path);
     try {
@@ -1308,7 +1311,8 @@ async function statusScreens() {
       const docTitle = await evaluate(send, `document.title`);
       if (docTitle !== `${title} · Ada Editor`) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
       else note(`title: ${docTitle}`);
-      if (!(await focusByName(send, 'a', 'Back to all documents'))) fail('STATUS  no way back to all documents');
+      if (!(await focusByName(send, 'a', way))) fail(`STATUS  no "${way}" link`);
+      else if ((await evaluate(send, `document.activeElement.getAttribute('href')`)) !== href) fail(`STATUS  "${way}" does not go to ${href}`);
       const brand = await evaluate(send, `(() => { const b = document.querySelector('.status .ada-brand'); return b ? { text: b.textContent, link: b.tagName === 'A' } : null; })()`);
       if (!brand || brand.text !== 'Ada Editor' || brand.link) fail(`STATUS  the screen should carry the brand as text, not a second way out (got ${JSON.stringify(brand)})`);
       else note('the status screen carries the brand, and its one way out is the action');
@@ -1371,6 +1375,11 @@ async function staticPage(path, title) {
     if (docTitle !== title) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
     else note(`title: ${docTitle}`);
     if (!(await focusByName(send, 'a', 'Start writing'))) fail('SITE  no way into the app');
+    else {
+      // Local mode (this gate's build) has no accounts: straight to the desk.
+      const start = await evaluate(send, `document.activeElement.getAttribute('href')`);
+      if (start !== '/desk') fail(`SITE  "Start writing" goes to ${JSON.stringify(start)}, not /desk`);
+    }
     // The skip link lands on <main>.
     if (!(await focusByName(send, 'a', 'Skip to content'))) fail('SKIP  no "Skip to content" link');
     await key(send, 'Enter');
@@ -1380,9 +1389,31 @@ async function staticPage(path, title) {
     await checkTabOrder(send);
     await checkReflow(send);
     await checkColourSchemes(send);
+    await headerDisplay(send);
   } finally {
     await shutdown(send, ws, proc);
   }
+}
+
+/** The public header's Display settings: nothing of the dialog is in the page
+ *  until it's opened, so the page's own h1 is the first heading a reader or a
+ *  crawler meets; opened, it's a modal that Escape closes, focus back on Display. */
+async function headerDisplay(send) {
+  const first = await evaluate(send, `(() => { const h = document.querySelector('h1, h2, h3, h4, h5, h6'); return h ? h.tagName + ' ' + h.textContent.trim() : ''; })()`);
+  if (!first.startsWith('H1 ')) fail(`HEADINGS  the first heading is ${JSON.stringify(first)}, not the page's h1`);
+  if (await evaluate(send, `!!document.querySelector('dialog')`)) fail('DISPLAY  a closed Display dialog is already in the page');
+  if (!(await focusByName(send, 'button', 'Display'))) { fail('DISPLAY  the header has no Display button'); return; }
+  await key(send, 'Enter');
+  await sleep(300);
+  if (!(await evaluate(send, `!!document.querySelector('dialog[open]')`))) { fail('DISPLAY  Display did not open a dialog'); return; }
+  const dupes = await evaluate(send, `JSON.stringify([...new Set([...document.querySelectorAll('[id]')].map((e) => e.id).filter((id, i, all) => all.indexOf(id) !== i))])`);
+  if (dupes !== '[]') fail(`IDS  with the Display dialog open, these ids appear twice: ${dupes}`);
+  await runAxe(send, ' (header display dialog)');
+  await key(send, 'Escape');
+  await sleep(300);
+  const back = await evaluate(send, `!document.querySelector('dialog[open]') && (document.activeElement?.textContent ?? '').trim() === 'Display'`);
+  if (!back) fail('DISPLAY  Escape did not close the dialog and return focus to Display');
+  else note('header Display: absent until opened, a modal when open, Escape returns focus');
 }
 
 // PDF export in the real app: PDFKit's browser build and the fonts served
@@ -1445,8 +1476,8 @@ async function checkPdfExport(send, dir) {
 /** The first-run tour: offered without taking focus, keyboard-driven once
  *  started, ended by Escape without losing focus, and not offered again. */
 async function tour() {
-  page = '/ (tour)';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk (tour)';
+  const { proc, ws, send } = await openPage('/desk');
   try {
     await evaluate(send, `localStorage.removeItem('ada.tour')`);
     await send('Page.reload');
@@ -1485,8 +1516,8 @@ async function tour() {
 /** Display settings: the dialog, a pinned theme that beats the OS, and the
  *  largest text size still reflowing on the desk and in the editor. */
 async function display() {
-  page = '/ (display)';
-  const { proc, ws, send } = await openPage('/');
+  page = '/desk (display)';
+  const { proc, ws, send } = await openPage('/desk');
   try {
     await evaluate(send, `localStorage.removeItem('ada.display')`);
     await focusByName(send, 'button', 'Account');
@@ -1526,7 +1557,7 @@ async function display() {
 
     // The largest text size: still no horizontal scroll, desk and editor.
     await evaluate(send, `localStorage.setItem('ada.display', JSON.stringify({ theme: 'system', text: 150 }))`);
-    for (const path of ['/', '/editor/hearing-notice']) {
+    for (const path of ['/desk', '/editor/hearing-notice']) {
       page = `${path} (text 150%)`;
       await send('Page.navigate', { url: origin + path });
       await sleep(1800);
@@ -1543,7 +1574,7 @@ async function display() {
 }
 
 try {
-  await staticPage('/welcome', 'Accessible document editor · Ada Editor');
+  await staticPage('/', 'Ada Editor · The accessible document editor (WCAG 2.1 AA)');
   await staticPage('/accessibility', 'Accessibility · Ada Editor');
   await staticPage('/privacy', 'Privacy · Ada Editor');
   await staticPage('/help', 'Help · Ada Editor');

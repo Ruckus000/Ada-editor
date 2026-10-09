@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { AccountControls } from '../_auth/AccountControls';
+import { pageMetadata } from '../_site/pages';
 import { Site, Toc } from '../_site/Site';
 import './privacy.css';
 
-export const metadata: Metadata = { title: 'Privacy · Ada Editor' };
+export const metadata: Metadata = pageMetadata('/privacy');
 
 /** Public (AuthGate lets it through), so people can read it before signing up. */
 export default function Page() {
