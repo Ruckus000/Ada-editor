@@ -170,6 +170,7 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
   const faces = Object.keys(fonts) as Face[];
   for (const face of faces) pdf.registerFont(face, fonts[face] as unknown as string);
   omitCidSets(pdf);
+  escapeXmpInfo(pdf);
 
   /* ---------- measuring ---------- */
 
@@ -852,7 +853,10 @@ export async function exportPdf(doc: PMNode, meta: { title: string; header: stri
     }
   };
 
-  const documentElem = pdf.struct('Document');
+  // The root element repeats the catalog's /Lang. Agenda platforms that merge
+  // files into one packet were seen dropping the catalog entry while keeping
+  // each file's structure tree (docs/audit/agenda-platforms-2026-10.md).
+  const documentElem = pdf.struct('Document', { lang });
   pdf.addStructure(documentElem);
   for (const elem of root) emit(elem, documentElem, null);
   documentElem.end();
@@ -892,6 +896,30 @@ function omitCidSets(pdf: PDFKit.PDFDocument) {
     end();
   };
 }
+
+/**
+ * PDFKit copies the info entries into the XMP metadata as raw text, so a
+ * title like "Parks & Recreation" made the XMP malformed XML, which fails
+ * PDF/UA. The XMP is written from an XML-escaped copy; the info dictionary,
+ * written before it as PDF strings, keeps the title as written.
+ * ponytail: patches PDFKit's private _addInfo. Upgrade trigger: a PDFKit
+ * release that escapes XMP values (scripts/verify-pdf.mjs).
+ */
+function escapeXmpInfo(pdf: PDFKit.PDFDocument) {
+  const doc = pdf as unknown as { info: Record<string, unknown>; _addInfo: () => void };
+  const addInfo = doc._addInfo.bind(doc);
+  doc._addInfo = () => {
+    const info = doc.info;
+    doc.info = Object.fromEntries(Object.entries(info).map(([key, value]) => [key, typeof value === 'string' ? xmlText(value) : value]));
+    try {
+      addInfo();
+    } finally {
+      doc.info = info;
+    }
+  };
+}
+
+const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function sameStyle(a: Style, b: Style) {
   return a.face === b.face && a.size === b.size && a.underline === b.underline && String(a.color) === String(b.color) && String(a.highlight) === String(b.highlight);

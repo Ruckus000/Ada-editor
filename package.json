@@ -19,7 +19,7 @@
     "preview:build": "node scripts/build-preview.mjs",
     "a11y": "node scripts/verify-a11y.mjs",
     "pdf": "node scripts/verify-pdf.mjs",
-    "verify": "npm run typecheck && node scripts/test-verifier.mjs && node scripts/verify-rules.mjs && node scripts/measure-engine.mjs && node scripts/verify-pdf.mjs && node scripts/verify-tokens.mjs && node scripts/build-preview.mjs && node scripts/verify-a11y.mjs && node scripts/verify-a11y-app.mjs",
+    "verify": "npm run typecheck && node scripts/test-verifier.mjs && node scripts/verify-rules.mjs && node scripts/measure-engine.mjs && node scripts/verify-pdf.mjs && node scripts/verify-check-posted.mjs && node scripts/verify-tokens.mjs && node scripts/build-preview.mjs && node scripts/verify-a11y.mjs && node scripts/verify-a11y-app.mjs",
     "preview": "node scripts/serve-preview.mjs",
     "a11y:orca": "node scripts/verify-orca.mjs --verbose",
     "a11y:nvda": "playwright test --project=nvda",
@@ -27,7 +27,8 @@
     "spike:corpus": "node scripts/spike/fetch-corpus.mjs",
     "spike": "node scripts/spike/report.mjs",
     "a11y:app": "node scripts/verify-a11y-app.mjs",
-    "e2e": "node scripts/verify-e2e.mjs"
+    "e2e": "node scripts/verify-e2e.mjs",
+    "check-posted": "node scripts/check-posted-pdf.mjs"
   },
   "comment": "Runtime deps are used by the design-system primitives, the editor, and (pdfkit) the PDF export, loaded on first use. Dev deps drive the verification harness: tsc typechecks the components, esbuild renders them for the a11y gate, axe-core audits the result.",
   "dependencies": {
@@ -61,6 +62,7 @@
     "esbuild": "^0.25.0",
     "linkedom": "^0.18.13",
     "marked": "^18.0.13",
+    "pdf-lib": "1.17.1",
     "supabase": "2.117.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.0"

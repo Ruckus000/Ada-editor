@@ -23,19 +23,17 @@
  * --out keeps the exported PDFs for a look in a real reader.
  */
 
-import { build } from 'esbuild';
+import { loadPdfHarness } from './harness/pdf-harness.mjs';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
 import { inflateSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { JPEG_3X2, png, withOrientation } from './harness/images.mjs';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(HERE, '..');
-const TMP = resolve(HERE, '.pdf-bundle.mjs');
 const VERAPDF = resolve(HERE, 'verapdf');
 const VERBOSE = process.argv.includes('--verbose');
 const outArg = process.argv.indexOf('--out');
@@ -59,25 +57,11 @@ const eq = (actual, expected, what = '') =>
 
 /* ---------- bundle the exporter ---------- */
 
-await build({
-  entryPoints: [resolve(HERE, 'harness/pdf-entry.ts')],
-  bundle: true,
-  format: 'esm',
-  platform: 'node',
-  target: 'es2022',
-  packages: 'external',
-  outfile: TMP,
-  logLevel: 'warning',
-});
-process.on('exit', () => rmSync(TMP, { force: true }));
-const mod = await import(pathToFileURL(TMP).href);
+const { mod, fonts } = await loadPdfHarness('pdf');
 const { schema } = mod;
 const { exportPdf } = mod.exportPdf;
 const N = schema.nodes;
 const M = schema.marks;
-
-// The same bytes the browser fetches from public/.
-const fonts = Object.fromEntries(Object.entries(mod.exportPdf.PDF_FONT_FILES).map(([face, url]) => [face, readFileSync(join(ROOT, 'public', url))]));
 
 /* ---------- documents ---------- */
 
@@ -194,6 +178,7 @@ await check('exports every construct, across pages', async () => {
   const { text, objects } = file;
   assert(text.startsWith('%PDF-1.7'), 'PDF 1.7');
   assert(/\/Lang \(en\)/.test(text), 'document language in the catalog (WCAG 3.1.1)');
+  assert(withType(objects, 'Document')[0]?.includes('/Lang (en)'), 'the root element carries the language too, so it survives a packet merge');
   assert(/\/DisplayDocTitle true/.test(text), 'the title, not the file name, is what a reader shows');
   eq(infoEntry(file, 'Title'), 'Exporter feature sheet', 'title in the info dictionary');
   assert(text.includes('<pdfuaid:part>1</pdfuaid:part>'), 'PDF/UA identification in the XMP metadata');
@@ -333,8 +318,22 @@ await check('the document language and title reach the file', async () => {
   const file = objectsOf(result.bytes);
   const { text, objects } = file;
   assert(/\/Lang \(es\)/.test(text), 'catalog /Lang is the document language');
+  assert(withType(objects, 'Document')[0]?.includes('/Lang (es)'), 'the root element carries the document language');
   eq(infoEntry(file, 'Title'), 'Untitled document', 'a blank title falls back, as the HTML export does');
   eq(withType(objects, 'Span').length, 0, 'text in the page language is not a language change');
+});
+
+await check('a title with & < > is escaped in the XMP and kept as written in the info dictionary', async () => {
+  const TITLE = 'Parks & Recreation <draft> agenda';
+  const result = await exportPdf(N.doc.create(null, [heading(1, 'Agenda'), para('Item 1.')]), { title: TITLE, header: '', footer: '' }, fonts);
+  assert(result.ok, 'exported');
+  save('title-with-markup', result.bytes);
+  const file = objectsOf(result.bytes);
+  eq(infoEntry(file, 'Title'), TITLE, 'the info dictionary keeps the title as written');
+  const xmp = /<\?xpacket begin[\s\S]*?<\?xpacket end[^>]*>/.exec(file.text)?.[0] ?? '';
+  assert(xmp, 'an XMP packet');
+  assert(xmp.includes('<rdf:li xml:lang="x-default">Parks &amp; Recreation &lt;draft&gt; agenda</rdf:li>'), 'dc:title is the escaped title');
+  assert(!/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/.test(xmp), 'no bare & in the XMP (it must parse as XML)');
 });
 
 await check('refuses text the embedded font cannot draw, naming the characters', async () => {
@@ -372,7 +371,7 @@ for (const seed of mod.seed.SEEDS) {
   const findings = mod.check.checkDocument(doc, { prose: true });
   seedClauses.set(`seed-${seed.id}`, [...new Set(findings.map((f) => CLAUSE_FOR_RULE[ruleOf(f.id)]).filter(Boolean))].sort());
 }
-const expected = new Map([['features', []], ['spanish', []], ['figure-without-alt', ['7.3-1']], ['tables', []], ['table-without-header', []], ...seedClauses]);
+const expected = new Map([['features', []], ['spanish', []], ['figure-without-alt', ['7.3-1']], ['tables', []], ['table-without-header', []], ['title-with-markup', []], ...seedClauses]);
 
 console.log('\nPDF export — PDF/UA-1 conformance (veraPDF)');
 
