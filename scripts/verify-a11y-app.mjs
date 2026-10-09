@@ -940,6 +940,19 @@ async function editor() {
     await pictureLayout(send);
 
     await checkReflow(send);
+    // Phones: the toolbar is one row, and its menus open whole, on screen.
+    await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    await sleep(400);
+    const row = await evaluate(send, `(() => { const t = document.querySelector('[role=toolbar]'); const b = t.querySelector('button'); return { toolbar: t.getBoundingClientRect().height, button: b.getBoundingClientRect().height }; })()`);
+    await evaluate(send, `document.querySelector('[role=toolbar] button[aria-label="Text color"]').click()`);
+    await sleep(300);
+    const sheet = await evaluate(send, `(() => { const r = document.querySelector('[role=group][aria-label="Text colors"]')?.getBoundingClientRect(); return r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: innerWidth, h: innerHeight } : null; })()`);
+    await key(send, 'Escape');
+    await send('Emulation.clearDeviceMetricsOverride');
+    await sleep(300);
+    if (row.toolbar > row.button * 1.9) fail(`PHONE  the toolbar wraps at 390px (${row.toolbar}px tall for ${row.button}px buttons)`);
+    else if (!sheet || sheet.left < 0 || sheet.right > sheet.w || sheet.top < 0 || sheet.bottom > sheet.h) fail(`PHONE  the colour menu is clipped or off screen at 390px: ${JSON.stringify(sheet)}`);
+    else note('phone: the toolbar is one row, and its colour menu opens whole along the bottom of the screen');
     await checkColourSchemes(send);
     await checkExport(send);
   } finally {
