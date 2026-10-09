@@ -245,3 +245,20 @@
   line-height: 1.4;
   color: var(--ada-text-secondary);
 }
+
+/* ---------- Brand mark ---------- */
+/* The app's name as it heads the desk, sign-in and status screens. */
+
+.ada-brand,
+.ada-brand:hover { display: inline-flex; align-items: center; gap: 0.625rem; color: var(--ada-text-primary); font-weight: 700; text-decoration: none; }
+
+.ada-brand__mark {
+  display: grid;
+  place-items: center;
+  inline-size: 1.625rem;
+  block-size: 1.625rem;
+  border-radius: 6px;
+  background: var(--ada-text-primary);
+  color: var(--ada-surface-canvas);
+  font-size: var(--ada-type-size-sm);
+}

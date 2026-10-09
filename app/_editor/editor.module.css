@@ -854,8 +854,22 @@
 @media (max-width: 40rem) {
   .topbar { padding-inline: 12px; }
   .topbarEnd { width: 100%; justify-content: flex-end; }
-  /* ponytail: the toolbar still wraps to several rows here; one scrolling row
-     would clip its colour and table menus. Move those menus into a portal first. */
+  /* The toolbar is one row that scrolls sideways, so the page starts near the
+     top. Its menus open as sheets along the bottom of the screen: fixed, so
+     the row's overflow can't clip them (no ancestor has a transform). */
+  .toolbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+  .toolbar > * { flex-shrink: 0; }
+  .popover,
+  .popoverSecond {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 50;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    border-radius: 14px 14px 0 0;
+    box-shadow: var(--as-shadow-raised);
+  }
   .docMain { padding: 16px 12px 32px; }
   .prose { padding: 24px 20px 32px; }
   .band { padding-inline: 20px; }

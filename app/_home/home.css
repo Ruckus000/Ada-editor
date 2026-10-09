@@ -44,19 +44,6 @@ body { background: var(--ada-surface-sunken); }
   background: var(--ada-surface-canvas);
 }
 
-.home-brand { display: inline-flex; align-items: center; gap: 0.625rem; font-weight: 700; }
-
-.home-brand__mark {
-  display: grid;
-  place-items: center;
-  inline-size: 1.625rem;
-  block-size: 1.625rem;
-  border-radius: 6px;
-  background: var(--ada-text-primary);
-  color: var(--ada-surface-canvas);
-  font-size: var(--ada-type-size-sm);
-}
-
 .home-actions {
   margin-left: auto;
   display: flex;

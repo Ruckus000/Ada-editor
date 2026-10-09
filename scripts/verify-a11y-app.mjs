@@ -940,6 +940,19 @@ async function editor() {
     await pictureLayout(send);
 
     await checkReflow(send);
+    // Phones: the toolbar is one row, and its menus open whole, on screen.
+    await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    await sleep(400);
+    const row = await evaluate(send, `(() => { const t = document.querySelector('[role=toolbar]'); const b = t.querySelector('button'); return { toolbar: t.getBoundingClientRect().height, button: b.getBoundingClientRect().height }; })()`);
+    await evaluate(send, `document.querySelector('[role=toolbar] button[aria-label="Text color"]').click()`);
+    await sleep(300);
+    const sheet = await evaluate(send, `(() => { const r = document.querySelector('[role=group][aria-label="Text colors"]')?.getBoundingClientRect(); return r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: innerWidth, h: innerHeight } : null; })()`);
+    await key(send, 'Escape');
+    await send('Emulation.clearDeviceMetricsOverride');
+    await sleep(300);
+    if (row.toolbar > row.button * 1.9) fail(`PHONE  the toolbar wraps at 390px (${row.toolbar}px tall for ${row.button}px buttons)`);
+    else if (!sheet || sheet.left < 0 || sheet.right > sheet.w || sheet.top < 0 || sheet.bottom > sheet.h) fail(`PHONE  the colour menu is clipped or off screen at 390px: ${JSON.stringify(sheet)}`);
+    else note('phone: the toolbar is one row, and its colour menu opens whole along the bottom of the screen');
     await checkColourSchemes(send);
     await checkExport(send);
   } finally {
@@ -1296,6 +1309,9 @@ async function statusScreens() {
       if (docTitle !== `${title} · Ada Editor`) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
       else note(`title: ${docTitle}`);
       if (!(await focusByName(send, 'a', 'Back to all documents'))) fail('STATUS  no way back to all documents');
+      const brand = await evaluate(send, `(() => { const b = document.querySelector('.status .ada-brand'); return b ? { text: b.textContent, link: b.tagName === 'A' } : null; })()`);
+      if (!brand || brand.text !== 'AAda Editor' || brand.link) fail(`STATUS  the screen should carry the brand as text, not a second way out (got ${JSON.stringify(brand)})`);
+      else note('the status screen carries the brand, and its one way out is the action');
       await checkTabOrder(send);
       await checkReflow(send);
       await checkColourSchemes(send);
