@@ -1309,6 +1309,9 @@ async function statusScreens() {
       if (docTitle !== `${title} · Ada Editor`) fail(`TITLE  document title is ${JSON.stringify(docTitle)}`);
       else note(`title: ${docTitle}`);
       if (!(await focusByName(send, 'a', 'Back to all documents'))) fail('STATUS  no way back to all documents');
+      const brand = await evaluate(send, `(() => { const b = document.querySelector('.status .ada-brand'); return b ? { text: b.textContent, link: b.tagName === 'A' } : null; })()`);
+      if (!brand || brand.text !== 'AAda Editor' || brand.link) fail(`STATUS  the screen should carry the brand as text, not a second way out (got ${JSON.stringify(brand)})`);
+      else note('the status screen carries the brand, and its one way out is the action');
       await checkTabOrder(send);
       await checkReflow(send);
       await checkColourSchemes(send);

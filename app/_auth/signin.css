@@ -13,20 +13,6 @@
 
 .signin__top { padding: 1.5rem 3rem; }
 
-.signin__brand,
-.signin__brand:hover { display: inline-flex; align-items: center; gap: 0.625rem; color: var(--ada-text-primary); font-weight: 700; text-decoration: none; }
-
-.signin__mark {
-  display: grid;
-  place-items: center;
-  inline-size: 1.625rem;
-  block-size: 1.625rem;
-  border-radius: 6px;
-  background: var(--ada-text-primary);
-  color: var(--ada-surface-canvas);
-  font-size: var(--ada-type-size-sm);
-}
-
 .signin__main {
   flex: 1;
   display: flex;

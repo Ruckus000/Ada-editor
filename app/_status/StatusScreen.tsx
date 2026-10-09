@@ -12,12 +12,19 @@ import './status.css';
 export function StatusScreen({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [title]);
+  // The brand is text, not a link: the action is the way out, and two links
+  // to the desk would compete.
   return (
-    <main className="status">
-      <title>{`${title} · Ada Editor`}</title>
-      <h1 ref={heading} tabIndex={-1} className="status__title">{title}</h1>
-      <p className="status__body">{children}</p>
-      {actions ? <div className="status__actions">{actions}</div> : null}
-    </main>
+    <div className="status">
+      <header className="status__top"><span className="ada-brand"><span className="ada-brand__mark" aria-hidden="true">A</span>Ada Editor</span></header>
+      <main className="status__main">
+        <title>{`${title} · Ada Editor`}</title>
+        <div className="status__sheet">
+          <h1 ref={heading} tabIndex={-1} className="status__title">{title}</h1>
+          <p className="status__body">{children}</p>
+          {actions ? <div className="status__actions">{actions}</div> : null}
+        </div>
+      </main>
+    </div>
   );
 }

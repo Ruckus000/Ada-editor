@@ -159,3 +159,18 @@ These are static mockups built only from the real tokens and the shipped font ([
 | **Deferred: public pages** | 8, 23. landing-v5 is days old and not yet merged. These come after the app is consistent, as a small follow-up that keeps its layout and swaps the face and washes. |
 
 **Approval needed before PR 2 starts:** the typeface, the restrained use of the existing palette, and the subtractions above.
+
+## What happened
+
+The owner approved the direction and asked me to make the design calls myself.
+
+| Findings | Landed in |
+|---|---|
+| 9, 10, 11, 22 | #53, the foundation: typeface, page margin, the editor on tokens, contrast assertions |
+| 2–5, 15–19 | #54, the desk. #15 went the other way from the table above: the empty desk aligns left with the greeting rather than centring, because a centred card sat off the greeting's edge. |
+| 1, 6, 7, 12 (the header), 20, 21 | #55, the editor chrome |
+| 13 | #56, separate sign-in and create-account pages |
+| 8, 23 | The audit-leftovers PR: the public pages keep their layout and lose the washes, the dark band, the mono labels, the pill and the watermark |
+| 12 (the toolbar), 14 | The same PR: one toolbar row on phones with its menus as bottom sheets, and the status screens in the sign-in shell |
+
+Every finding in the ranked list has now landed.

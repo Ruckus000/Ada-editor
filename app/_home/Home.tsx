@@ -452,7 +452,7 @@ export function Home() {
   return (
     <div className="home">
       <header className="home-header">
-        <span className="home-brand"><span className="home-brand__mark" aria-hidden="true">A</span>Ada Editor</span>
+        <span className="ada-brand"><span className="ada-brand__mark" aria-hidden="true">A</span>Ada Editor</span>
         <div className="home-actions">
           {hasDocs ? (
             <button type="button" className="home-find" aria-haspopup="dialog" aria-keyshortcuts="Meta+K Control+K" onClick={() => setSearchOpen(true)}>

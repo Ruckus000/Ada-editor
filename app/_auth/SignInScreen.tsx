@@ -194,7 +194,7 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
   return (
     <div className="signin" data-mode={mode}>
       <header className="signin__top">
-        <Link href="/welcome" className="signin__brand"><span className="signin__mark" aria-hidden="true">A</span>Ada Editor</Link>
+        <Link href="/welcome" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true">A</span>Ada Editor</Link>
       </header>
       <main className="signin__main">
         <div className="signin__sheet">

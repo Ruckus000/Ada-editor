@@ -1,44 +1,51 @@
-/* Status screens (error, not found). Ada tokens only; class prefix `status-`
- * because conventions reserve `ada-*` for the design system. Mirrors the
- * dashboard's empty state: centred column, title, one sentence, the way out. */
+/* Status screens (error, not found, a missing document, loading). Ada tokens
+ * only; class prefix `status-`. The sign-in shell: the brand at the top left,
+ * one raised sheet on the desk colour, the title, one sentence, the way out. */
 
 .status {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--ada-space-3);
-  padding: var(--ada-space-6) var(--ada-space-5);
-  text-align: center;
+  background: var(--ada-surface-sunken);
   color: var(--ada-text-primary);
 }
 
-.status__title {
-  margin: 0;
-  font-size: var(--ada-type-size-xl);
-  font-weight: 700;
-  line-height: var(--ada-type-line-height-tight);
-}
+.status__top { padding: 1.5rem 3rem; }
 
-.status__body {
-  margin: 0;
-  max-width: 44ch;
-  color: var(--ada-text-secondary);
-}
+.status__main { display: flex; justify-content: center; padding: 4rem 1.25rem 3rem; }
 
-.status__actions {
+.status__sheet {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--ada-space-4);
-  margin-top: var(--ada-space-2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ada-space-3);
+  inline-size: 100%;
+  max-inline-size: 28rem;
+  padding: 2.5rem;
+  border: 1px solid var(--ada-border-subtle);
+  border-radius: var(--ada-radius-lg);
+  background: var(--ada-surface-raised);
 }
+
+.status__title { margin: 0; font-size: 1.75rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+.status__body { margin: 0; color: var(--ada-text-secondary); }
+
+.status__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ada-space-4); margin-top: var(--ada-space-2); }
 
 .status__actions a {
   display: inline-flex;
   align-items: center;
   min-height: var(--ada-target-comfortable);
-  color: var(--ada-focus-ring);
+  color: var(--ada-action-primary-bg);
+  font-weight: 700;
 }
 
-.status__actions a:hover { color: var(--ada-action-primary-bg); }
+@media (max-width: 39.99rem) {
+  .status__top { padding: 1.25rem; }
+  .status__main { padding-top: 1.5rem; }
+  .status__sheet { padding: 1.75rem 1.25rem; }
+}
+
+@media (forced-colors: active) {
+  .status__sheet { border-color: CanvasText; }
+}
