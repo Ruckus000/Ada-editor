@@ -3,7 +3,7 @@
 **A browser-based document editor that checks your writing against WCAG 2.1 AA
 and Section 508 as you type — and never tells you a document is "compliant".**
 
-**Live:** <https://www.adaedit.com>
+**Live site:** <https://www.adaedit.com>
 
 **Stack:** Next.js 15 · React 19 · TypeScript · ProseMirror · Tailwind CSS 4 ·
 Supabase (Auth, Postgres + row-level security, Storage) · pdfkit · veraPDF and
