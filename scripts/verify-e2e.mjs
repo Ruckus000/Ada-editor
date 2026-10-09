@@ -389,6 +389,12 @@ async function firstBrowser() {
     await go(send, '/desk');
     if (!(await waitFor(send, `location.pathname === '/sign-in'`))) fail(`DESK  a signed-out visit to /desk ended at ${await evaluate(send, 'location.pathname')}, not /sign-in`);
     else note('a signed-out visit to /desk is sent to sign in');
+    // Only the app's own screens ask for an account: a broken link says so.
+    page = 'broken link, signed out';
+    await go(send, '/no-such-page');
+    await sleep(2000); // time for the account gate to redirect, if it wrongly would
+    if (!(await waitFor(send, `location.pathname === '/no-such-page' && document.querySelector('h1')?.textContent === 'Page not found'`))) fail(`NOTFOUND  a signed-out visit to a broken link ended at ${await evaluate(send, 'location.pathname')}, not "Page not found"`);
+    else note('a signed-out visit to a broken link sees "Page not found", not sign-in');
 
     // Sign-in never creates an account: an unknown address is told so, offered
     // the other door, and no user appears.
@@ -448,8 +454,12 @@ async function firstBrowser() {
     await send('Network.setBlockedURLs', { urls: [] });
     if (!couldnt || where !== '/desk') fail(`OFFLINE  with the auth server unreachable and the token expired, /desk ended at ${where}${couldnt ? '' : ' without saying the documents couldn’t load'}`);
     else note('auth unreachable with an expired token: "couldn’t load", Try again, not a sign-in dead end');
-    await send('Page.reload');
-    if (!(await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main')`, 20_000))) fail(`OFFLINE  back online, the desk did not load (at ${await evaluate(send, 'location.pathname')})`);
+    // Back online, Try again has to work at once: auth-js remembers a failed
+    // refresh for a minute, so retrying inside the same page would get that
+    // failure back.
+    if (!(await clickButton(send, 'Try again'))) fail('OFFLINE  "couldn’t load" has no Try again');
+    else if (!(await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main')`, 20_000))) fail(`OFFLINE  back online, Try again did not load the desk (at ${await evaluate(send, 'location.pathname')}: ${JSON.stringify(await evaluate(send, `document.querySelector('h1')?.textContent ?? ''`))})`);
+    else note('back online, Try again loads the desk straight away');
     page = 'sign up';
     await sleep(2500); // a push, had anything been seeded, would land by now
     const onDesk = await sheetIds(send);

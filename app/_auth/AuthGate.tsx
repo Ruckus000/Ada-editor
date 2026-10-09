@@ -24,7 +24,9 @@ import { ConflictDialog } from './ConflictDialog';
 export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // 'unreachable': the session needed refreshing and the auth server couldn't
+  // be reached. 'failed': signed in, but the documents didn't load.
+  const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'unreachable'>('loading');
   const [attempt, setAttempt] = useState(0);
   const open = !isCloud || !isAppPath(pathname);
 
@@ -61,7 +63,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         // An expired token that couldn't be refreshed for want of a network is
         // still this browser's account: say the documents couldn't load (Try
         // again), not sign in, which couldn't send a code either.
-        if (isAuthRetryableFetchError(error)) { if (live) setState('failed'); return; }
+        if (isAuthRetryableFetchError(error)) { if (live) setState('unreachable'); return; }
         router.replace('/sign-in');
         return;
       }
@@ -78,11 +80,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [pathname, router, attempt]);
 
   if (open || state === 'ready') return <>{children}{isCloud && state === 'ready' ? <ConflictDialog /> : null}</>;
-  if (state === 'failed') {
+  if (state === 'failed' || state === 'unreachable') {
+    // auth-js remembers a failed refresh for a minute, so retrying in this page
+    // would get the same failure back; a fresh load starts a fresh client.
+    // Nothing is lost: the app's screens never rendered.
+    const retry = state === 'unreachable'
+      ? () => window.location.reload()
+      : () => { setState('loading'); setAttempt((n) => n + 1); };
     return (
       <StatusScreen
         title="Your documents couldn’t load"
-        actions={<Button variant="primary" onClick={() => { setState('loading'); setAttempt((n) => n + 1); }}>Try again</Button>}
+        actions={<Button variant="primary" onClick={retry}>Try again</Button>}
       >
         Ada Editor couldn’t reach your account. Check your connection, then try again.
       </StatusScreen>
