@@ -1380,9 +1380,31 @@ async function staticPage(path, title) {
     await checkTabOrder(send);
     await checkReflow(send);
     await checkColourSchemes(send);
+    await headerDisplay(send);
   } finally {
     await shutdown(send, ws, proc);
   }
+}
+
+/** The public header's Display settings: nothing of the dialog is in the page
+ *  until it's opened, so the page's own h1 is the first heading a reader or a
+ *  crawler meets; opened, it's a modal that Escape closes, focus back on Display. */
+async function headerDisplay(send) {
+  const first = await evaluate(send, `(() => { const h = document.querySelector('h1, h2, h3, h4, h5, h6'); return h ? h.tagName + ' ' + h.textContent.trim() : ''; })()`);
+  if (!first.startsWith('H1 ')) fail(`HEADINGS  the first heading is ${JSON.stringify(first)}, not the page's h1`);
+  if (await evaluate(send, `!!document.querySelector('dialog')`)) fail('DISPLAY  a closed Display dialog is already in the page');
+  if (!(await focusByName(send, 'button', 'Display'))) { fail('DISPLAY  the header has no Display button'); return; }
+  await key(send, 'Enter');
+  await sleep(300);
+  if (!(await evaluate(send, `!!document.querySelector('dialog[open]')`))) { fail('DISPLAY  Display did not open a dialog'); return; }
+  const dupes = await evaluate(send, `JSON.stringify([...new Set([...document.querySelectorAll('[id]')].map((e) => e.id).filter((id, i, all) => all.indexOf(id) !== i))])`);
+  if (dupes !== '[]') fail(`IDS  with the Display dialog open, these ids appear twice: ${dupes}`);
+  await runAxe(send, ' (header display dialog)');
+  await key(send, 'Escape');
+  await sleep(300);
+  const back = await evaluate(send, `!document.querySelector('dialog[open]') && (document.activeElement?.textContent ?? '').trim() === 'Display'`);
+  if (!back) fail('DISPLAY  Escape did not close the dialog and return focus to Display');
+  else note('header Display: absent until opened, a modal when open, Escape returns focus');
 }
 
 // PDF export in the real app: PDFKit's browser build and the fonts served
