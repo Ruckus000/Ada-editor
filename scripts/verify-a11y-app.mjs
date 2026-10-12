@@ -546,6 +546,14 @@ async function upload() {
 
 /* ---------- editor: initial triage ---------- */
 
+/** The distinct underline styles on the page's findings must be exactly `want`. */
+async function underlineShapes(send, want) {
+  const shapes = await evaluate(send, `[...document.querySelectorAll('.ada-underline')].map(e => getComputedStyle(e).textDecorationStyle)`);
+  const distinct = [...new Set(shapes)].sort();
+  if (JSON.stringify(distinct) !== JSON.stringify(want)) fail(`UNDERLINES  expected ${want.join('/')}, got ${JSON.stringify(shapes)}`);
+  else note(`underline shapes: ${distinct.join(', ')}`);
+}
+
 // The initially-active finding card must be the MOST SEVERE finding, not the
 // first in document order. benefits-guide is the doc where the two orders
 // differ (an advisory figure precedes a violation link), so it pins the
@@ -558,13 +566,22 @@ async function triage() {
     if (severity !== 'violation') fail(`TRIAGE  initially-active card is "${severity}", expected the most severe finding (violation)`);
     else note('the initially-active card is the most severe finding, not the first in document order');
 
+    // Findings come from the real engine over the seed content, not fixtures.
+    // Each severity with underlinable TEXT findings shows its distinct shape.
+    // No seed has all three on text, so this one shows violation wavy (the
+    // contrast run) and manual dashed; hearing-notice shows advisory dotted.
+    await underlineShapes(send, ['dashed', 'wavy']);
+
     // Contrast: the seed's Gray-on-Blue-highlight run (3.96:1). Its fix removes
     // the colour marks, the one Apply branch that is neither text nor attributes.
     const coloured = `[...document.querySelectorAll('#document-text mark, #document-text span[style*="color"]')].filter((el) => el.textContent.includes('light grey')).length`;
     const findings = () => evaluate(send, `Number(document.getElementById('ada-issues-heading').textContent.match(/\\d+/)[0])`);
     const beforeCount = await findings();
     const beforeMarks = await evaluate(send, coloured);
+    // It's the seed's most severe finding, so it may already be the open card.
     const opened = await evaluate(send, `(() => {
+      const active = document.querySelector('aside [role="group"][aria-labelledby^="finding-"]');
+      if (active?.textContent.includes('Text contrast is below')) return true;
       const card = [...document.querySelectorAll('aside button')].find((b) => b.textContent.includes('Use default colours'));
       card?.click();
       return Boolean(card);
@@ -814,15 +831,11 @@ async function editor() {
     if (second !== 'Font size') fail(`TOOLBAR  ArrowRight moved to ${JSON.stringify(second)}, expected "Font size"`);
     else note('ArrowRight moves within the toolbar');
 
-    // Findings come from the real engine over the seed content, not fixtures.
-    // Every severity with underlinable TEXT findings shows its distinct shape:
-    // violation wavy, advisory dotted, manual dashed. The seed's blocker (an
-    // image without alt text) anchors to a figure node — figures get a NodeView
+    // Text underline shapes: advisory dotted and manual dashed here; violation
+    // wavy is checked on benefits-guide (triage). The seed's blocker (an image
+    // without alt text) anchors to a figure node — figures get a NodeView
     // badge, not a text underline — so it is asserted via its card.
-    const shapes = await evaluate(send, `[...document.querySelectorAll('.ada-underline')].map(e => getComputedStyle(e).textDecorationStyle)`);
-    const distinct = [...new Set(shapes)].sort();
-    if (JSON.stringify(distinct) !== JSON.stringify(['dashed', 'dotted', 'wavy'])) fail(`UNDERLINES  expected wavy/dotted/dashed, got ${JSON.stringify(shapes)}`);
-    else note(`underline shapes: ${distinct.join(', ')}`);
+    await underlineShapes(send, ['dashed', 'dotted']);
     const blockerCard = await evaluate(send, `!!document.querySelector('aside [data-severity="blocker"]')`);
     if (!blockerCard) fail('UNDERLINES  the seed blocker (image without alt text) has no card in the findings region');
     else note('blocker finding present as a card (figure-anchored, no text underline)');

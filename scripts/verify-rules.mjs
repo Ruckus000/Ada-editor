@@ -223,7 +223,7 @@ check('link runs merge across inner formatting (§9.9)', () => {
   const d = doc(para(text('click ', link('https://x.org/a')), text('here', link('https://x.org/a', [M.strong.create()]))));
   const found = blockFindings(d, 'link-text-generic');
   eq(found.length, 1, 'fires once on the split link');
-  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].severity, 'manual', 'severity: 2.4.4 accepts a sentence that names the destination, so a person decides');
   eq(found[0].snippet, 'click here', 'merged run text');
   deepEq(found[0].anchor, { kind: 'blockRange', from: 0, to: 10 }, 'range spans the whole run');
   // Different hrefs must NOT merge into one run.
@@ -355,7 +355,7 @@ check('heading-skip fires on level jumps with a level fix (cross-block)', () => 
   const d = doc(heading(1, 'Title'), heading(3, 'Jumped'));
   const found = crossFindings(d, 'heading-skip');
   eq(found.length, 1, 'one finding');
-  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].severity, 'manual', 'severity: Understanding 1.3.1 does not make a skip a failure');
   eq(found[0].title, 'Heading level jumps from h1 to h3', 'title');
   deepEq(found[0].fix, { kind: 'headingLevel', level: 2 }, 'mechanical fix: one below its parent');
   deepEq(found[0].anchor, { kind: 'docRange', from: 8, to: 14 }, 'range covers the heading text');
@@ -655,7 +655,7 @@ check('checkDocument maps rules to anchored findings with stable ids', () => {
   deepEq(linkF.anchor, { kind: 'text' }, 'text anchor');
   eq(linkF.from, 11, 'link from');
   eq(linkF.to, 21, 'link to');
-  eq(linkF.severity, 'violation', 'link severity');
+  eq(linkF.severity, 'manual', 'link severity');
   eq(linkF.excerpt, 'click here', 'excerpt is the flagged text');
   const figF = found[1];
   deepEq(figF.anchor, { kind: 'figure', figureId: 'img-1' }, 'figure anchor');
@@ -1154,17 +1154,23 @@ check('seed docs produce real engine findings across all four severities', () =>
   eq(summaries.length, 8, 'eight seed documents');
   const byId = Object.fromEntries(summaries.map((s) => [s.id, s.counts]));
   const expect = (id, counts) => eq(canon(byId[id]), canon(counts), id);
-  expect('hearing-notice', { blocker: 1, violation: 2, advisory: 3, manual: 2 });
+  // manual 4 includes the "click here" link and the h1-to-h3 skip, which ask
+  // rather than fail (Understanding 2.4.4 and 1.3.1).
+  expect('hearing-notice', { blocker: 1, advisory: 3, manual: 4 });
   // +1 manual: "Llame al 311 para ayuda" is Spanish, unmarked (3.1.2).
-  expect('shelter-faq', { blocker: 1, violation: 1, advisory: 1, manual: 1 });
-  // violation 2: the generic "learn more" link and the Gray-on-Blue-highlight contrast run.
-  // manual 1: the form's two typed blanks, asked about once (form-blank).
-  expect('benefits-guide', { violation: 2, advisory: 1, manual: 1 });
+  // +1 manual: its "click here" link asks rather than fails.
+  expect('shelter-faq', { blocker: 1, advisory: 1, manual: 2 });
+  // violation 1: the Gray-on-Blue-highlight contrast run.
+  // manual 2: the form's two typed blanks, asked about once (form-blank), and
+  // the generic "learn more" link.
+  expect('benefits-guide', { violation: 1, advisory: 1, manual: 2 });
   expect('health-advisory', { violation: 1, manual: 2 });
   expect('transit-notice', { blocker: 1, advisory: 2 });
   expect('zoning-variance', { blocker: 1, manual: 1 });
   expect('water-quality', {});
   expect('voter-deadlines', {});
+  const severities = new Set(summaries.flatMap((d) => Object.keys(d.counts).filter((k) => d.counts[k] > 0)));
+  deepEq([...severities].sort(), ['advisory', 'blocker', 'manual', 'violation'], 'all four severities appear across the seeds');
 });
 
 check('the hearing-notice seed exercises the gate-critical paths', () => {
@@ -1178,8 +1184,6 @@ check('the hearing-notice seed exercises the gate-critical paths', () => {
   assert(skip, 'heading-skip fires');
   deepEq(skip.fix, { kind: 'headingLevel', level: 2 }, 'heading-skip carries the anchor-aware Apply fix');
   eq(skip.suggestion, 'h2', 'suggestion renders in the diff UI');
-  const severities = new Set(found.map((f) => f.severity));
-  deepEq([...severities].sort(), ['advisory', 'blocker', 'manual', 'violation'], 'all four severities present');
 });
 
 check('the health-advisory seed asks about its map, not its alt wording', () => {
@@ -1551,12 +1555,12 @@ check('dismissed findings leave dashboard counts and manual items', () => {
     mod.store.seedIfEmpty();
     const before = mod.store.loadDashboardData();
     const hearingBefore = before.docs.find((d) => d.id === 'hearing-notice');
-    eq(hearingBefore.counts.manual, 2, 'seed baseline: two manual findings');
+    eq(hearingBefore.counts.manual, 4, 'seed baseline: four manual findings');
     const itemsBefore = before.manualItems.filter((m) => m.docId === 'hearing-notice').length;
     mod.store.saveDoc('hearing-notice', { dismissed: ['img-alt-suspicious:map'] });
     const after = mod.store.loadDashboardData();
     const hearingAfter = after.docs.find((d) => d.id === 'hearing-notice');
-    eq(hearingAfter.counts.manual, 1, 'the dismissed finding leaves the count');
+    eq(hearingAfter.counts.manual, 3, 'the dismissed finding leaves the count');
     eq(after.manualItems.filter((m) => m.docId === 'hearing-notice').length, itemsBefore - 1, 'and leaves the card');
     assert(!after.manualItems.some((m) => m.docId === 'hearing-notice' && m.question === 'Alternative text may not describe the image'), 'the dismissed item was the terse-alt one');
   } finally {

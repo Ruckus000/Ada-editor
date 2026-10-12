@@ -15,8 +15,8 @@ export const metadata: Metadata = pageMetadata('/');
 
 const FINDINGS = [
   { severity: 'blocker', title: 'Image has no alternative text', criterion: '1.1.1 Non-text Content' },
-  { severity: 'violation', title: 'Link text is not descriptive', criterion: '2.4.4 Link Purpose' },
   { severity: 'advisory', title: 'Reading level is high', criterion: '3.1.5 Reading Level' },
+  { severity: 'manual', title: 'Link text may not say where it goes', criterion: '2.4.4 Link Purpose' },
 ] as const;
 
 const STANDARDS = [
@@ -54,7 +54,7 @@ export default function Page() {
           <div className="site-figure__grid">
             <div className="site-doc">
               <p className="site-doc__title">Q3 Community Update</p>
-              <p>Enrollment grew across every district. <span className="ada-underline site-doc__active" data-severity="blocker">[chart of enrollment]</span> shows the trend. For the full report, <span className="ada-underline" data-severity="violation">click here</span>.</p>
+              <p>Enrollment grew across every district. <span className="ada-underline site-doc__active" data-severity="blocker">[chart of enrollment]</span> shows the trend. For the full report, <span className="ada-underline" data-severity="manual">click here</span>.</p>
               <p>Our <span className="ada-underline" data-severity="advisory">multifaceted programmatic engagement paradigm</span> continues.</p>
             </div>
             <div className="site-findings">

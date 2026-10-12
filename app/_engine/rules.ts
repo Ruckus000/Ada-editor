@@ -30,8 +30,11 @@
  * `heading-unmarked` asks about short lines set like headings, and the parity
  * gate pins its eleven corpus firings (nine real section titles, two names).
  *
- * One severity departs from the spike: `document-no-h1` is Advisory, not
- * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
+ * Three severities depart from the spike: `document-no-h1` is Advisory, not
+ * violation, because its criterion (2.4.10) is AAA; `heading-skip` and
+ * `link-text-generic` are Needs your call, not violation, because WCAG's own
+ * Understanding pages don't make a skipped level or "click here" a failure on
+ * its own (the owner's ruling, 2026-10-12). Each rule now declares its
  * criterion's `level`, and verify-rules asserts no AAA rule ever grades a
  * finding "Blocks access" or "Fails AA". Do not re-sync severities from the spike.
  *
@@ -108,8 +111,8 @@ export const RULES: readonly RuleInfo[] = [
     about: 'Charts, maps, diagrams, site and floor plans, plats, elevations and technical drawings usually carry more than a sentence of alt text can hold.',
     fix: 'If the picture holds data or detail the text around it doesn’t, add a long description: a paragraph or table nearby that says the same thing in words.' },
   { id: 'link-text-generic', name: 'Links like “click here”', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
-    about: 'People using screen readers often jump from link to link, hearing only the link text. “Click here” or “read more” tells them nothing about where it goes.',
-    fix: 'Rewrite the link so its words name the destination, for example “the full meeting agenda” instead of “click here”. Go to text selects the link’s words: type the new ones, and the link keeps its address.' },
+    about: 'People using screen readers often jump from link to link, hearing only the link text. “Click here” or “read more” tells them nothing about where it goes. WCAG accepts it when the sentence around the link says where it goes, so this asks rather than fails.',
+    fix: 'Rewrite the link so its words name the destination, for example “the full meeting agenda” instead of “click here”. Go to text selects the link’s words: type the new ones, and the link keeps its address. If the sentence already names the destination, you can dismiss this.' },
   { id: 'link-text-raw-url', name: 'Links that are a bare web address', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
     about: 'A bare web address is read out character by character, and rarely says what the page is.',
     fix: 'Select the address and type words that say where it goes, such as “the parks department’s events page”. The link keeps its address.' },
@@ -117,7 +120,7 @@ export const RULES: readonly RuleInfo[] = [
     about: 'The same link text going to different places is confusing when links are listed out of context.',
     fix: 'Give each link words that tell its destinations apart, or confirm the surrounding text makes the difference clear.' },
   { id: 'heading-skip', name: 'Heading levels that skip', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
-    about: 'Headings are how many readers move through a document. Jumping a level (say, from a main heading straight to a third-level one) suggests a section that isn’t there.',
+    about: 'Headings are how many readers move through a document. Jumping a level (say, from a main heading straight to a third-level one) suggests a section that isn’t there. WCAG doesn’t forbid a skip, so this asks rather than fails, but a tagged PDF with one fails PDF/UA-1, the standard Export PDF follows.',
     fix: 'Use the next level down: H2 under H1, H3 under H2. Apply fix changes the level for you.' },
   { id: 'heading-empty', name: 'Empty headings', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
     about: 'An empty heading is announced as a heading with nothing in it.',
@@ -520,10 +523,12 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
     if (english && key && GENERIC_LINK_TEXT.has(key)) {
       findings.push({
         ruleId: 'link-text-generic',
-        severity: 'violation',
+        // Needs your call: 2.4.4 also accepts link text whose sentence names
+        // the destination (Understanding 2.4.4), which software can't judge.
+        severity: 'manual',
         criterion: crit('link-text-generic'),
-        title: 'Link text is not meaningful out of context',
-        explanation: `"${label}" tells a user navigating by links nothing about the destination.`,
+        title: 'Link text may not say where it goes',
+        explanation: `"${label}" tells someone moving from link to link nothing about the destination. If the sentence around it names the destination, WCAG accepts it; words that name it are still clearer.`,
         // No fix: naming the destination needs a human who knows it.
         snippet: label,
         hint: 'Rewrite the link text',
@@ -788,10 +793,12 @@ export function crossBlockFindings(entries: readonly BlockEntry[], pageLang = 'e
     if (previous && level > previous + 1) {
       out.push({
         ruleId: 'heading-skip',
-        severity: 'violation',
+        // Needs your call: Understanding 1.3.1 doesn't make a skip a failure.
+        // PDF/UA-1 does (7.4.2), so the explanation says what Export PDF loses.
+        severity: 'manual',
         criterion: crit('heading-skip'),
         title: `Heading level jumps from h${previous} to h${level}`,
-        explanation: 'Users navigating by heading rely on the levels describing the real structure.',
+        explanation: 'Users navigating by heading rely on the levels describing the real structure. WCAG doesn’t forbid a skip, but it usually means a level is wrong, and an exported PDF with a skip fails PDF/UA-1.',
         // The heading's own text, so the id — and any dismissal — belongs to
         // this heading, not to every heading that ever skips to this level.
         snippet: e.summary.text || `h${level}`,
