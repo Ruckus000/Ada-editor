@@ -83,7 +83,7 @@ export default function Page() {
                 <Link href="/guides/word-to-tagged-pdf">Word to tagged PDF guide</Link> covers Google Docs and LibreOffice too.
               </li>
               <li><strong>Or import it into Ada Editor,</strong> which checks it as you write and exports a tagged PDF in your browser.</li>
-              <li><strong>Post the PDF itself.</strong> Our <Link href="/help#posting">steps for posting a PDF to an agenda system</Link> explain why the copy people open should be the one you made.</li>
+              <li><strong>Post the PDF itself.</strong> Our <Link href="/help#posting">steps for posting a PDF to an agenda system</Link> explain why the copy people open should be the one you made. Where your website can publish pages, <Link href="/guides/agendas-html-or-pdf">post the agenda as a page too</Link>.</li>
             </ol>
           </section>
 

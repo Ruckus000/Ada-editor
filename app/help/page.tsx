@@ -127,6 +127,7 @@ export default function Page() {
               <li><strong>Link people to the document itself.</strong> Many systems also combine every item into one agenda packet. In our tests the packet usually lost the tags or the document’s language, while the document’s own link kept them.</li>
               <li><strong>If your system publishes only a packet,</strong> post the PDF on your website as well, and link to it from the agenda.</li>
             </ul>
+            <p>If your website can publish pages, post the agenda as a page too, and link the PDF from it: <Link href="/guides/agendas-html-or-pdf">why the web page comes first</Link>.</p>
             <p>Want to know whether a posted copy kept its structure? Signed in, you can <Link href="/privacy#contact">ask us to check a posted copy</Link> against the original.</p>
           </section>
 
