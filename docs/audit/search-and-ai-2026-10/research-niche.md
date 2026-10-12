@@ -295,3 +295,13 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
   - "PDFs are not designed to be flexible in their layout."
   - "unless created with sufficient care PDFs can often be bad for accessibility and rarely comply with open standards."
   - "If you can't avoid publishing a PDF, ideally it should be in addition to an HTML version"; "the PDF must meet accessibility standards and archiving standards."
+
+### Addendum, 2026-10-12: sourced for the alt-text guide
+- **W3C WAI, Complex Images** (updated 8 April 2026):
+  - complex images hold "substantial information", for example graphs, charts, diagrams, and maps "showing locations or other information";
+  - "a two-part text alternative is required";
+  - the long description is "a textual representation of the essential information conveyed by the image".
+- **W3C WAI, alt decision tree:**
+  - images of text: put the text in `alt`, or use an empty `alt` if the text is already nearby;
+  - complex information: "Include the information contained in the image elsewhere on the page";
+  - "purely decorative": "Use an empty `alt` attribute".

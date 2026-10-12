@@ -109,6 +109,14 @@ export const PAGES = [
     updated: '2026-10-12',
     kind: 'article',
   },
+  {
+    path: '/guides/alt-text-maps-site-plans',
+    title: 'Alt text for maps, site plans and charts in meeting packets · Ada Editor',
+    description: 'How to write alt text and long descriptions for maps, site plans, charts and scanned pages in a meeting packet, following W3C’s method, with examples.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
 ] as const satisfies readonly SitePage[];
 
 export type SitePath = (typeof PAGES)[number]['path'];
