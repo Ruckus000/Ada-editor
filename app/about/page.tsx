@@ -39,10 +39,10 @@ export default function Page() {
               followed by someone who needs plain structure.
             </p>
             <p>
-              The ADA’s Title II rule now holds state and local governments’ web content, documents included, to
+              The ADA’s <Link href="/guides/title-ii-meeting-documents">Title II rule</Link> now holds state and local governments’ web content, documents included, to
               WCAG 2.1 AA: from April 26, 2027 for those serving 50,000 people or more, and from April 26, 2028 for
               smaller ones and special districts. The Department of Justice set those dates in April 2026, and a
-              lawsuit asks to restore the earlier ones.
+              lawsuit asks a court to set that extension aside.
             </p>
             <p>
               Most accessibility problems are made while a document is written, and most checkers find them only

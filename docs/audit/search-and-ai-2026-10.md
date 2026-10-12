@@ -233,7 +233,7 @@ Bing Webmaster Tools, a sitemap there, and IndexNow come before anything else ai
    - the first presence check.
 4. **Content, about a page a week:**
    1. the agenda-platform research;
-   2. Title II for meeting documents, with the current dates (April 26, 2027 and April 26, 2028), the lawsuit's status and DOJ's own examples;
+   2. Title II for meeting documents, with the current dates (April 26, 2027 and April 26, 2028), the lawsuit's status and DOJ's own examples. *Published 2026-10-12 at `/guides/title-ii-meeting-documents`, an Article like the research page, every claim checked against the regulation's text, DOJ's fact sheet or the docket. Left out, as no query asked for them: state laws, HHS's Section 504 dates, and the two exceptions that don't touch meeting documents;*
    3. what "ADA compliant PDF" can and can't mean;
    4. accessible agenda and minutes templates;
    5. Word to tagged PDF;
@@ -253,4 +253,4 @@ Bing Webmaster Tools, a sitemap there, and IndexNow come before anything else ai
 - **Real-user data shows slow interaction on the public pages.** Split the public pages from the app's code.
 - **Search Console shows impressions for single checks** (for example, "link text not descriptive WCAG"). Give each check its own page, built from the same rules registry as Help.
 - **The presence check shows mentions.** Grow it to a proper panel of about 40 questions, run 3 or 4 times per engine, or a tool that runs real signed-in sessions.
-- **The Title II rule changes again**, through the lawsuit or new rulemaking. The guide's dates and the copy that leans on them change the same week.
+- **The Title II rule changes again**, through the lawsuit or new rulemaking. The guide's dates and the copy that leans on them change the same week: `app/guides/title-ii-meeting-documents/page.tsx` and `app/about/page.tsx` (`grep -rn "April 26, 202" app`).

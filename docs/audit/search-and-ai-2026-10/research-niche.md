@@ -235,3 +235,17 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
 - Bing: check with Bing Webmaster Tools.
 - Backlinks: unknown (Wayback was offline).
 - ADAEDIT trademark status: unknown.
+
+### Addendum, 2026-10-12: sourced for the Title II guide
+- **28 CFR 35.104** (eCFR, issue of 2026-10-08):
+  - "Total population" is the most recent decennial Census figure.
+  - A "special district government" is a single- or limited-function entity whose population the Census Bureau doesn't count.
+  - "Conventional electronic documents" are PDF, word processor, presentation and spreadsheet files.
+  - "Archived web content" has four tests.
+- **The exceptions' cutoff.** 35.201(a) and (b) tie their cutoff to "the date the public entity is required to comply with this subpart". Read plainly, it moved with the IFR. DOJ hasn't said so.
+- **35.201(c), third-party content:** it excludes content posted "due to contractual, licensing, or other arrangements with the public entity". The fact sheet says content a company posts for the government isn't excepted.
+- **The fact sheet's caveat:** even with an exception, a government "would likely still need to provide the content to a person with a disability" who needs it.
+- **Citations:** the IFR is 91 FR 20902 (the amendment text is at 20912); the 2024 final rule is 89 FR 31320.
+- **The docket** (PacerMonitor, read 2026-10-12): entry 16, NFB's motion for summary judgment on 2026-09-28. Judge Richard D. Bennett. No cross-motion or ruling shown.
+- **What the complaint asks** (read in full, [browngold.com](https://browngold.com/wp-content/uploads/2026/05/NFB-v.-DOJ_5-21-2026.pdf)): its Prayer for Relief asks the court to "Hold unlawful, vacate, and/or set aside the IFRs" and declare them unlawful. It never asks to "restore" dates; that is the summaries' gloss, and it corrects "seeks to restore the original dates" above.
+- **The 2024 rule on agendas:** agendas, minutes and other documents for meetings after the compliance date "would likely not" be archived content (89 FR 31340), and "would generally need to conform to WCAG 2.1 Level AA" (89 FR 31362). Instructions for documents still in use aren't excepted, and "currently used" is "a fact-specific analysis" (89 FR 31365).

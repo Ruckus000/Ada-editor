@@ -69,6 +69,14 @@ export const PAGES = [
     updated: '2026-10-12',
     kind: 'article',
   },
+  {
+    path: '/guides/title-ii-meeting-documents',
+    title: 'ADA Title II and meeting documents: the dates, the exceptions · Ada Editor',
+    description: 'When ADA Title II requires accessible agendas, packets and minutes: the 2027 and 2028 dates, the archive and preexisting exceptions, and DOJ’s examples.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
 ] as const satisfies readonly SitePage[];
 
 export type SitePath = (typeof PAGES)[number]['path'];
