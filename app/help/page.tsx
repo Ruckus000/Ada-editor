@@ -122,7 +122,7 @@ export default function Page() {
             <h2 id="posting-title">Posting a PDF to your agenda system</h2>
             <p>Agenda systems change files as they publish them. We tested seven that Florida towns use, and the tags a screen reader relies on survived on some paths and not others. <Link href="/research/agenda-platforms">What we found on each platform</Link>.</p>
             <ul>
-              <li><strong>Use Export PDF, never Print to PDF.</strong> Printing to a PDF throws away the tags, so the file reads to a screen reader as one undivided block, if at all. On one agenda system we sampled, about one attachment page in six had been made that way.</li>
+              <li><strong>Use Export PDF, not your browser’s Print.</strong> Export PDF builds the tags from your document’s structure: its language, headings, links, tables and alt text. Printing prints the editor’s screen, buttons and all, and a browser that tags what it prints tags that screen, not your document. On one agenda platform we sampled, about one attachment page in six had been printed to PDF, and those pages carried no structure at all.</li>
               <li><strong>Upload the PDF, not the Word file.</strong> Agenda systems convert Word files themselves, and most of the conversions we tested lost the headings and tables.</li>
               <li><strong>Link people to the document itself.</strong> Many systems also combine every item into one agenda packet. In our tests the packet usually lost the tags or the document’s language, while the document’s own link kept them.</li>
               <li><strong>If your system publishes only a packet,</strong> post the PDF on your website as well, and link to it from the agenda.</li>
