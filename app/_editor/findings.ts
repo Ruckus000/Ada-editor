@@ -6,6 +6,7 @@ import { SEVERITY_RANK } from '../../design-system/primitives/severity';
 import { OPEN_SEVERITIES } from '../../design-system/primitives/openSeverity';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { Issue } from '../../design-system/primitives/types';
+import { figureNoun } from './editorSchema';
 
 export type Section = 'header' | 'footer';
 
@@ -164,7 +165,7 @@ export function imageFinding(imageId: string, label: string, anchor: Anchor, at 
     ruleId: 'img-alt-missing',
     severity: 'blocker',
     title: 'Image has no alternative text',
-    explanation: `Screen readers will announce nothing for this ${label}, so residents using one will miss its content entirely.`,
+    explanation: `Screen readers will announce nothing for this ${figureNoun(label)}, so residents using one will miss its content entirely.`,
     criterion: '1.1.1 Non-text Content',
     excerpt: label,
     hint: 'Add a description',

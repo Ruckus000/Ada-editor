@@ -3,7 +3,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactNode, RefObject } from 'react';
-import { safeHref } from './editorSchema';
+import { figureNoun, safeHref } from './editorSchema';
 import type { FigureAlign, FigureSize } from './editorSchema';
 import type { Section } from './findings';
 import type { SectionImage } from '../_data/store';
@@ -108,7 +108,7 @@ export function AltTextDialog({
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="Alternative text"
-      description={`Describe what this ${label} shows for people who cannot see it. If it is purely decorative, delete it instead: every image you keep needs a description.`}
+      description={`Describe what this ${figureNoun(label)} shows for people who cannot see it. If it is purely decorative, delete it instead: every image you keep needs a description.`}
       onSubmit={(e) => { e.preventDefault(); onSave(value.trim()); }}
       footer={
         <>
@@ -157,7 +157,7 @@ export function FigureLayoutDialog({
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="Size and position"
-      description={`How wide this ${label} is on the page, and where it sits. Exports use the same.`}
+      description={`How wide this ${figureNoun(label)} is on the page, and where it sits. Exports use the same.`}
       onSubmit={(e) => { e.preventDefault(); onSave({ size: size === 'original' ? null : size, align }); }}
       footer={
         <>

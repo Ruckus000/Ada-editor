@@ -35,6 +35,12 @@ export const ALIGN_FRACTION: Record<FigureAlign, number> = { left: 0, center: 0.
 
 /** From untrusted input: a size, or null (Original). */
 export const figureSize = (v: unknown): FigureSize | null => ((FIGURE_SIZES as readonly unknown[]).includes(v) ? (v as FigureSize) : null);
+/** A picture's label as the noun after "this". The numbered labels the editor
+ *  and the Word import give ("image 1", "pasted image 2") name it in a list,
+ *  but a sentence says "this image". Anything else (a file name, "parcel map")
+ *  is kept whole. */
+export const figureNoun = (label: unknown): string =>
+  String(label ?? '').trim().replace(/^((?:pasted |inserted )?image) \d+$/, '$1') || 'image';
 /** From untrusted input: an alignment, centre by default. */
 export const figureAlign = (v: unknown): FigureAlign => ((FIGURE_ALIGNS as readonly unknown[]).includes(v) ? (v as FigureAlign) : 'center');
 

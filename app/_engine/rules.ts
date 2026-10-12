@@ -45,7 +45,7 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { FindingFix } from '../_editor/findings';
-import { schema } from '../_editor/editorSchema';
+import { figureNoun, schema } from '../_editor/editorSchema';
 import { hasHeaderCell, hasMergedCells, tableText } from '../_editor/tableHeaders';
 import {
   COLOUR_REFERENCE,
@@ -448,7 +448,7 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
         severity: 'blocker',
         criterion: crit('img-alt-missing'),
         title: 'Image has no alternative text',
-        explanation: `Screen readers will announce nothing for this ${label}, so its content is unavailable.`,
+        explanation: `Screen readers will announce nothing for this ${figureNoun(label)}, so its content is unavailable.`,
         snippet: label,
         hint: 'Add a description',
         anchor: { kind: 'figure', figureId: id },
@@ -495,7 +495,7 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
             ruleId: 'img-long-description',
             severity: 'manual',
             criterion: crit('img-long-description'),
-            title: `Does this ${label} need a long description?`,
+            title: `Does this ${figureNoun(label)} need a long description?`,
             explanation:
               'Alt text can name a chart, map, diagram, plan or drawing but can’t carry its data, trends, routes or measurements. ' +
               'If readers need those details, describe them in a paragraph or table next to the image, ' +

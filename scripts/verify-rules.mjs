@@ -505,6 +505,16 @@ check('img-alt-missing fires on a figure with no alt text', () => {
   eq(found[0].snippet, 'image', 'snippet is the figure label');
 });
 
+check('a numbered label names the picture, but a sentence says "this image"', () => {
+  const [f] = blockFindings(doc(figure('img-1', '', 'image 1')), 'img-alt-missing');
+  eq(f.snippet, 'image 1', 'the excerpt keeps the name');
+  eq(f.explanation, 'Screen readers will announce nothing for this image, so its content is unavailable.', 'not "this image 1"');
+  const { figureNoun } = mod.editorSchema;
+  for (const [label, noun] of [['pasted image 12', 'pasted image'], ['inserted image 3', 'inserted image'], ['header image', 'header image'], ['parcel map', 'parcel map'], ['Budget 2026', 'Budget 2026'], ['', 'image']]) {
+    eq(figureNoun(label), noun, `"${label}" reads as "this ${noun}"`);
+  }
+});
+
 check('img-alt-suspicious: redundant prefix gets a figureAlt fix, terse/filename is manual', () => {
   const prefix = blockFindings(doc(figure('img-1', 'Image of a site plan')), 'img-alt-suspicious');
   eq(prefix.length, 1, 'prefix fires');
