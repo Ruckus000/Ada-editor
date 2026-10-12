@@ -40,6 +40,7 @@ export default function Page() {
                   <tr><th scope="row">The images you add to your documents</th><td>Stored privately in your account: only you can open them</td><td>No document of yours uses them (below)</td></tr>
                   <tr><th scope="row">A sign-in session</th><td>Stored in your browser, so you stay signed in</td><td>You sign out</td></tr>
                   <tr><th scope="row">Messages you send us from this page, with your email address</th><td>So we can reply</td><td>You delete your account</td></tr>
+                  <tr><th scope="row">Error reports, when something in Ada Editor breaks</th><td>So we can fix it. A report says what broke, where in our code, which page (a document’s as <code>/editor/[docId]</code>) and your browser, operating system and kind of device. Never what a document says, and it isn’t linked to your account.</td><td>Sentry deletes them, within 90 days</td></tr>
                 </tbody>
               </table>
             </div>
@@ -92,7 +93,7 @@ export default function Page() {
 
           <section id="dont" aria-labelledby="dont-title">
             <h2 id="dont-title">What we don’t do</h2>
-            <p>No ads, no cookies that track you, and no following you to other sites. What you write is never counted, and we never sell your data. The only companies that handle it are the ones listed next, to run the service.</p>
+            <p>No ads, no cookies that track you, and no following you to other sites. What you write is never counted or put in an error report, and we never sell your data. The only companies that handle it are the ones listed next, to run the service.</p>
           </section>
 
           <section id="who" aria-labelledby="who-title">
@@ -101,6 +102,7 @@ export default function Page() {
               <li><strong>Supabase</strong> stores your account, documents and images, on Amazon Web Services in Ohio, USA.</li>
               <li><strong>Vercel</strong> hosts the website and does the counting described above.</li>
               <li><strong>Resend</strong> sends the sign-in emails.</li>
+              <li><strong>Sentry</strong> receives the error reports, in the USA.</li>
             </ul>
             <p>Like any web service, they keep short-lived technical logs, which include IP addresses.</p>
           </section>
@@ -108,7 +110,7 @@ export default function Page() {
           <section id="how-long" aria-labelledby="how-long-title">
             <h2 id="how-long-title">How long we keep it</h2>
             <p>Until you delete your account. Deleting it removes your account, every document and image in it and any messages you sent us, straight away.</p>
-            <p>The counts hold nothing that identifies you, so there’s nothing of yours in them to delete.</p>
+            <p>The counts and error reports hold nothing that identifies you, so there’s nothing of yours in them to delete.</p>
           </section>
 
           <section id="choices" aria-labelledby="choices-title">

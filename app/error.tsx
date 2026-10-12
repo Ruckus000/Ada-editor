@@ -5,12 +5,11 @@ import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { Button } from '../design-system/primitives';
 import { DESK, isAppPath } from './_site/routes';
+import { report } from './_site/sentry';
 import { StatusScreen } from './_status/StatusScreen';
 
-// ponytail: logs to the browser console only; add an error-reporting service
-// once there is real traffic to learn from.
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => { console.error(error); }, [error]);
+  useEffect(() => { console.error(error); report(error); }, [error]);
   // In the app, the way out is the desk; on a public page, anyone may be
   // reading, and the desk would ask a visitor to sign in.
   const inApp = isAppPath(usePathname());

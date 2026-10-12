@@ -14,6 +14,7 @@ import { isCloud } from '../_data/supabase';
 import { removeDoc } from '../_data/sync';
 import { AccountMenu } from '../_auth/AccountMenu';
 import { count } from '../_site/analytics';
+import { report } from '../_site/sentry';
 import { BrandMark } from '../_site/BrandMark';
 import { Tour } from '../_tour/Tour';
 import type { TourStep } from '../_tour/Tour';
@@ -424,7 +425,9 @@ export function Home() {
       // The announcer lives in the root layout, so this survives the navigation.
       announce([`Imported ${imported.title}.`, `${summaryLine(findings)}.`, ...notes].join(' '));
     } catch (error) {
-      // Visible and announced once, by role="alert".
+      // Visible and announced once, by role="alert". An ImportError is the
+      // file's doing (not a Word file, too big); anything else is ours.
+      if (!(error instanceof ImportError)) report(error);
       setImportError(error instanceof ImportError ? error.userMessage : 'This file couldn’t be imported.');
     } finally {
       importingRef.current = false;

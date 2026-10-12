@@ -59,6 +59,7 @@ import type { DocJSON, StoredDoc } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { useSyncStatus } from '../_data/sync';
 import { count } from '../_site/analytics';
+import { report } from '../_site/sentry';
 import { DESK } from '../_site/routes';
 import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
@@ -634,7 +635,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       download(new Blob([result.bytes as BlobPart], { type: 'application/pdf' }), file);
       count('PDF exported');
       announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
-    } catch {
+    } catch (error) {
+      report(error);
       announce('The PDF could not be built. Try again, or use Export HTML.');
     } finally {
       pdfBusy.current = false;

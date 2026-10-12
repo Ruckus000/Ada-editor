@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { adoptDisplay } from './display';
 import { adoptTours } from './tour';
 import { getClient } from './supabase';
+import { reportFailure } from '../_site/sentry';
 import { allDocs, applyPulled, clearStore, createDoc, deleteDoc, detachStore, dirtyDocs, isDirty, loadDoc, markPushed, onDocsDirty, rebaseDoc, replaceDoc, setStoreUser } from './store';
 import { imageKeysOf } from './imageFormat';
 import { clearImageScope, listRemote, markPending, markSwept, pendingKeys, purgeFolder, removeRemote, sweptAt, uploadPending } from './images';
@@ -240,7 +241,8 @@ async function pushOnce(client: NonNullable<ReturnType<typeof getClient>>): Prom
     // SQLSTATE class 22/23 (bad data, a failed CHECK): the same row will be
     // refused again. Anything else — network, an expired token — is retried.
     const code = (error as { code?: unknown }).code;
-    if (typeof code === 'string' && /^2[23]/.test(code)) rejected.add(d.id);
+    // Reported by its code alone: a Supabase error's details hold the row.
+    if (typeof code === 'string' && /^2[23]/.test(code)) { rejected.add(d.id); reportFailure('The server refused a document', code); }
     else retry = true;
   });
   markPushed(pushed);
@@ -446,9 +448,9 @@ export async function deleteAccount(): Promise<boolean> {
   if (!uid) return false;
   // Storage doesn't cascade from the account: empty its image folder first,
   // and stop if that fails rather than leave pictures nobody can delete.
-  if (!(await purgeFolder(uid))) { console.error('Account deletion stopped: its images could not be removed'); return false; }
+  if (!(await purgeFolder(uid))) { console.error('Account deletion stopped: its images could not be removed'); reportFailure('Account deletion stopped: its images could not be removed'); return false; }
   const { error } = await client.rpc('delete_my_account');
-  if (error) { console.error('Account deletion failed', error); return false; }
+  if (error) { console.error('Account deletion failed', error); reportFailure('Account deletion failed', error.code); return false; }
   forget();
   setStoreUser(uid);
   clearStore();
