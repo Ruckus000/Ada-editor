@@ -9,7 +9,7 @@ and Section 508 as you type — and never tells you a document is "compliant".**
 Supabase (Auth, Postgres + row-level security, Storage) · pdfkit · veraPDF and
 axe-core in CI
 
-- **Checks as you write.** Nineteen WCAG rules run in the browser against the
+- **Checks as you write.** Twenty WCAG rules run in the browser against the
   live ProseMirror document, and every finding cites the success criterion it
   comes from.
 - **Imports Word files without uploading them.** `.docx` tables (header rows,
@@ -74,7 +74,7 @@ criterion, with "Go to text" as the primary action.
 
 Working prototype. The homepage and editor screens are built from the design
 system, and every finding is computed by
-the **real checking engine**: nineteen WCAG rules running against the live
+the **real checking engine**: twenty WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
 (the document's language, landmarks, headings and links intact, and its images
@@ -167,7 +167,7 @@ it.
 flowchart LR
   subgraph Browser
     IM[".docx import<br/>app/_import"] --> ED["ProseMirror editor<br/>app/_editor"]
-    ED -- "document tree" --> EN["Checking engine<br/>app/_engine · 19 rules"]
+    ED -- "document tree" --> EN["Checking engine<br/>app/_engine · 20 rules"]
     EN -- "findings" --> ED
     ED --> EX["HTML and PDF/UA-1 export<br/>exportHtml.ts · exportPdf.ts"]
     ED <--> ST["Working copy<br/>localStorage + IndexedDB"]

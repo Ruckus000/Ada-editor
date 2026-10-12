@@ -181,9 +181,9 @@ const table = (rows, caption = '') => N.table.create({ caption }, rows.map((r) =
 /** Mirrors check.ts's walk: one entry per textblock/figure, in doc order. */
 function entriesOf(document) {
   const entries = [];
-  document.descendants((node, pos) => {
+  document.descendants((node, pos, parent) => {
     if (node.isTextblock || node.type === N.figure) {
-      entries.push({ pos, contentSize: node.content.size, summary: summarizeBlock(node) });
+      entries.push({ pos, contentSize: node.content.size, summary: summarizeBlock(node), ...(parent !== document && { nested: true }) });
     }
     return true;
   });
@@ -202,15 +202,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 19 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 19, 'rule count');
+check('RULES ports the 20 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 20, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
+    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip', 'heading-unmarked',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level', 'table-merged-cells', 'table-no-header',
   ], 'rule ids');
@@ -264,6 +264,42 @@ check('typing over a link keeps its address (retypeLinkTr)', () => {
   eq(retypeLinkTr(mixed, 5, 13, 'x'), null, 'a link and plain text: ordinary typing');
   const two = start(doc(para(text('one', link('https://x.org/a')), text('two', link('https://x.org/b')))));
   eq(retypeLinkTr(two, 1, 7, 'x'), null, 'two different links: ordinary typing');
+});
+
+check('heading-unmarked asks about lines set like headings, and the fix makes one', () => {
+  // An agenda as clerks set it: a title, then bold section titles.
+  const bold = (s, extra = []) => text(s, [M.strong.create(), ...extra]);
+  const found = (d) => mod.check.checkDocument(d, { prose: false }).filter((f) => f.ruleId === 'heading-unmarked');
+  const agenda = doc(
+    heading(1, 'Agenda'),
+    para(bold('PUBLIC APPEARANCES', [M.underline.create()])),
+    para('Each speaker will be given three minutes.'),
+    para(bold('CITY MANAGER’S REPORT:')),
+    para(bold('Bring photo ID to the meeting.')),
+    para(bold('This bold line runs on far longer than any section title ever would in an agenda')),
+    para(bold('Watch live', link('https://x.org/live'))),
+    para('Partly ', bold('bold')),
+    para(text('Regional Activity Center', [M.fontSize.create({ size: 24 })])),
+    N.bullet_list.create(null, [N.list_item.create(null, [para(bold('Item label'))])]),
+    table([[{ td: [para(bold('Mayor'))] }, 'Vice Mayor']]),
+  );
+  const got = found(agenda);
+  deepEq(got.map((f) => f.excerpt), ['PUBLIC APPEARANCES', 'CITY MANAGER’S REPORT:', 'Regional Activity Center'],
+    'bold or heading-size short lines; not sentences, long lines, links, partly bold text, list items or table cells');
+  deepEq(got.map((f) => [f.severity, f.suggestion]), [['manual', 'h2'], ['manual', 'h2'], ['manual', 'h2']], 'a question, suggesting h2 after a heading');
+  const titleFirst = found(doc(para(bold('Winter Shelter Program')), para('Open nightly.')));
+  eq(titleFirst[0]?.suggestion, 'h1', 'h1 when no heading comes before it');
+  // Apply: the paragraph becomes the heading and loses the faked look.
+  const { EditorState } = mod.pmState;
+  let state = EditorState.create({ doc: agenda });
+  const pos = got[0].from - 1;
+  assert(mod.editorCommands.setHeadingLevel(pos, 2)(state, (tr) => { state = state.apply(tr); }), 'the fix applies');
+  const made = state.doc.nodeAt(pos);
+  eq(made.type.name, 'heading', 'a heading now');
+  eq(made.attrs.level, 2, 'at the suggested level');
+  deepEq(made.firstChild.marks.map((m) => m.type.name), [], 'bold and underline gone');
+  eq(found(state.doc).length, 2, 'its finding is gone, the others stay');
+  assert(!mod.editorCommands.setHeadingLevel(0, 2)(EditorState.create({ doc: doc(figure('img-1', 'x')) })), 'no textblock at the position: no-op');
 });
 
 check('link-text-generic fires only on generic labels', () => {
