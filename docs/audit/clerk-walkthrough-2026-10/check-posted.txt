@@ -1,0 +1,79 @@
+## The live export, as exported
+
+                               Original  Posted
+Pages                          2         2
+Producer                       PDFKit    PDFKit
+Title                          Agenda    Agenda
+XMP title                      Agenda    Agenda
+DisplayDocTitle                true      true
+Language (catalog)             en-US     en-US
+Language (root tag)            en-US     en-US
+Marked as tagged               true      true
+Structure elements             41        41
+  headings                     1         1
+  paragraphs                   28        28
+  lists                        0         0
+  tables                       9         9
+  figures                      1         1
+  links                        1         1
+  languageSpans                0         0
+Figures with alt text          1         1
+Bookmarks                      false     false
+PDF/UA identifier              1         1
+Pages with orphaned tag links  0         0
+
+## posted-resaved
+What the platform did
+  Tags: kept: every kind of structure in the original is still there
+  Language: in the catalog, kept; on the root tag, kept
+  Title: kept; DisplayDocTitle: kept
+  PDF/UA identifier: kept; bookmarks: none
+  ("not in the original" means there was nothing to keep: the original never had it.)
+  PDF/UA (veraPDF): no rule fails in the posted copy that passed in the original.
+
+## posted-packet
+What the platform did
+  Tags: removed: no structure tree, yet 2 page(s) still point into one (the tags were stripped when the file was rewritten)
+  Language: in the catalog, dropped; on the root tag, dropped
+  Title: dropped; DisplayDocTitle: dropped
+  PDF/UA identifier: dropped; bookmarks: none
+  ("not in the original" means there was nothing to keep: the original never had it.)
+  Probably a packet: 4 pages against the original's 2. The figures above describe the whole file.
+  PDF/UA rules newly failing (veraPDF): 6.2-1 (The document catalog dictionary shall include a MarkInfo dictionary containing an entry, M…); 7.1-10 (The document catalog dictionary shall include a ViewerPreferences dictionary containing a …); 7.1-11 (The logical structure of the conforming file shall be described by a structure hierarchy r…); 7.1-3 (Content shall be marked as Artifact or tagged as real content…); 7.1-8 (The Catalog dictionary of a conforming file shall contain the Metadata key whose value is …); 7.18.5-1 (Links shall be tagged according to ISO 32000-1:2008, 14.8.4.4.2, Link Element…); 7.2-24 (Natural language in the Contents entry for annotations shall be determined…); 7.2-34 (Natural language for text in page content shall be determined…)
+
+## posted-stripped
+What the platform did
+  Tags: removed: no structure tree, yet 2 page(s) still point into one (the tags were stripped when the file was rewritten)
+  Language: in the catalog, kept; on the root tag, dropped
+  Title: kept; DisplayDocTitle: kept
+  PDF/UA identifier: kept; bookmarks: none
+  ("not in the original" means there was nothing to keep: the original never had it.)
+  PDF/UA rules newly failing (veraPDF): 6.2-1 (The document catalog dictionary shall include a MarkInfo dictionary containing an entry, M…); 7.1-11 (The logical structure of the conforming file shall be described by a structure hierarchy r…); 7.1-3 (Content shall be marked as Artifact or tagged as real content…); 7.18.5-1 (Links shall be tagged according to ISO 32000-1:2008, 14.8.4.4.2, Link Element…)
+
+## posted-languageDropped
+What the platform did
+  Tags: kept: every kind of structure in the original is still there
+  Language: in the catalog, dropped; on the root tag, dropped
+  Title: kept; DisplayDocTitle: kept
+  PDF/UA identifier: kept; bookmarks: none
+  ("not in the original" means there was nothing to keep: the original never had it.)
+  PDF/UA rules newly failing (veraPDF): 7.2-22 (Natural language for text in Alt attribute shall be determined…); 7.2-24 (Natural language in the Contents entry for annotations shall be determined…); 7.2-33 (Natural language for document metadata shall be determined…); 7.2-34 (Natural language for text in page content shall be determined…)
+
+## posted-titleReplaced
+What the platform did
+  Tags: kept: every kind of structure in the original is still there
+  Language: in the catalog, kept; on the root tag, kept
+  Title: replaced ("Agenda" → "File 26-123 - Exhibit A"); DisplayDocTitle: kept
+  PDF/UA identifier: kept; bookmarks: none
+  ("not in the original" means there was nothing to keep: the original never had it.)
+  PDF/UA (veraPDF): no rule fails in the posted copy that passed in the original.
+
+## posted-flattened
+What the platform did
+  Tags: flattened: a tree is there, but the headings, lists, tables and figures became plain paragraphs
+  Language: in the catalog, kept; on the root tag, kept
+  Title: kept; DisplayDocTitle: kept
+  PDF/UA identifier: kept; bookmarks: none
+  ("not in the original" means there was nothing to keep: the original never had it.)
+  PDF/UA rules newly failing (veraPDF): 7.18.5-1 (Links shall be tagged according to ISO 32000-1:2008, 14.8.4.4.2, Link Element…)
+
