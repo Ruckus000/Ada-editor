@@ -318,7 +318,7 @@ check('link-text-raw-url fires only on long raw URLs', () => {
   const raw = doc(para(text(url, link(url))));
   const found = blockFindings(raw, 'link-text-raw-url');
   eq(found.length, 1, 'fires');
-  eq(found[0].severity, 'violation', 'severity');
+  eq(found[0].severity, 'manual', 'severity: 2.4.4 accepts an address that makes the destination clear, so a person decides');
   eq(found[0].snippet, url, 'full url kept in snippet');
   const short = doc(para(text('https://x.org', link('https://x.org'))));
   eq(blockFindings(short, 'link-text-raw-url').length, 0, 'short URL is quiet');
@@ -1164,7 +1164,8 @@ check('seed docs produce real engine findings across all four severities', () =>
   // manual 2: the form's two typed blanks, asked about once (form-blank), and
   // the generic "learn more" link.
   expect('benefits-guide', { violation: 1, advisory: 1, manual: 2 });
-  expect('health-advisory', { violation: 1, manual: 2 });
+  // manual 3 includes its bare web address, which asks rather than fails.
+  expect('health-advisory', { manual: 3 });
   expect('transit-notice', { blocker: 1, advisory: 2 });
   expect('zoning-variance', { blocker: 1, manual: 1 });
   expect('water-quality', {});

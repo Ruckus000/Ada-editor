@@ -30,11 +30,12 @@
  * `heading-unmarked` asks about short lines set like headings, and the parity
  * gate pins its eleven corpus firings (nine real section titles, two names).
  *
- * Three severities depart from the spike: `document-no-h1` is Advisory, not
- * violation, because its criterion (2.4.10) is AAA; `heading-skip` and
- * `link-text-generic` are Needs your call, not violation, because WCAG's own
- * Understanding pages don't make a skipped level or "click here" a failure on
- * its own (the owner's ruling, 2026-10-12). Each rule now declares its
+ * Four severities depart from the spike: `document-no-h1` is Advisory, not
+ * violation, because its criterion (2.4.10) is AAA; `heading-skip`,
+ * `link-text-generic` and `link-text-raw-url` are Needs your call, not
+ * violation, because WCAG's own Understanding pages don't make a skipped
+ * level, "click here" or a bare address a failure on its own (the owner's
+ * rulings, 2026-10-12). Each rule now declares its
  * criterion's `level`, and verify-rules asserts no AAA rule ever grades a
  * finding "Blocks access" or "Fails AA". Do not re-sync severities from the spike.
  *
@@ -114,8 +115,8 @@ export const RULES: readonly RuleInfo[] = [
     about: 'People using screen readers often jump from link to link, hearing only the link text. “Click here” or “read more” tells them nothing about where it goes. WCAG accepts it when the sentence around the link says where it goes, so this asks rather than fails.',
     fix: 'Rewrite the link so its words name the destination, for example “the full meeting agenda” instead of “click here”. Go to text selects the link’s words: type the new ones, and the link keeps its address. If the sentence already names the destination, you can dismiss this.' },
   { id: 'link-text-raw-url', name: 'Links that are a bare web address', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
-    about: 'A bare web address is read out character by character, and rarely says what the page is.',
-    fix: 'Select the address and type words that say where it goes, such as “the parks department’s events page”. The link keeps its address.' },
+    about: 'A bare web address is read out character by character, and rarely says what the page is. WCAG accepts it when the address or the sentence around it makes the destination clear, so this asks rather than fails.',
+    fix: 'Select the address and type words that say where it goes, such as “the parks department’s events page”. The link keeps its address. If people need to read or type the address, as on a printed notice, keep it and dismiss this.' },
   { id: 'link-text-ambiguous', name: 'The same link text going to different places', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
     about: 'The same link text going to different places is confusing when links are listed out of context.',
     fix: 'Give each link words that tell its destinations apart, or confirm the surrounding text makes the difference clear.' },
@@ -538,10 +539,12 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
     if (/^https?:\/\//i.test(label) && label.length >= 25) {
       findings.push({
         ruleId: 'link-text-raw-url',
-        severity: 'violation',
+        // Needs your call: 2.4.4 accepts an address whose words, or whose
+        // sentence, make the destination clear (Understanding 2.4.4).
+        severity: 'manual',
         criterion: crit('link-text-raw-url'),
-        title: 'Link text is a raw URL',
-        explanation: 'A screen reader reads the URL character by character. Give the link a human label.',
+        title: 'Link text is a bare web address',
+        explanation: 'A screen reader reads it character by character, and it rarely says what the page is. If the address or the sentence around it makes the destination clear, WCAG accepts it; a few words that name the page are still clearer.',
         snippet: label,
         hint: 'Give the link a label',
         anchor: { kind: 'blockRange', from: run.from, to: run.to },
