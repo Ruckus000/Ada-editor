@@ -140,7 +140,8 @@ export default function Page() {
             <p>
               Ada Editor flags images with no alt text and alt text that looks like a file name. In English documents
               it also flags alt text that is a single short word or starts “Image of” or similar, and, when the alt
-              text calls the image a chart, graph, map or diagram, asks whether it needs a long description.
+              text calls the image a chart, graph, map or diagram, or a site plan, floor plan, plat, elevation or
+              engineering drawing, asks whether it needs a long description.
               Our <Link href="/help#checks">list of the checks Ada Editor runs</Link> gives the wording of each.
             </p>
           </section>
