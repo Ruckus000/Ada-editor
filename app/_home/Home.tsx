@@ -532,7 +532,7 @@ function EmptyDesk({ onNew, onImport }: { onNew: () => void; onImport: () => voi
         <ol>
           <li><span><strong>Write, or bring a file.</strong> Start on a blank page or import a Word file. It lands here as a sheet.</span></li>
           <li><span><strong>Ada checks as you go.</strong> Each sheet wears a badge — blocks access, fails AA, advisory — so you can see what stands between it and publishing.</span></li>
-          <li><span><strong>Some calls are yours.</strong> When a machine can’t decide — is this image decorative? — it leaves you a note here.</span></li>
+          <li><span><strong>Some calls are yours.</strong> When a machine can’t decide — does this alt text describe the image? — it leaves you a note here.</span></li>
         </ol>
         <div className="home-how__actions">
           <Button variant="primary" onClick={onNew}>Create a document</Button>
