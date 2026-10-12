@@ -159,7 +159,7 @@ export const RULES: readonly RuleInfo[] = [
   // Structural: turning on a header row must retract it at once.
   { id: 'table-no-header', name: 'Tables without header cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
     about: 'Without header cells, a screen reader can’t say which column or row a value belongs to.',
-    fix: 'Turn on Header row (and Header column if the first column labels the rows) from the Table menu.' },
+    fix: 'If the table holds data, choose Apply fix, or turn on Header row (and Header column if the first column labels the rows) from the Table menu. If it only lays text out side by side, such as names or contact details, choose Turn into text.' },
   // Engine-only. Advisory: merged cells aren't a failure, but a table the
   // editor can't give explicit header links to deserves a human check.
   { id: 'table-merged-cells', name: 'Tables with merged cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
@@ -753,7 +753,7 @@ export function summarizeTable(node: PMNode): RawFinding[] {
       severity: 'blocker',
       criterion: crit('table-no-header'),
       title: 'Table has no header cells',
-      explanation: 'Without header cells a screen reader cannot say which column or row a value belongs to.',
+      explanation: 'Without header cells a screen reader cannot say which column or row a value belongs to. If the table only lays text out side by side, such as names or contact details, it isn’t a data table: turn it into text instead.',
       snippet,
       hint: 'Make the first row a header row',
       // A one-row table has no data under a header row, so there is nothing to suggest.

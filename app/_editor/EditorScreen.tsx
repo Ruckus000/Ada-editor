@@ -45,6 +45,7 @@ import {
   setMark,
   setTableCaption,
   tableAround,
+  tableToText,
   tableCommands,
   toggleBold,
   toggleHeading,
@@ -863,6 +864,16 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     announce(`Fix applied: ${f.title}. ${remaining(rest)}`);
   };
 
+  // The other answer to a table without headers: it was only for layout.
+  const onTableToText = (f: EditorFinding) => {
+    const view = viewRef.current;
+    let made: Transaction | undefined;
+    if (!view || !tableToText(f.from)(view.state, (t) => { made = t; }) || !made) return;
+    const rest = removeFinding(f);
+    view.dispatch(made);
+    announce(`Table turned into text. ${remaining(rest)}`);
+  };
+
   const onDismiss = (f: EditorFinding) => {
     dismissedRef.current.add(dismissKeyOf(f));
     persistDismissed();
@@ -1250,6 +1261,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                     {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : active.anchor.kind === 'table' ? 'Go to table' : 'Go to text'}
                   </button>
                 )}
+                {active.ruleId === 'table-no-header' ? (
+                  <button type="button" className={styles.btnSubtle} onClick={() => onTableToText(active)}>Turn into text</button>
+                ) : null}
                 <button type="button" className={styles.btnGhost} onClick={() => onDismiss(active)}>Dismiss</button>
               </div>
             </div>
