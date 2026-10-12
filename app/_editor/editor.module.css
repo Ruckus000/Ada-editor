@@ -116,6 +116,9 @@
 
 .status { display: flex; align-items: center; gap: 7px; margin-right: 4px; color: var(--as-text-subtle); font-size: 0.8125rem; }
 
+/* Only where the findings are stacked under the document (reflow, below). */
+.topbarEnd .toFindings { display: none; }
+
 .statusDot { width: 7px; height: 7px; border-radius: 50%; background: var(--as-status-ok); }
 
 .statusDot[data-checking='true'] { background: var(--as-status-busy); animation: pulse 1s ease-in-out infinite; }
@@ -849,6 +852,7 @@
 @media (max-width: 64rem) {
   .body { flex-direction: column; }
   .aside { width: auto; border-left: none; border-top: 1px solid var(--as-border); }
+  .topbarEnd .toFindings { display: inline-flex; }
 }
 
 @media (max-width: 40rem) {

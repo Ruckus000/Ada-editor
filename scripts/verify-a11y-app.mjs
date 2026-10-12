@@ -997,6 +997,22 @@ async function editor() {
     await sleep(300);
     const sheet = await evaluate(send, `(() => { const r = document.querySelector('[role=group][aria-label="Text colors"]')?.getBoundingClientRect(); return r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: innerWidth, h: innerHeight } : null; })()`);
     await key(send, 'Escape');
+    // The findings sit under the whole document: the top bar's button goes there.
+    const jump = await evaluate(send, `(() => {
+      const b = [...document.querySelectorAll('header button')].find((x) => /\\bfindings?$/.test(x.textContent.trim()) && x.offsetParent);
+      if (!b) return null;
+      b.click();
+      const h = document.getElementById('ada-issues-heading').getBoundingClientRect();
+      return { label: b.textContent.trim(), focused: document.activeElement?.id, top: h.top, bottom: h.bottom, h: innerHeight };
+    })()`);
+    await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+    await sleep(300);
+    const wide = await evaluate(send, `[...document.querySelectorAll('header button')].some((x) => /\\bfindings?$/.test(x.textContent.trim()) && x.offsetParent)`);
+    if (!jump) fail('PHONE  no visible findings button in the top bar at 390px');
+    else if (jump.focused !== 'ada-issues-heading' || jump.top < 0 || jump.bottom > jump.h) fail(`PHONE  the findings button didn't bring the findings into view and focus: ${JSON.stringify(jump)}`);
+    else if (!/^\d+ findings?$/.test(jump.label)) fail(`PHONE  the findings button doesn't say how many: ${JSON.stringify(jump.label)}`);
+    else if (wide) fail('PHONE  the findings button shows on a wide screen, where the findings are beside the page');
+    else note(`phone: "${jump.label}" in the top bar takes focus to the findings; it's hidden where they sit beside the page`);
     await send('Emulation.clearDeviceMetricsOverride');
     await sleep(300);
     if (row.toolbar > row.button * 1.9) fail(`PHONE  the toolbar wraps at 390px (${row.toolbar}px tall for ${row.button}px buttons)`);
