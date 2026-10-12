@@ -168,6 +168,9 @@ documents in this browser's localStorage only, exactly as before accounts.
   what to fix first
 - **[Decorative images](docs/audit/decorative-images-2026-10.md)** — why an
   image can't be marked decorative, and what would change that
+- **[Checking engine benchmark](docs/audit/engine-benchmark-2026-10.md)** —
+  W3C's failure list as the answer key, Ada against Word's checker, the
+  predictions registered before the first run, and the bar a new rule must clear
 
 ## Architecture
 
