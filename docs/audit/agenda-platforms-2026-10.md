@@ -37,7 +37,7 @@ This decision came out of three steps, all taken in October 2026.
 
 | Platform | Ada PDF on its own attachment link | Ada PDF inside the packet | Word file uploaded instead | Evidence |
 |---|---|---|---|---|
-| Legistar | Mostly kept: re-saved, title replaced with the file number. But 7 served files in 2 of 16 cities had their tags removed somewhere (sample, October 12) | No packet to test | Converted to a tagged PDF | Moderate: served copies sampled in 16 cities; originals blocked |
+| Legistar | Mostly kept: re-saved, title replaced with the file number. Of the 7 served files that reached the public untagged (2 of 16 cities), 6 were already untagged when uploaded, and 1 lost a partly broken tag tree in Legistar's re-save (browser collection, October 12) | No packet to test | Converted to a tagged PDF | Moderate: served copies sampled in 16 cities; 7 originals compared by hand |
 | PrimeGov / OneMeeting | Kept in FL town P1, **removed** in town P2 | **Removed** (both towns) | Untagged | Strong for packets |
 | CivicClerk | Kept, served as uploaded | Tags and headings kept (20 of 22 packets in the October 12 sample of 25 towns), but the document language is dropped (22 of 22) and the page stamps aren't marked, so it **fails PDF/UA** | Thinly tagged (paragraphs only) | Strong: sampled across 25 towns |
 | Municode Meetings | **No attachment link**, only "Agenda" and "Agenda Packet" | **Removed** in 7 of 7 towns (2 in the research, 5 by browser collection on October 12) | Not tested | Strong for packets |
@@ -199,7 +199,7 @@ Sampled 41 Florida towns on 2 platform(s), meetings from 2026-08-25 to 2026-10-1
 - **CivicClerk keeps attachments' structure in its packets, at scale.** 20 of 22 packets held every kind of structure their tagged attachments carried. The other two were short only of some figures, which a packet that leaves an attachment out would also show. This confirms the research's finding from two towns across 25.
 - **CivicClerk drops the document language from every packet: 22 of 22.** This is decision 3's case. Ada's export now also puts the language on the root tag, which the packet keeps, but no CivicClerk packet in the sample contained an Ada file, so whether that is enough is still unproven.
 - **Three quarters of CivicClerk attachments, and over half of Legistar's, arrive tagged.** Most CivicClerk "converter" pages are CivicClerk's own conversions of uploaded Word and Excel files. Printed-to-PDF files (17% of CivicClerk attachment pages) carry no structure at all.
-- **Legistar: some files reach the public with their tags removed.** 7 served attachments in 2 of 16 cities carry tag remnants without a tree, including Word files, which are always tagged when saved normally. The research's one file from town L2 kept its tags through Legistar's re-save. Without the stored originals (behind robots.txt), the sampler can't tell whether Legistar or the author removed the tags. **This needs a person to compare a few originals with their served copies in a browser.**
+- **Legistar: some files reach the public with their tags removed.** 7 served attachments in 2 of 16 cities carry tag remnants without a tree. The browser collection below compared each with its original.
 - **Packets are mostly Word, editors and scans.** Office files are 31% (CivicClerk) and 52% (Legistar) of attachment pages, plus most of CivicClerk's converter pages. Scans are 6% and 9%. That is more Word than decision 5 assumed, but the sample is pages from attachments, not whole packets, and Office origin doesn't mean the clerk wrote it.
 - **Not measured:** PDF/UA conformance of the packets (run with `--vera` for that), and anything on PrimeGov or Diligent. Municode Meetings was measured by hand instead; see below.
 
@@ -223,6 +223,22 @@ Per-town rows are on the machine that ran the sampler and are not committed.
 - **The same company's other product keeps the tags.** CivicPlus owns both Municode Meetings and CivicClerk, and both build packets with Aspose.PDF. CivicClerk (22.12) keeps the attachments' structure, while Municode Meetings (23.8) drops it. That makes a concrete, fixable report to CivicPlus, and the strongest opening for the research-access request in route 1.
 
 Per-town results and the town key are kept outside the repository.
+
+### Browser collection: Legistar originals
+
+**October 12, 2026.** The owner saved the stored originals of the 7 Legistar files the sampler found reaching the public untagged (they sit behind robots.txt). Each was compared with the copy the public link serves, fetched with the sampler's fetcher: 38 requests, 33 MB.
+
+| Original as uploaded | Files | Served copy |
+|---|---|---|
+| Already untagged, with leftover tag links from the author's tool (PDFium, Acrobat, DocuSign, a PDF-combining library) | 6 | Untagged, as uploaded: not Legistar's doing |
+| Tagged, but the tree covered only 11 of 43 pages, with the rest pointing into nothing (a Word file "converted from PDF") | 1 | **Tree removed** by Legistar's re-save (PDFlib PLOP); title replaced |
+
+**What it says:**
+- **Legistar didn't remove the tags in 6 of the 7.** Those files were untagged before the clerk uploaded them, a reminder that many attachments arrive inaccessible whatever the platform does.
+- **Legistar's re-save dropped one tree, and that tree was already broken.** The research's file, whose tree was well formed, kept all 515 of its elements through the same re-save. One case each way suggests PLOP keeps a sound tree and drops a damaged one. Ada's exports pass veraPDF, so they should be on the safe side. That's a lead, not a finding, until an Ada file goes through Legistar.
+- **The checker was wrong about these six.** It called them "removed" because the posted copy had leftover tag links. It now says "untagged in both" when the original had no tags either.
+
+Per-file results and the town key are kept outside the repository.
 
 ## Discovery calls with clerks
 

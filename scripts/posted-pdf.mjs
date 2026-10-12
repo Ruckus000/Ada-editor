@@ -193,7 +193,11 @@ export function pageOrigin(inspection) {
 function tagVerdict(original, posted) {
   const lostGroups = [];
   if (!posted.tagged) {
-    return { tags: posted.orphanPages > 0 ? 'removed' : original.tagged ? 'missing' : 'untagged in both', lostGroups };
+    // Leftover tag links in the posted copy only mean the platform removed the
+    // tags if the original had them; an author's tool often leaves the same
+    // traces in a file that was never tagged when uploaded.
+    if (!original.tagged) return { tags: 'untagged in both', lostGroups };
+    return { tags: posted.orphanPages > 0 ? 'removed' : 'missing', lostGroups };
   }
   for (const [group, n] of Object.entries(original.groups)) if (n > posted.groups[group]) lostGroups.push(group);
   const richBefore = RICH.filter((g) => original.groups[g] > 0);

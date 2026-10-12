@@ -82,6 +82,12 @@ await check('a merged packet is recognised, and its lost tags reported', () => {
   eq([verdicts.packet.packet, verdicts.packet.tags], [true, 'removed']);
 });
 await check('tags rewritten as paragraphs are "flattened"', () => eq(verdicts.flattened.tags, 'flattened'));
+await check('a file stripped before upload is "untagged in both", not "removed", when the platform re-saves it', async () => {
+  const strippedBefore = await inspectPdf(bytes.stripped);
+  const reSaved = await inspectPdf(await VARIANTS.titleReplaced(bytes.stripped)); // re-saved with a new title, as Legistar does
+  assert(strippedBefore.orphanPages > 0, 'the stripped original keeps its leftover tag links');
+  eq(comparePdfs(strippedBefore, reSaved).tags, 'untagged in both');
+});
 
 console.log('\nPosted-PDF checker — veraPDF');
 const vera = ensureVeraPdf();
