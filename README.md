@@ -160,6 +160,8 @@ documents in this browser's localStorage only, exactly as before accounts.
 - **[A clerk's path through Ada Editor](docs/audit/clerk-walkthrough-2026-10.md)**
   — sign-up to posted PDF on the live site with a real agenda's shape, and
   what to fix first
+- **[Decorative images](docs/audit/decorative-images-2026-10.md)** — why an
+  image can't be marked decorative, and what would change that
 
 ## Architecture
 

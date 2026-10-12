@@ -108,7 +108,7 @@ export function AltTextDialog({
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="Alternative text"
-      description={`Describe what this ${label} shows for people who cannot see it. Leave it empty only if the image is purely decorative.`}
+      description={`Describe what this ${label} shows for people who cannot see it. If it is purely decorative, delete it instead: every image you keep needs a description.`}
       onSubmit={(e) => { e.preventDefault(); onSave(value.trim()); }}
       footer={
         <>
