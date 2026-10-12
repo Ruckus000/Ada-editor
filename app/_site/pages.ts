@@ -31,14 +31,14 @@ export const PAGES = [
     title: 'Ada Editor · The accessible document editor (WCAG 2.1 AA)',
     description: 'Check documents against WCAG 2.1 AA as you write, import Word files without uploading them, and export tagged PDF/UA-1 or HTML. Free during early access.',
     published: '2026-10-06',
-    updated: '2026-10-09',
+    updated: '2026-10-12',
   },
   {
     path: '/help',
     title: 'Help · Ada Editor',
     description: 'How Ada Editor checks a document: every rule and the WCAG criterion it cites, what each severity means, shortcuts, exports and posting to agenda systems.',
     published: '2026-10-06',
-    updated: '2026-10-08',
+    updated: '2026-10-12',
   },
   {
     path: '/accessibility',

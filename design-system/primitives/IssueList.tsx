@@ -157,7 +157,7 @@ export function IssueList({ issues, onAccept, onDismiss, onReveal }: IssueListPr
         {/*
           Deliberately NOT a green "compliant" state.
 
-          Automated checking covers roughly a third of WCAG. A success badge here
+          Automated checking covers only part of WCAG. A success badge here
           would tell the user their document is compliant when the tool cannot
           know that — which, for a product sold on compliance, is a liability
           rather than a UX nicety.
