@@ -149,7 +149,9 @@ nothing is planted, so every finding there counts as a cost, not a catch.
   only wrong assertion on the good twin, and its row 17 catch names the
   wrong failure. The rule's own fix text already allows "Turn into text"
   for layout tables, but it grades every headerless table as Blocks
-  access. A change goes through decision 5's two tables.
+  access. A change goes through decision 5's two tables. *Later the same
+  day: it went through, and passed:
+  [decision 5, layout tables](decision-5-table-layout.md).*
 - **Row 7 (P7)** was caught by neither checker, as predicted. The title
   check is still the next change for decision 5, as the brief planned.
 - **Word's checker changed under the brief.** This build's assistant pane

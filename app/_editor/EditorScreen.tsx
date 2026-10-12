@@ -1279,7 +1279,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
                     {active.anchor.kind === 'section' ? `Edit ${active.anchor.section}` : active.anchor.kind === 'table' ? 'Go to table' : 'Go to text'}
                   </button>
                 )}
-                {active.ruleId === 'table-no-header' ? (
+                {active.ruleId === 'table-no-header' || active.ruleId === 'table-layout' ? (
                   <button type="button" className={styles.btnSubtle} onClick={() => onTableToText(active)}>Turn into text</button>
                 ) : null}
                 <button type="button" className={styles.btnGhost} onClick={() => onDismiss(active)}>Dismiss</button>
