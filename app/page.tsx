@@ -23,7 +23,7 @@ const STANDARDS = [
   ['Web + digital docs', 'WCAG 2.1 AA'],
   ['US federal', 'Section 508'],
   ['Tagged PDF', 'PDF/UA-1'],
-  ['Export validation', 'veraPDF in CI'],
+  ['PDF exports tested with', 'veraPDF'],
 ];
 
 export default function Page() {
@@ -93,10 +93,10 @@ export default function Page() {
           </li>
           <li className="site-card">
             <div className="site-card__art site-doc" aria-hidden="true">
-              <p>Live <span className="ada-underline" data-severity="blocker">structure</span> checks, prose checks <span className="ada-underline" data-severity="manual">on blur</span>.</p>
+              <p>Live <span className="ada-underline" data-severity="blocker">structure</span> checks, prose checks <span className="ada-underline" data-severity="manual">when you click away</span>.</p>
             </div>
             <h3>A real checking engine</h3>
-            <p>Twenty WCAG rules run against the live ProseMirror document, not a canned demo.</p>
+            <p>Twenty WCAG rules check your document as you write, not a canned demo.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-small" aria-hidden="true">
@@ -117,7 +117,7 @@ export default function Page() {
               <span>reading .docx in your browser</span><strong>0 bytes uploaded</strong>
             </div>
             <h3>Private by construction</h3>
-            <p>Word files are read on your device. Saved documents sit behind row-level security and sync after you reconnect.</p>
+            <p>Word files are read on your device. Saved documents are stored privately: only you can open them, and they sync after you reconnect.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-small" aria-hidden="true">
@@ -132,24 +132,14 @@ export default function Page() {
       <section id="engine" className="site-engine" aria-labelledby="engine-title">
         <div className="site-wrap site-split">
           <div>
-            <h2 id="engine-title" className="site-h2">Findings are structured data.</h2>
-            <p className="site-lede">Each issue names its WCAG criterion, explains why it matters and points to an exact text range. That is what makes it listable, navigable and announceable.</p>
-            <ol className="site-steps">
-              <li>Structure rules run on every keystroke</li>
-              <li>Prose rules run when you leave the text</li>
-              <li>Anything a machine can’t judge is marked for a person</li>
-            </ol>
+            <h2 id="engine-title" className="site-h2">Each finding says what, why and where.</h2>
+            <p className="site-lede">It names its WCAG criterion, explains why it matters and takes you to the exact words.</p>
           </div>
-          <div className="site-code">
-            <p className="site-code__bar site-small" aria-hidden="true"><span>issue.json</span><span>application/json</span></p>
-            <pre tabIndex={0} aria-label="Example finding as JSON">{`{
-  "severity": "blocker",
-  "title": "Image has no alternative text",
-  "criterion": "1.1.1 Non-text Content",
-  "from": 34,
-  "to": 66
-}`}</pre>
-          </div>
+          <ol className="site-steps">
+            <li>Structure rules run on every keystroke</li>
+            <li>Prose rules run when you leave the text</li>
+            <li>Anything a machine can’t judge is marked for a person</li>
+          </ol>
         </div>
       </section>
 
