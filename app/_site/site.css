@@ -1,6 +1,7 @@
-/* Public pages: the home page, /help, /accessibility, /privacy. From the "Ada Editor
- * Landing v5" design. Class prefix `site-`: conventions reserve `ada-*` for the
- * design system, whose Button and SeverityBadge are used as they are.
+/* Public pages: the home page, /help, /about, /accessibility, /privacy and the
+ * research. From the "Ada Editor Landing v5" design. Class prefix `site-`:
+ * conventions reserve `ada-*` for the design system, whose Button and
+ * SeverityBadge are used as they are.
  *
  * Calm and editorial, like the app (docs/audit/ui-audit-2026-10.md): one
  * typeface, hairlines over shadows, sentence case, no decorative washes.

@@ -120,7 +120,7 @@ export default function Page() {
 
           <section id="posting" aria-labelledby="posting-title">
             <h2 id="posting-title">Posting a PDF to your agenda system</h2>
-            <p>Agenda systems change files as they publish them. We tested the ones Florida towns use, and the tags a screen reader relies on survived on some paths and not others.</p>
+            <p>Agenda systems change files as they publish them. We tested seven that Florida towns use, and the tags a screen reader relies on survived on some paths and not others. <Link href="/research/agenda-platforms">What we found on each platform</Link>.</p>
             <ul>
               <li><strong>Use Export PDF, never Print to PDF.</strong> Printing to a PDF throws away the tags, so the file reads to a screen reader as one undivided block, if at all. On one agenda system we sampled, about one attachment page in six had been made that way.</li>
               <li><strong>Upload the PDF, not the Word file.</strong> Agenda systems convert Word files themselves, and most of the conversions we tested lost the headings and tables.</li>

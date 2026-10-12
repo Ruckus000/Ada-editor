@@ -1,4 +1,5 @@
 import { PAGES, SITE_URL } from './pages';
+import type { SitePath } from './pages';
 
 /**
  * Structured data for search engines, as a plain <script> in the server's
@@ -12,6 +13,14 @@ export function JsonLd({ data }: { data: object }) {
 }
 
 const MAKER = `${SITE_URL}/#maker`;
+
+/** Who makes Ada Editor and writes its research: one node, on every page that names it. */
+const ORGANIZATION = {
+  '@type': 'Organization',
+  '@id': MAKER,
+  name: 'YourLaunchPad LLC',
+  url: 'https://yourlaunchpad.org',
+};
 
 /**
  * The home page's: the site's name (Google takes it from WebSite on the home
@@ -31,12 +40,7 @@ export const HOME_DATA = {
       inLanguage: 'en-US',
       publisher: { '@id': MAKER },
     },
-    {
-      '@type': 'Organization',
-      '@id': MAKER,
-      name: 'YourLaunchPad LLC',
-      url: 'https://yourlaunchpad.org',
-    },
+    ORGANIZATION,
     {
       '@type': 'WebApplication',
       '@id': `${SITE_URL}/#app`,
@@ -59,3 +63,35 @@ export const HOME_DATA = {
     },
   ],
 };
+
+/**
+ * An article's: its headline, its dates and who wrote it, as the page shows
+ * them. Dates come from the registry, so the markup, the page's <time>s and
+ * the sitemap agree; the search gate checks all three. The maker's node rides
+ * along, since the home page's isn't on this page.
+ */
+export function articleData(path: SitePath, headline: string) {
+  const page = PAGES.find((p) => p.path === path);
+  if (!page) throw new Error(`No public page at ${path}`);
+  const url = `${SITE_URL}${path}`;
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Article',
+        '@id': `${url}#article`,
+        headline,
+        description: page.description,
+        url,
+        mainEntityOfPage: url,
+        inLanguage: 'en-US',
+        datePublished: page.published,
+        dateModified: page.updated,
+        author: { '@id': MAKER },
+        publisher: { '@id': MAKER },
+        image: `${SITE_URL}/opengraph-image.png`,
+      },
+      ORGANIZATION,
+    ],
+  };
+}

@@ -1,0 +1,16 @@
+/* Research pages: layout comes from app/_site/site.css. Here only what a
+ * findings table and a sources list need. Ada tokens only; class prefix
+ * `research`. */
+
+/* Five columns of findings: wide enough to read, scrolling inside its region
+ * on narrow screens like every site table. Every finding is primary text
+ * (site.css greys a table's second column, which suits a two-column list). */
+.research__table table { min-width: 52rem; }
+.research__table th[scope='row'] { min-width: 9rem; }
+.research__table td:nth-child(2) { color: inherit; }
+.research__table td:last-child { color: var(--ada-text-secondary); font-size: var(--ada-type-size-sm); }
+
+.research code { font-family: var(--ada-type-family-mono); font-size: 0.9em; }
+
+.research__sources { margin-top: var(--ada-space-4); display: flex; flex-direction: column; gap: var(--ada-space-2); line-height: 1.6; color: var(--ada-text-secondary); }
+.research__sources a { overflow-wrap: anywhere; }

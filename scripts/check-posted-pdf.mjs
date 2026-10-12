@@ -20,7 +20,7 @@ import { createFetcher } from './sample-platforms/fetch.mjs';
 
 // One file the person asked for, so no robots.txt or spacing: the same as
 // opening the link in a browser. The sampler uses the same fetcher, politely.
-const fetcher = createFetcher({ userAgent: 'Ada Editor posted-PDF checker (+https://www.adaedit.com/help#posting)', minIntervalMs: 0, maxFileBytes: 100 * 1024 * 1024, respectRobots: false });
+const fetcher = createFetcher({ userAgent: 'Ada Editor posted-PDF checker (+https://www.adaedit.com/research/agenda-platforms#method)', minIntervalMs: 0, maxFileBytes: 100 * 1024 * 1024, respectRobots: false });
 const args = process.argv.slice(2);
 const arg = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
 const JSON_OUT = args.includes('--json');

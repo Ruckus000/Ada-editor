@@ -148,7 +148,8 @@ documents in this browser's localStorage only, exactly as before accounts.
   that replaced the editor's fixture findings
 - **[Agenda platforms and tagged PDFs](docs/audit/agenda-platforms-2026-10.md)**
   — what happens to an exported PDF when a clerk posts it, and the decisions
-  that follow
+  that follow. Published, platforms named and towns not, at
+  [adaedit.com/research/agenda-platforms](https://www.adaedit.com/research/agenda-platforms)
 - **[The Ada Editor logo](docs/audit/logo-2026-10.md)** — why the mark is a
   lowercase a and a text cursor, and the rules for using it
 - **[Search and AI visibility](docs/audit/search-and-ai-2026-10.md)** — what
