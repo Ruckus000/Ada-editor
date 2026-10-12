@@ -3,8 +3,9 @@
 **The question:** a town clerk exports a tagged PDF from Ada Editor and posts it through the town's agenda system. Is it still accessible when a resident opens it?
 
 **What I looked at:**
+- *Towns are labelled, not named (since 2026-10-12): results name platforms, never towns. The key is kept outside the repository.*
 - 23 public files from 10 Florida towns and cities on 7 agenda platforms, from meetings held between July and October 2026. (This said 9 until October 12, 2026; the notes' own table lists 10.)
-- Spot checks in Boulder CO, Burbank CA, Dubuque IA, Wethersfield CT and Battle Creek MI.
+- Spot checks in five out-of-state towns: P2 (PrimeGov/OneMeeting), K1 (Granicus Peak), C4 (CivicClerk), and A4 and A5 (CivicPlus Agenda Center).
 - Vendor documentation, accessibility statements and release notes.
 - The full evidence is in [`agenda-platforms-2026-10/`](agenda-platforms-2026-10/): [the report](agenda-platforms-2026-10/report.md) and [the four research notes](agenda-platforms-2026-10/notes/).
 - **Published** on October 12, 2026 at [adaedit.com/research/agenda-platforms](https://www.adaedit.com/research/agenda-platforms) (`app/research/agenda-platforms/page.tsx`), naming platforms and never towns, as decision 6 below requires. A change to a finding here changes that page too, with a dated correction line and a new `updated` date in `app/_site/pages.ts`.
@@ -37,12 +38,12 @@ This decision came out of three steps, all taken in October 2026.
 | Platform | Ada PDF on its own attachment link | Ada PDF inside the packet | Word file uploaded instead | Evidence |
 |---|---|---|---|---|
 | Legistar | Mostly kept: re-saved, title replaced with the file number. But 7 served files in 2 of 16 cities had their tags removed somewhere (sample, October 12) | No packet to test | Converted to a tagged PDF | Moderate: served copies sampled in 16 cities; originals blocked |
-| PrimeGov / OneMeeting | Kept in Oviedo FL, **removed** in Boulder CO | **Removed** (both towns) | Untagged | Strong for packets |
+| PrimeGov / OneMeeting | Kept in FL town P1, **removed** in town P2 | **Removed** (both towns) | Untagged | Strong for packets |
 | CivicClerk | Kept, served as uploaded | Tags and headings kept (20 of 22 packets in the October 12 sample of 25 towns), but the document language is dropped (22 of 22) and the page stamps aren't marked, so it **fails PDF/UA** | Thinly tagged (paragraphs only) | Strong: sampled across 25 towns |
 | Municode Meetings | **No attachment link**, only "Agenda" and "Agenda Packet" | **Removed** (2 of 2 towns) | Not tested | Strong for packets |
 | Diligent Community / iCompass | Only Diligent's rebuilt PDFs are public | **Re-tagged as plain paragraphs**, yet labelled PDF/UA-1 | The vendor says not to rely on it | One town |
 | CivicPlus Agenda Center | Kept, served as uploaded | Untagged when the platform builds it; the clerk can upload their own | Not tested | Moderate |
-| OnBase (Tampa) | Kept, served as uploaded | None published | Untagged | One meeting |
+| OnBase (FL town O1) | Kept, served as uploaded | None published | Untagged | One meeting |
 
 No vendor claims its packets keep tags. Granicus, Diligent and a Laserfiche reseller explicitly leave attachment accessibility to the customer. The vendors' own answer is an HTML copy alongside the PDF: CivicPlus's DocAccess, also licensed to Diligent from September 2026, and Granicus's PDF tool, which is still a preview. DocAccess says the original PDF stays "unchanged as the official record".
 
@@ -79,8 +80,8 @@ The vendors' move to HTML copies helps this position. Ada isn't competing to mak
 `npm run check-posted` takes the original Ada PDF and the posted copy (a file or a public link). It reports whether the file was served unchanged, and whether its tags were kept, removed or flattened. It also reports whether the language and title survived, which PDF/UA rules newly fail (veraPDF), and whether the posted copy looks like a packet.
 
 Before relying on it, I ran it on two pairs of public files from the research:
-- **Eatonville's agenda against its Municode Meetings packet** gave "removed": no tree, 26 pages still pointing into one, and the language dropped.
-- **Fort Lauderdale's stored Legistar attachment against the copy the public link serves** gave "kept": 515 elements on both sides, but the title replaced with the file number.
+- **FL town M1's agenda against its Municode Meetings packet** gave "removed": no tree, 26 pages still pointing into one, and the language dropped.
+- **FL town L2's stored Legistar attachment against the copy the public link serves** gave "kept": 515 elements on both sides, but the title replaced with the file number.
 
 Both match what the research found by hand. It compares veraPDF results rule by rule, so a rule can show as "new" only because a different rule failed in the original. For example, Word's PDF fails "no metadata" while the packet fails "metadata without the PDF/UA identifier". Ada's exports always carry metadata, so the pilot won't see this.
 
@@ -114,7 +115,7 @@ Decided October 12, 2026, after the owner asked whether the pilot could be run w
 - **Nothing goes to any town.** The ground rule against assessing a town's posts was about what we send and publish: the sampler reads public files the way any visitor does, and its per-town results go nowhere.
 - **Polite by construction:** robots.txt respected, one request at a time and at least two seconds apart per host, no retries, and the first block or browser check stops that host.
 - **Three of the five platforms turn automated research away, so they aren't sampled.** Checked October 12, 2026, while building the sampler:
-  - **PrimeGov / OneMeeting:** the tenants' robots.txt disallows all crawlers (Oviedo and Boulder alike).
+  - **PrimeGov / OneMeeting:** the tenants' robots.txt disallows all crawlers (towns P1 and P2 alike).
   - **Diligent (civicweb.net):** robots.txt disallows every crawler except named search engines.
   - **Municode Meetings:** the load balancer in front of every tenant drops the connection for a User-Agent that names us as research, while it answers an anonymous client. Changing how we identify ourselves to get through would be working around a block.
   - eSCRIBE and BoardDocs block scripted downloads, as the research found.
@@ -126,7 +127,7 @@ Decided October 12, 2026, after the owner asked whether the pilot could be run w
 
 - **The sampler shows most target towns publish only a packet** (Municode Meetings is common among small Florida towns), or its origin estimate shows most packet pages start in Word: look again at a packet builder, or at a PDF the clerk uploads in place of the platform's packet.
 - **Clerks ask to check posted files themselves** (in discovery calls or after trying Ada): move the checker to a Vercel route that fetches the link (with the guarding above), with veraPDF in Vercel Sandbox.
-- **A vendor ships packets that keep tags:** update the Help guidance and the platform table above. Granicus's 2026 release notes already mention a fix for attachments losing "accessibility features" in publishing; it hadn't reached Boulder's files in September 2026.
+- **A vendor ships packets that keep tags:** update the Help guidance and the platform table above. Granicus's 2026 release notes already mention a fix for attachments losing "accessibility features" in publishing; it hadn't reached town P2's files in September 2026.
 - **The sampler contradicts a row of the table:** the sampler wins. The table is a few towns inspected by hand; the sampler is about 25 per platform.
 - **A town posts an Ada file and `check-posted` disagrees with the sampler for its platform:** the Ada file wins, since it's the thing the product promises.
 
@@ -145,7 +146,7 @@ Decision 6 replaced the clerk pilot's platform half with a sampler. It answers, 
 | Platform | Public files | What the sample settles |
 |---|---|---|
 | CivicClerk | Each attachment (the stored file is the served file) and the packet | Do headings, tables and alt text survive the packet? Does the language? |
-| PrimeGov / OneMeeting (switched off) | Each served attachment and the packet | Is attachment stripping (Boulder) a per-town setting? Does every packet drop the tree? |
+| PrimeGov / OneMeeting (switched off) | Each served attachment and the packet | Is attachment stripping (town P2) a per-town setting? Does every packet drop the tree? |
 | Municode Meetings (no adapter) | The agenda and the packet (the agenda's pages are inside it) | Does every packet drop the tree? Who builds the packet: the platform (Aspose) or the clerk (Acrobat, Word)? |
 | Legistar | The copy the public link serves. The stored original is listed by the Web API, but most clients keep it on legistar.granicus.com, whose robots.txt disallows crawlers | How many served attachments keep a tag tree after the PLOP re-save, and whether any arrive stripped. The original-vs-served comparison only runs for clients whose originals sit on an allowed host |
 
@@ -198,7 +199,7 @@ Sampled 41 Florida towns on 2 platform(s), meetings from 2026-08-25 to 2026-10-1
 - **CivicClerk keeps attachments' structure in its packets, at scale.** 20 of 22 packets held every kind of structure their tagged attachments carried. The other two were short only of some figures, which a packet that leaves an attachment out would also show. This confirms the research's finding from two towns across 25.
 - **CivicClerk drops the document language from every packet: 22 of 22.** This is decision 3's case. Ada's export now also puts the language on the root tag, which the packet keeps, but no CivicClerk packet in the sample contained an Ada file, so whether that is enough is still unproven.
 - **Three quarters of CivicClerk attachments, and over half of Legistar's, arrive tagged.** Most CivicClerk "converter" pages are CivicClerk's own conversions of uploaded Word and Excel files. Printed-to-PDF files (17% of CivicClerk attachment pages) carry no structure at all.
-- **Legistar: some files reach the public with their tags removed.** 7 served attachments in 2 of 16 cities carry tag remnants without a tree, including Word files, which are always tagged when saved normally. The research's one Fort Lauderdale file kept its tags through Legistar's re-save. Without the stored originals (behind robots.txt), the sampler can't tell whether Legistar or the author removed the tags. **This needs a person to compare a few originals with their served copies in a browser.**
+- **Legistar: some files reach the public with their tags removed.** 7 served attachments in 2 of 16 cities carry tag remnants without a tree, including Word files, which are always tagged when saved normally. The research's one file from town L2 kept its tags through Legistar's re-save. Without the stored originals (behind robots.txt), the sampler can't tell whether Legistar or the author removed the tags. **This needs a person to compare a few originals with their served copies in a browser.**
 - **Packets are mostly Word, editors and scans.** Office files are 31% (CivicClerk) and 52% (Legistar) of attachment pages, plus most of CivicClerk's converter pages. Scans are 6% and 9%. That is more Word than decision 5 assumed, but the sample is pages from attachments, not whole packets, and Office origin doesn't mean the clerk wrote it.
 - **Not measured:** PDF/UA conformance of the packets (run with `--vera` for that), and anything on PrimeGov, Municode Meetings or Diligent.
 
