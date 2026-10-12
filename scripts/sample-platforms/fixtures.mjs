@@ -1,9 +1,14 @@
 /**
  * Recorded listings for the offline gate. A recorder wraps a live fetcher and
- * saves each JSON or HTML listing it reads (never PDFs) under
- * fixtures/<platform>/; a replayer serves them back by URL, so the gate can run
- * every adapter without the network. Query strings that carry a signature
- * (sig=, se=, sp=) are redacted before anything is written.
+ * saves each JSON or HTML listing it reads (never PDFs) under the gitignored
+ * out/recorded/<platform>/; a replayer serves the committed ones back by URL
+ * from fixtures/<platform>/, so the gate can run every adapter without the
+ * network. Query strings that carry a signature (sig=, se=, sp=) are redacted
+ * before anything is written.
+ *
+ * The committed fixtures belong to a made-up town, `example`: a recording names
+ * a real one and its real agenda, and the repo never names a town. Trim a new
+ * recording to the fields the adapter reads before copying it into fixtures/.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,7 +23,7 @@ export const redact = (text) => String(text).replace(SIGNED, '$1REDACTED');
 const keyOf = (url) => createHash('sha256').update(redact(url)).digest('hex').slice(0, 16);
 
 export function createRecorder(fetcher, platform) {
-  const dir = join(FIXTURES, platform);
+  const dir = join(dirname(FIXTURES), 'out', 'recorded', platform);
   mkdirSync(dir, { recursive: true });
   const indexPath = join(dir, 'index.json');
   const index = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, 'utf8')) : {};

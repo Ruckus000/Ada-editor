@@ -1,109 +1,105 @@
 {
   "tenant": {
     "platform": "legistar",
-    "tenant": "fortlauderdale",
-    "municipality": "Fort Lauderdale",
-    "county": "Broward",
-    "population": 182760,
-    "match": "inspected in the October 2026 research",
-    "source": "research notes"
+    "tenant": "example",
+    "municipality": "Example City"
   },
   "meetings": [
     {
       "id": "2152",
-      "date": "2026-10-06"
+      "date": "2026-06-02"
     },
     {
       "id": "2153",
-      "date": "2026-10-06"
+      "date": "2026-06-02"
     },
     {
       "id": "2208",
-      "date": "2026-10-06"
+      "date": "2026-06-02"
     }
   ],
   "meeting": {
     "id": 2152,
-    "date": "2026-10-06",
-    "title": "City Commission Conference Meeting",
-    "page": "https://fortlauderdale.legistar.com/MeetingDetail.aspx?LEGID=2152&GID=252&G=F11871F6-88F5-40B5-BD94-B6711694F9A7"
+    "date": "2026-06-02",
+    "title": "City Commission",
+    "page": "https://example.legistar.com/MeetingDetail.aspx?LEGID=2152&GID=252&G=C0516128-821C-7785-7795-DEA2F4EA7FDA"
   },
   "files": {
     "attachments": [
       {
-        "name": "Exhibit 1 - 07.30.2026 - Audit AB",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972239&GUID=044E428D-D791-4463-94F6-3A2D3DE9340D&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/4f4289af-652c-4e76-b082-735b5151f57d.pdf"
+        "name": "Amber 5 - 85.45.0329 - Birch CEDAR",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972239&GUID=857EE7F1-6195-2A35-DF37-BA62BADBEC83&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/350b7572-5868-d204-99b8-0c020c87fb2a.pdf"
       },
       {
-        "name": "Exhibit 2 - 08.24.2026 - SAB",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972240&GUID=B272C2B5-60D8-4FF6-979D-5A030A18DA1F&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/e3ff0d43-2ced-4783-bfc7-7e49c743c31d.pdf"
+        "name": "Amber 3 - 29.16.0329 - JUNIPER",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972240&GUID=87151EFD-113A-9AF7-27C4-B591392369B1&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/b3345be7-66a6-cc77-cbd5-aee4d1ebc25d.pdf"
       },
       {
-        "name": "Exhibit 3 - 09.03.2026 - MAB",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972241&GUID=6847854F-3813-4434-8B77-5537EAF05F65&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/5c43ff0c-9b9a-4798-a769-f2cac0eb11fe.pdf"
+        "name": "Amber 0 - 34.06.0329 - NECTAR",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972241&GUID=B262F62C-B9DF-C2EB-9F8E-D7C1D8AB02EF&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/45f40fc9-74b9-954d-759e-b1ed1cd94584.pdf"
       },
       {
-        "name": "Commission Action Items 2027 for 10.06.2026",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15966671&GUID=5CA655E3-9964-455A-ACA3-A759C178EAEF&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/5d0a3a5f-4241-4ede-a400-49610f66b0b6.pdf"
+        "name": "Spruce Thistle Umber 4141 violet 40.28.0329",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15966671&GUID=B217C96F-5FBB-40F3-4A7D-C43BECB5DAE5&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/c877e225-26f0-b325-be2d-2ae063fe23c7.pdf"
       },
       {
-        "name": "Exhibit 1 - Audit of Print Shop and Mail Room Operations",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972293&GUID=8175FFE6-D8A1-449F-BA41-4D9F4FB7B6E0&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/f220e6f7-a527-4c45-acee-93f5cb76a67d.pdf"
+        "name": "Amber 5 - Birch yarrow Zephyr Acorn bramble Clover Dune Elm",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972293&GUID=EC48585B-4ECE-E5EB-FDE8-F550EF1FEBEA&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/e59db33e-1a9d-d7f1-1a11-a84167adb3d3.pdf"
       },
       {
-        "name": "Exhibit 2 - SRAC Vision Plan Document",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972037&GUID=0633F258-D7C8-456C-9214-D2E4D2BEC5AE&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/155313eb-23a2-4f89-b3c2-3d17933cf1f1.pdf"
+        "name": "Amber 3 - MOSS Nutmeg Olive Poplar",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972037&GUID=5BB5013C-CAC5-A1D4-941E-6AC21A5F73D3&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/bd0d92e0-681c-c06f-a63d-ff3ac0ce40b1.pdf"
       },
       {
-        "name": "Exhibit 1 - SRAC Vision Plan Presentation",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972232&GUID=1135B03C-A7DB-4CF1-ADF3-5F0FEA7FFA8D&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/bdfdfb57-e9ab-496d-9189-86f19f99d224.pdf"
+        "name": "Amber 5 - MOSS Nutmeg Olive Reed",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972232&GUID=AE296E20-21E8-1924-537C-ACD8BF1AB92F&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/40f69c41-9d42-fd5a-e471-d42764fa98d7.pdf"
       },
       {
-        "name": "Exhibit 2 - Public Meeting Survey Results",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972111&GUID=9A8BBF34-FDC0-4CED-900D-61DE7563C5AC&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/8a12666d-d1d3-4dc0-a56f-83eed5b0175e.pdf"
+        "name": "Amber 3 - Wren Yew Zinnia Aspen",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972111&GUID=75B66E8F-2457-31BC-FF99-9343738C3E5B&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/f0337469-ac28-f481-1433-defc8ff5ad7e.pdf"
       },
       {
-        "name": "Exhibit 3 - August 26, 2026, Parks, Recreation, and Beaches Advisory Board Draft Minutes",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972192&GUID=01006FC0-B372-4C0B-A285-C4322C2A6690&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/9bebc1fc-bcf3-4d9e-8e09-d1e7409b8cd4.pdf"
+        "name": "Amber 0 - Dahlia 85, 0329, Egret, Flint, bramble Gorse Hazel Indigo Jade Kale",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972192&GUID=6CC24E17-4EE9-0F4C-0A7A-8BBD619C24F2&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/dab329b5-bc51-b0e7-4d6e-7718ed784d2f.pdf"
       },
       {
-        "name": "Exhibit 1 - Presentation",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972203&GUID=1B0D185B-52A8-4BD7-8187-E4FE83D66431&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/fe174610-1a76-4895-80c9-c6e989610317.pdf"
+        "name": "Amber 5 - Reed",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972203&GUID=C148EEA5-59FF-6983-E57F-CCDEAC451CD3&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/cadb3b07-d453-6177-2030-b6664abb11a8.pdf"
       },
       {
-        "name": "Exhibit 2 - Commission Memorandum No. 22-097",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972248&GUID=8AD3CCA2-21BD-4DFA-BE84-0DBF5DECDB97&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/7ee078d0-c78f-4c04-a61d-590d82aa5eeb.pdf"
+        "name": "Amber 3 - Spruce Rowan Sorrel. 23-118",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972248&GUID=F1A5EAA2-7EC0-72A6-0D8C-7A81762AAEAB&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/1ee2f267-db8d-38fc-da0d-a943881d8e7c.pdf"
       },
       {
-        "name": "Exhibit 3 - LTC No. 26-056",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972251&GUID=574E3124-2468-46B6-BB60-3DE3DD17180C&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/1293ec1c-c816-4554-9f35-28b031fa2c04.pdf"
+        "name": "Amber 0 - BIRCH1 Sorrel. 85-750",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972251&GUID=7ED55164-1F9A-BD2E-C346-2E1F5B1C67CD&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/19b2955a-12d7-41e5-e96e-1f7d59879804.pdf"
       },
       {
-        "name": "Exhibit 1 - Commission Memorandum No. 22-081",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972261&GUID=920AB955-2A0E-46C2-A1E4-1790F7978ECF&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/64a7158c-40df-432a-8ab8-952bfa71937a.pdf"
+        "name": "Amber 5 - Spruce Rowan Sorrel. 23-723",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972261&GUID=D1CE7C33-819C-3CFA-310E-AC16EA3B5CCD&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/653a00f9-fecc-72c9-9b40-70e870f9fddf.pdf"
       },
       {
-        "name": "Exhibit 4 - Presentation",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972376&GUID=BCAD8CE9-28E1-4695-9632-11430D55206E&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/47f7eb7e-3c31-4020-9462-10d77af3b8fd.pdf"
+        "name": "Amber 3 - Reed",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972376&GUID=C42B167B-C7FF-1CDC-74C4-74E6ECC9F1A9&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/4528671a-e84f-b854-017d-29d3c4bfe273.pdf"
       },
       {
-        "name": "Exhibit 1 - Presentation",
-        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972332&GUID=2B11F12D-B263-4827-A179-F9D9B0649EC2&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
-        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/75046cbb-24af-4a83-88e9-0cd26a0a2ad1.pdf"
+        "name": "Amber 5 - Reed",
+        "served": "https://example.legistar.com/View.ashx?M=F&ID=15972332&GUID=FA04EF87-6BE7-10D7-4D29-4B5EAF88B913&G=C0516128-821C-7785-7795-DEA2F4EA7FDA",
+        "stored": "https://legistar.granicus.com/Example/attachments/bd18a675-eba2-22d7-0ae1-a29c7092c204.pdf"
       }
     ],
     "packet": null

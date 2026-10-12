@@ -4,7 +4,7 @@
 
 **What I looked at:**
 - The live site, www.adaedit.com, on 12 October 2026, at release 4d26fc0. I drove it in the desktop app's browser and checked the phone size (375 px) along the way. The owner created the account, a fresh address, because I can't create accounts on a live site.
-- One agenda, built to look like what clerks post. The items come from a Florida city commission's conference meeting of 6 October 2026, found by the [agenda-platforms](agenda-platforms-2026-10.md) sampler. The town is labelled, not named, so the evidence copy changes its address and the details that would identify it. The agenda has the habits seen in the research:
+- One agenda, built to look like what clerks post. Its shape follows a Florida city commission agenda in the [agenda-platforms](agenda-platforms-2026-10.md) research sample. The evidence copy's items, date and wording are invented, so no town can be found from it. The agenda has the habits seen in the research:
   - section titles that are bold, underlined capitals rather than headings;
   - a table used only to lay out the officials' names;
   - a "click here" link, a web address typed as plain text, and a city seal with no alt text;
@@ -60,7 +60,7 @@ The officials' names were laid out in a table. The checker said "Blocks access: 
 
 ### 4. The document preview on the desk runs words together (should fix)
 
-The desk shows "1:05 PMPolice Department…" and "MayorCommissioner, District 1Commissioner…". `excerptOf` (`app/_data/store.ts`) takes each block's `textContent`, which joins table cells and line breaks with nothing between them.
+The desk shows "6:00 PMPolice Department…" and "MayorCommissioner, District 1Commissioner…". `excerptOf` (`app/_data/store.ts`) takes each block's `textContent`, which joins table cells and line breaks with nothing between them.
 
 **What to do:** join the text with a space at cell and line-break boundaries. Add a case to the excerpt self-check in `scripts/verify-rules.mjs`.
 

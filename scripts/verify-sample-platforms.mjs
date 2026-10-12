@@ -177,8 +177,8 @@ await check('the summary names platforms, never towns', () => {
     attachments: [{ name: 'Item', served: 'https://x/y.pdf', origin: 'office', inspection: { pages: 3, tagged: true, orphanPages: 0 } }],
     packet: { url: 'https://x/p.pdf', inspection: {}, verdict: { tags, taggedAttachments: 1, language: 'dropped', notMarked: false, builtBy: 'converter' } },
   });
-  const md = summarize([row('alachuafl', 'Alachua', 'kept'), row('minneolafl', 'Minneola', 'removed')]);
-  for (const name of ['alachuafl', 'Alachua', 'minneolafl', 'Minneola', 'https://']) assert(!md.includes(name), `the summary mentions ${name}`);
+  const md = summarize([row('northvalefl', 'Northvale', 'kept'), row('southportfl', 'Southport', 'removed')]);
+  for (const name of ['northvalefl', 'Northvale', 'southportfl', 'Southport', 'https://']) assert(!md.includes(name), `the summary mentions ${name}`);
   assert(/kept 1/.test(md) && /removed 1/.test(md), 'the verdicts are counted');
 });
 
@@ -191,13 +191,15 @@ for (const platform of Object.keys(ADAPTERS)) {
   }
   const expectedPath = join(FIXTURES, platform, 'expected.json');
   if (!existsSync(expectedPath)) {
-    failures.push(`${platform}: no recorded fixtures (run the sampler with --record on one town)`);
+    failures.push(`${platform}: no fixtures (record one town with --record, then trim it into fixtures/ under the made-up town; see fixtures.mjs)`);
     console.log(`  FAIL ${platform} — no recorded fixtures`);
     continue;
   }
   const expected = JSON.parse(readFileSync(expectedPath, 'utf8'));
   const adapter = await loadAdapter(platform);
   const ctx = { fetcher: createReplayer(platform), log: () => {} };
+  // The repo is public: a real town in fixtures/ undoes the research's labels.
+  await check(`${platform}: the fixtures belong to the made-up town`, () => eq(expected.tenant.tenant, 'example', 'tenant'));
   await check(`${platform}: lists the recorded meetings`, async () => {
     const r = await adapter.meetings(ctx, expected.tenant);
     assert(r.ok, r.reason);

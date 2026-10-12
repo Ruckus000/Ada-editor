@@ -1,30 +1,26 @@
 {
   "tenant": {
     "platform": "civicclerk",
-    "tenant": "alachuafl",
-    "municipality": "Alachua",
-    "county": "Alachua",
-    "population": 10574,
-    "match": "inspected in the October 2026 research",
-    "source": "research notes"
+    "tenant": "example",
+    "municipality": "Example City"
   },
   "meetings": [
     {
       "id": "830",
-      "date": "2026-10-13"
+      "date": "2026-06-09"
     },
     {
       "id": "789",
-      "date": "2026-10-12"
+      "date": "2026-06-08"
     },
     {
       "id": "903",
-      "date": "2026-10-06"
+      "date": "2026-06-02"
     }
   ],
   "meeting": {
     "id": 789,
-    "date": "2026-10-12",
+    "date": "2026-06-08",
     "title": "City Commission Meeting",
     "eventId": 787,
     "packetFileId": 2417
@@ -32,82 +28,82 @@
   "files": {
     "attachments": [
       {
-        "name": "Colonial Heritage Month",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/8963084952a640ccb7352828202f9865.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Linden1 Maple1 Nectar1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/aeddf8219962b41bbecf2947ca7889c8.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "Florida City Week.APD",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/af352b563fe34492a5d7ffec9093d337.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Orchard1 Pebble1 Quill1.RIVER1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/29307e0a29bf46fe8132c90b91394373.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "Proclamation_White Cane Safety Month_2026",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/cca9f01a8584403680eb4ed8a5e8b751.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Spruce1_Thistle1 Umber1 Violet1 Nectar1_0329",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/7c7a59e77b58c5ae1370dcb09f6bcf0f.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "App.Fernandez",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/9dd5e439e5d94cdda1555d909e500ed2.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Willow1.Yarrow1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/9889d55b119a4433ef235e1891316cba.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "App. Smith",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/c393e508d73e4c00aadd5cf88e360335.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Willow1. Zephyr1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/ca762c8f17858324f955254f409e9b6a.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "Ballot.Two",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/18480a800f694520b9018acccc581ad1.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Acorn1.Bramble1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/c8e1374216298c5690bea6f7481750aa.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "CATF Ad#1",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/4dc5064abd6c4465a0e363ef07f7991a.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "CLOVER1 Iris1#5",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/3e206ed5098a6dd167ac05d9b8a55f58.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "APP.ANDERSON",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/4e6e245889014913bfc24929825b0347.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "WILLOW1.DUNE1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/d11d8819cbe0ba70dc80a9a94d479091.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "APP.HAYES",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/bc3a33c4515a41f28117c5a2772fc89b.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "WILLOW1.ELM1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/4d3eb6c7bfb5d1d3045f3b3a3b30f8e9.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "APP.HERNANDEZ",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/66c2d90cf45c461c9a4b5f9b1d6b9e37.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "WILLOW1.FINCH1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/b7b2ba4be5139dbf697858938128c798.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "APP.STEPHENS",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/ef947cc6757047a9b4d3dce621e5152c.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "WILLOW1.GARNET1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/52647b27ce82c67739a467d280c58c39.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "APP.STRICKLAND",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/ef9f9d200377438e9bfe950944decda3.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "WILLOW1.HEATHER1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/ab7ec9b4e658afb832f697c821848ef7.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "SRAB Ballot",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/ad1a7389ff4048f58c352ed464175c6b.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "IVY1 Acorn1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/f4c729c1dd18a02b51d892b50e1deea7.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "SRAB Ad#1",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/2c0a94d5-4cc1-432e-a46b-3dfe8cd069d8.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "IVY1 Iris1#5",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/0d630112-6a4c-18f6-9137-a0436119a132.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "Ordinance 26-19 (Duke Energy Florida LLC)",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/01bf92a4ee0d40958675cc9dd1cdebdf.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Jasper1 85-15 (Kelp1 Larch1 Orchard1 MOSS1)",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/a8f35beb4ee9f39dbf98bd0c9f64e671.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "Ordinance 96-20",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/d9fb6192c70745c0a1b453db491d6782.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Jasper1 07-62",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/c1688324fd5ff3d2b401beb3afbb7860.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "26.09.28.M.CCM",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/918d5b02c739454598c6cb95b54ea724.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "85.34.89.Nutmeg1.OLIVE1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/3f26d26fcba47aa24e31d1e9e008a940.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "Commission Calendar 2027",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/1e1459903b5644aeb047662ee53bd7f7.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Spruce Poplar1 4141",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/e9c22c9c281d347e23818be8db45012d.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       },
       {
-        "name": "John-C-Hipp-Constr_NW-115th-Ext_CO#6_Additional Electrical Costs",
-        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/82ae050e30d3484ca93a82c80543d686.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+        "name": "Quartz1-Fern-Reed1-Sage1_TANSY1-861upland1-Vale1_WREN1#1_Yew1 Zinnia1 Aspen1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/EXAMPLE/b478399813da357b38f848f7e06abcc2.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
       }
     ],
-    "packet": "https://alachuafl.api.civicclerk.com/v1/Meetings/GetMeetingFileStream(fileId=2417,plainText=false)"
+    "packet": "https://example.api.civicclerk.com/v1/Meetings/GetMeetingFileStream(fileId=2417,plainText=false)"
   }
 }
