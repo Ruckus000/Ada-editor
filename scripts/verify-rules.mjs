@@ -1896,12 +1896,13 @@ for (const producer of ['pandoc', 'libreoffice']) {
 
 // The public templates (templates/README.md) must arrive structured and raise nothing from our own checker.
 for (const [file, title, lists, tables] of [
-  ['accessible-meeting-agenda-template.docx', '[Board or council name] agenda, [meeting date]', ['bullet_list', 'ordered_list', 'ordered_list'], 0],
-  ['accessible-meeting-minutes-template.docx', '[Board or council name] minutes, [meeting date]', ['bullet_list', 'bullet_list'], 2],
+  // The H1, not the file's Title property: a clerk fills in the heading and never sees the property.
+  ['accessible-meeting-agenda-template.docx', '[Board or council name] Regular Meeting Agenda', ['bullet_list', 'ordered_list', 'ordered_list'], 0],
+  ['accessible-meeting-minutes-template.docx', '[Board or council name] Regular Meeting Minutes, [Month Date, Year]', ['bullet_list', 'bullet_list'], 2],
 ]) {
   await acheck(`templates: ${file} imports with its title, one h1, real lists and headed tables, and no findings`, async () => {
     const r = await importDocx(new Uint8Array(readFileSync(resolve(ROOT, 'public/templates', file))), file, parseXml);
-    eq(r.title, title, 'docProps title');
+    eq(r.title, title, 'title from the h1');
     const s = shape(r.content);
     eq(s.filter((t) => t === 'h1').length, 1, `one h1: ${s}`);
     eq(s[0], 'h1', 'the h1 comes first');
@@ -1944,7 +1945,7 @@ await acheck('import: styles, numbering and fields resolve the way Word renders 
   eq(r.content.child(6).textContent, 'See the form', 'field code text is not content');
   deepEq(hrefs(r.content), ['https://example.org/f', 'https://example.org/a'], 'field hyperlink linked; bookmark and javascript: are not');
   eq(r.content.child(7).textContent, 'back to top', 'bookmark field keeps its text');
-  eq(r.title, 'f', 'file name without extension');
+  eq(r.title, 'Numbered heading', 'the h1 is the title');
 });
 
 await acheck('import: tracked changes, hidden text, symbols, notes and text boxes are read once and correctly', async () => {
@@ -1975,6 +1976,23 @@ await acheck('import: images keep their alt text, decorative ones are left out, 
   deepEq(shape(r.content), ['h1', 'figure', 'h1', 'figure', 'figure', 'figure'], 'heading text on both sides of the image; no empty heading');
   deepEq(figures(r.content), ['Visits by day', 'Title only', '', ''], 'alt from descr, then title; decorative val=0 is not decorative; a shape without alt is flagged like Word does');
   deepEq(r.notes, ['1 decorative image marked in Word left out.'], 'notes');
+});
+
+check('documentTitle: the first top-level H1, and nothing else', () => {
+  const { documentTitle } = mod.editorSchema;
+  eq(documentTitle(doc(para('Intro'), heading(2, 'Sub'), heading(1, '  October 13\n agenda '), heading(1, 'Second'))), 'October 13 agenda', 'first H1, whitespace collapsed');
+  eq(documentTitle(doc(para('Intro'), heading(2, 'Sub'))), '', 'no H1');
+  const inCell = N.table.create(null, [N.table_row.create(null, [N.table_cell.create(null, [heading(1, 'In a cell')])])]);
+  eq(documentTitle(doc(inCell, para('x'))), '', 'an H1 inside a table is not the title');
+});
+
+await acheck('import: the title is the main heading, not a stale Word Title property', async () => {
+  const r = await importDocx(docx({
+    styles: style('Heading1', 'heading 1'),
+    body: P(R('October 13 agenda'), '<w:pStyle w:val="Heading1"/>') + P(R('Call to order')),
+    title: 'September 8 agenda',
+  }), 'agenda.docx', parseXml);
+  eq(r.title, 'October 13 agenda', 'H1 before dc:title');
 });
 
 await acheck('import: header, footer and body text arrive as text, never markup', async () => {

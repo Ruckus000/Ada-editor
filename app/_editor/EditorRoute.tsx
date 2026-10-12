@@ -69,9 +69,6 @@ export function EditorRoute() {
     order: 0,
   };
   return (
-    <>
-      <title>{`${stored.title} · Ada Editor`}</title>
-      <EditorScreen key={`${docId}:${version}`} doc={doc} stored={stored} />
-    </>
+    <EditorScreen key={`${docId}:${version}`} doc={doc} stored={stored} />
   );
 }

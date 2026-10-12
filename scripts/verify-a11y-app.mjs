@@ -666,6 +666,10 @@ async function language() {
       return Boolean(card);
     })()`);
     await sleep(200);
+    const undo = () => evaluate(send, `(() => {
+      const mac = /Mac/.test(navigator.platform);
+      document.getElementById('document-text').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }));
+    })()`);
     if (!linkCard || !(await focusByName(send, 'aside button', 'Go to text'))) fail('LINK  no Go to text on the "click here" finding');
     else {
       await key(send, 'Enter');
@@ -682,10 +686,6 @@ async function language() {
       await send('Input.insertText', { text: ' today' });
       await sleep(400);
       const afterArrows = await linkNow();
-      const undo = () => evaluate(send, `(() => {
-        const mac = /Mac/.test(navigator.platform);
-        document.getElementById('document-text').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }));
-      })()`);
       await undo();
       await sleep(300);
       await undo();
@@ -697,6 +697,30 @@ async function language() {
       else if (undone !== 'click here') fail(`LINK  undo left the link as ${JSON.stringify(undone)}`);
       else note('typing over a link\'s words keeps its address and clears the finding; typing after it once the cursor has moved does not extend it; undo restores it');
     }
+
+    // The title follows the main heading: after the save, the top bar, the tab
+    // and the stored title read the edited H1, and undo takes them back.
+    const titles = () => evaluate(send, `({ bar: document.querySelector('header h1')?.textContent ?? '', tab: document.title, stored: JSON.parse(localStorage.getItem('ada.docs.v1')).find((d) => d.id === 'shelter-faq')?.title })`);
+    await evaluate(send, `(() => {
+      const h = document.querySelector('#document-text h1');
+      const r = document.createRange();
+      r.selectNodeContents(h);
+      r.collapse(false);
+      document.getElementById('document-text').focus();
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+    })()`);
+    await sleep(200);
+    await send('Input.insertText', { text: ' 2027' });
+    await sleep(900);
+    const retitled = await titles();
+    await undo();
+    await sleep(900);
+    const restored = await titles();
+    const want = (t) => JSON.stringify({ bar: t, tab: `${t} · Ada Editor`, stored: t });
+    if (JSON.stringify(retitled) !== want('Winter Shelter Program FAQ 2027')) fail(`TITLE  editing the H1 did not retitle the document (${JSON.stringify(retitled)})`);
+    else if (JSON.stringify(restored) !== want('Winter Shelter Program FAQ')) fail(`TITLE  undo did not restore the title (${JSON.stringify(restored)})`);
+    else note('the title follows the main heading: top bar, tab and saved title, and back on undo');
 
     // Document language: set the (English) FAQ to Spanish and it asks once
     // whether that's right; Apply sets it back and says what remains.
@@ -957,6 +981,9 @@ async function editor() {
     const markerPersisted = await evaluate(send, `document.getElementById('document-text')?.textContent.includes('persisted-marker') ?? false`);
     if (!markerPersisted) fail('PERSIST  SPA navigation within the debounce window lost the pending save');
     else note('leaving via SPA navigation flushes the pending save');
+    // Body edits leave a title that differs from the H1 alone ("— Draft").
+    const keptTitle = await evaluate(send, `document.title`);
+    if (keptTitle !== 'Notice of Public Hearing — Draft · Ada Editor') fail(`TITLE  editing the body changed the title to ${JSON.stringify(keptTitle)}`);
 
     await send('Page.reload');
     await sleep(1200);

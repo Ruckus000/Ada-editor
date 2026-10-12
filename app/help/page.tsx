@@ -115,6 +115,7 @@ export default function Page() {
           <section id="export" aria-labelledby="export-title">
             <h2 id="export-title">Exporting</h2>
             <p><strong>Export HTML</strong> saves a standalone web page: the language, headings, links, tables and images with their alt text. <strong>Export PDF</strong> saves a tagged PDF (PDF/UA-1) built from the same structure.</p>
+            <p>An export’s title, the first thing a screen reader announces, is the document’s main heading: change the heading and the title follows. An imported Word file takes its title from its main heading too, not from the file’s hidden properties.</p>
             <p>Exports keep the document as it is. Whatever the checker flags is still wrong in the export: an image without alt text is exported without it. The PDF’s font covers Latin scripts only; a document with Greek, Cyrillic, Hebrew, Arabic or CJK text is refused for PDF (with the characters listed), and Export HTML keeps every script.</p>
           </section>
 

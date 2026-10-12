@@ -2,7 +2,7 @@ import { Fragment } from 'prosemirror-model';
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { fixTables } from 'prosemirror-tables';
-import { SIZE_FRACTION, FIGURE_SIZES, mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
+import { SIZE_FRACTION, FIGURE_SIZES, documentTitle, mapText, safeHref, schema, withoutPageLanguage } from '../_editor/editorSchema';
 import type { FigureAlign, FigureSize } from '../_editor/editorSchema';
 import { readZip, ZipError, MAX_ZIP_BYTES } from './unzip';
 import type { Zip } from './unzip';
@@ -225,10 +225,10 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
   };
 
   const coreTitle = core ? (first(core.documentElement, 'dc:title')?.textContent ?? '').replace(/\s+/g, ' ').trim() : '';
-  // ponytail: dc:title first, as Word's own "Title" property is what a tagged
-  // PDF displays; a stale template title is possible. Upgrade trigger: users
-  // report wrong titles — offer a rename on the editor screen.
-  const title = (coreTitle || fileName.replace(/\.docx$/i, '').trim() || 'Untitled document').slice(0, MAX_TITLE);
+  const content = assemble(blocks);
+  // The H1 before dc:title: the clerk sees and edits the heading, while the
+  // property is hidden and often stale (a copied file, a template's placeholder).
+  const title = (documentTitle(content) || coreTitle || fileName.replace(/\.docx$/i, '').trim() || 'Untitled document').slice(0, MAX_TITLE);
 
   const header = await band('w:headerReference');
   const footer = await band('w:footerReference');
@@ -238,7 +238,7 @@ export async function importDocx(bytes: Uint8Array, fileName: string, parseXml: 
     footer: footer.text,
     headerImage: header.image,
     footerImage: footer.image,
-    content: assemble(blocks),
+    content,
     images,
     notes: [...walker.notes(), ...bandNotes],
   };

@@ -83,6 +83,8 @@ At 375 px the findings list starts about 3,000 px down the page, after the agend
 - **The alt text dialog says "Describe what this image 1 shows".** Use "this image" (`app/_editor/dialogs.tsx`). **Fixed (#104)** in that dialog and in four other sentences that had the same wording. Button names and finding excerpts keep the number, because there it tells pictures apart.
 - **The title comes from Word's file properties,** which clerks never see. This file's title was "Agenda". A real one may carry last month's meeting or the template's name. Show the imported title in the import announcement, and make it easy to change.
 
+  **Fixed (#106).** The title now follows the document's main heading (its first H1), which the clerk sees and edits. Import takes the H1 before Word's Title property, and editing the H1 retitles the document, its tab and its exports. It turned out to matter for our own templates: their Title property is a placeholder, so every PDF made from one would have been titled "[Board or council name] agenda, [meeting date]". There's no Rename: the heading is the title, as the New document dialog already said.
+
 ## What I didn't check
 
 - A real Word file from a clerk, and a real agenda portal. The pilot covers both.
