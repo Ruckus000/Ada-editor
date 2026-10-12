@@ -452,6 +452,9 @@ async function upload() {
     await evaluate(send, `localStorage.clear()`);
     await send('Page.reload');
     await sleep(1200);
+    // Vercel's analytics queue, standing in for the script production loads:
+    // a failed import counts nothing, a good one counts one Word imported.
+    await evaluate(send, `window.va = (kind, data) => { if (kind === 'event') (window.counted ??= []).push(data.name); }`);
     if (!(await fromPlus(send, 'Import a Word file'))) return;
 
     // A file that is not a .docx: a visible, announced message, and nothing stored.
@@ -471,6 +474,9 @@ async function upload() {
       path = await evaluate(send, `location.pathname`);
     }
     if (path !== '/editor/library-hours-notice') { fail(`UPLOAD  expected to land on /editor/library-hours-notice, got ${path}`); return; }
+    const counted = await evaluate(send, `window.counted ?? []`);
+    if (JSON.stringify(counted) !== '["Word imported"]') fail(`UPLOAD  a failed and a good import should count one Word imported (counted ${JSON.stringify(counted)})`);
+    else note('a good import counts one Word imported; a failed one counts nothing');
     page = path;
     await sleep(1500);
     const said = await liveText(send);
@@ -1578,6 +1584,7 @@ try {
   await staticPage('/accessibility', 'Accessibility · Ada Editor');
   await staticPage('/privacy', 'Privacy · Ada Editor');
   await staticPage('/help', 'Help · Ada Editor');
+  await staticPage('/about', 'About · Ada Editor');
   await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
   await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();

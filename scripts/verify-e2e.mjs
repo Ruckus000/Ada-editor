@@ -141,6 +141,18 @@ const CONFIRM_STUB = `
     return true;
   };`;
 
+// Vercel's analytics queue (window.va), standing in for the script production
+// loads: records each counted step, so the test can check what the app counts
+// (sessionStorage, so it survives a full navigation).
+const COUNT_STUB = `
+  window.va = (kind, data) => {
+    if (kind !== 'event') return;
+    const counted = JSON.parse(sessionStorage.getItem('e2e.counted') || '[]');
+    counted.push(data.name);
+    sessionStorage.setItem('e2e.counted', JSON.stringify(counted));
+  };`;
+const counted = (send) => evaluate(send, `JSON.parse(sessionStorage.getItem('e2e.counted') || '[]')`);
+
 /** Remove a temp dir. Chrome can still be flushing its profile as it exits
  *  (ENOTEMPTY in CI), so retry — and never let cleanup fail the test. */
 const tidy = (dir) => {
@@ -164,6 +176,7 @@ async function prepare(target) {
   await send('Page.enable');
   await send('Runtime.enable');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: CONFIRM_STUB });
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: COUNT_STUB });
   return { ws, send };
 }
 
@@ -297,16 +310,17 @@ async function waitForRow(uid, id, test, timeout = 15_000) {
   return row;
 }
 
-async function downloadPdf(send, dir, docId) {
+/** Export PDF (or HTML) from the open editor; the downloaded file's path. */
+async function downloadExport(send, dir, docId, kind = 'PDF') {
   await send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
   await clickButton(send, 'Export'); // opens the Export menu
-  if (!(await clickButton(send, 'Export PDF'))) { fail(`PDF  no Export PDF button on ${docId}`); return null; }
+  if (!(await clickButton(send, `Export ${kind}`))) { fail(`${kind}  no Export ${kind} button on ${docId}`); return null; }
+  const name = `${docId}.${kind.toLowerCase()}`;
   for (let i = 0; i < 75; i++) {
-    const file = readdirSync(dir).find((f) => f === `${docId}.pdf`);
-    if (file) return join(dir, file);
+    if (readdirSync(dir).includes(name)) return join(dir, name);
     await sleep(200);
   }
-  fail(`PDF  ${docId}.pdf was not downloaded`);
+  fail(`${kind}  ${name} was not downloaded`);
   return null;
 }
 
@@ -420,6 +434,13 @@ async function firstBrowser() {
     page = 'sign up';
     uid = await signIn(send, A, '/sign-up');
     if (!uid) return;
+    const signUps = await counted(send);
+    if (JSON.stringify(signUps) !== '["Sign up"]') fail(`COUNT  a new account should count one Sign up (counted ${JSON.stringify(signUps)})`);
+    else note('a new account counts one Sign up');
+    // Both packages leave their mark on window when they start (the mode, the
+    // vitals queue), whatever address their scripts come from.
+    if (await evaluate(send, `'vam' in window || 'si' in window`)) fail('COUNT  a local build started Vercel’s analytics: only production deployments may');
+    else note('a local build loads no analytics script');
     note(`a new account's code came by "${[...seenSubjects].join('", "')}"`);
     await evaluate(send, `window.e2eBefore = true`); // already on the desk: wait for a new document
     await go(send, '/sign-in');
@@ -487,6 +508,7 @@ async function firstBrowser() {
     page = 'edit syncs';
     await goHome(send);
     if (!(await createDocument(send, 'E2E sync document', SYNCED))) return;
+    if ((await counted(send)).at(-1) !== 'Document created') fail(`COUNT  creating a document was not counted (counted ${JSON.stringify(await counted(send))})`);
     await typeAtEnd(send, 'E2E synced edit.');
     const synced = await waitForRow(uid, SYNCED, (r) => contentHas(r, 'E2E synced edit.'));
     const status = await waitFor(send, `[...document.querySelectorAll('header span')].some((s) => s.textContent.trim() === 'Saved')`, 10_000);
@@ -627,10 +649,15 @@ async function secondBrowser() {
     if (await createDocument(send, 'E2E clean document', CLEAN)) {
       await typeAtEnd(send, 'This document has one heading and one paragraph.');
       await sleep(700); // the editor's local save debounce
-      const clean = await downloadPdf(send, dir, CLEAN);
+      const clean = await downloadExport(send, dir, CLEAN);
       await go(send, `/editor/${FIXTURE}`);
       await waitFor(send, `!!document.getElementById('document-text')`);
-      const flagged = await downloadPdf(send, dir, FIXTURE);
+      const flagged = await downloadExport(send, dir, FIXTURE);
+      await downloadExport(send, dir, FIXTURE, 'HTML');
+      // A returning account counts no Sign up; what it does is counted once each.
+      const steps = await counted(send);
+      if (JSON.stringify(steps) !== JSON.stringify(['Document created', 'PDF exported', 'PDF exported', 'HTML exported'])) fail(`COUNT  a returning account’s steps were counted as ${JSON.stringify(steps)}`);
+      else note('signing in again counts no Sign up; a new document and each export are counted once');
       if (clean && flagged) {
         const vera = ensureVeraPdf({ verbose: VERBOSE });
         if (!vera.ok) {

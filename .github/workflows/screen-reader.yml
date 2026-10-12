@@ -27,6 +27,13 @@ on:
     paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml']
   workflow_dispatch:
 
+# The screen readers' asset installer, pinned. Unpinned, npx took each new
+# release unannounced: 0.29.2 (2026-10-10) changed how macOS permissions are
+# written. 0.29.1 is what every green run used. Bump it on purpose, in a PR of
+# its own, and watch both jobs. (setup-action, below, bundles its own copy.)
+env:
+  GUIDEPUP_SETUP: '@guidepup/setup@0.29.1'
+
 jobs:
   nvda:
     name: NVDA (Windows)
@@ -49,8 +56,19 @@ jobs:
       # The setup action configures the OS; the screen reader's own assets are
       # a separate, per-project install. Without it VoiceOver and NVDA fail to
       # start with "Failed to mount Guidepup preferences".
+      #
+      # The download from GitHub releases can fail on its own (run 38249783192,
+      # 2026-10-12: VoiceOver's preferences image, fine on a re-run), so one
+      # retry. On failure the installer's logger then crashes on Node 22
+      # (Error.isError): the real error is the "[!] Error" line above the TypeError.
       - name: Install Guidepup screen reader assets
-        run: npx --yes @guidepup/setup install
+        shell: bash
+        run: |
+          npx --yes "$GUIDEPUP_SETUP" install || {
+            echo "::warning::Guidepup's asset install failed; retrying once."
+            sleep 15
+            npx --yes "$GUIDEPUP_SETUP" install
+          }
 
       - run: npx playwright install --with-deps chromium
       - name: Build the preview from the real components
@@ -122,8 +140,15 @@ jobs:
         if: steps.guidepup.outcome == 'failure'
         uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
 
+      # As in the NVDA job: pinned, one retry.
       - name: Install Guidepup screen reader assets
-        run: npx --yes @guidepup/setup install
+        shell: bash
+        run: |
+          npx --yes "$GUIDEPUP_SETUP" install || {
+            echo "::warning::Guidepup's asset install failed; retrying once."
+            sleep 15
+            npx --yes "$GUIDEPUP_SETUP" install
+          }
 
       - run: npx playwright install --with-deps webkit
       - name: Build the preview from the real components
