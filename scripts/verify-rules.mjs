@@ -2408,6 +2408,9 @@ check('store: a sheet’s excerpt skips the title and ends each block as a sente
   eq(excerptOf(doc(para('No title here'))), 'No title here.', 'a document with no title keeps its first block');
   eq(excerptOf(doc(heading(1, 'Only a title'))), '', 'nothing after the title: no excerpt');
   eq(excerptOf(doc(heading(1, 'T'), para('x'.repeat(500)))).length, 240, 'capped');
+  // The walkthrough's agenda: a line break and a grid of names, not run together.
+  eq(excerptOf(doc(heading(1, 'Agenda'), para('1:05 PM', N.hard_break.create(), 'City Hall'), table([['Mayor', 'Vice Mayor']]))),
+    '1:05 PM City Hall. Mayor Vice Mayor.', 'line breaks and table cells are word breaks');
 });
 
 await acheck('store: createDoc gives a safe, unique id and keeps import notes', async () => {
