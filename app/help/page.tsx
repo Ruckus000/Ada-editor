@@ -61,7 +61,7 @@ export default function Page() {
             <ol>
               <li><strong>Start a document.</strong> On your desk, choose New document, then start on a blank page or import a Word file (.docx). The file is read in your browser and never uploaded.</li>
               <li><strong>Write.</strong> Structure checks run as you type; wording checks (reading level, link text, colour words) run when you leave the page or choose Recheck.</li>
-              <li><strong>Work through the findings.</strong> They’re listed beside the page, most serious first. Each says what’s wrong, why it matters and which WCAG criterion it comes from. Go to text takes you to it; Apply fix appears when the fix is certain.</li>
+              <li><strong>Work through the findings.</strong> They’re listed beside the page, most serious first. Each says what’s wrong, why it matters and which WCAG criterion it comes from. Go to text takes you to it. Apply fix appears where software can make the change, and on findings marked Needs your call, you decide whether to use it.</li>
               <li><strong>Export.</strong> When you’re done, Export saves a web page or a tagged PDF.</li>
             </ol>
             <p>Prefer to be shown? The tour points out each part of your desk and the editor. <TourReplay /></p>
