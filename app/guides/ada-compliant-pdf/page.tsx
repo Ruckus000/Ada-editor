@@ -95,7 +95,7 @@ export default function Page() {
             <ul>
               <li><strong>Real tags:</strong> headings, lists and tables tagged as what they are, with header cells marked.</li>
               <li><strong>A reading order</strong> that follows the meaning, with page numbers and decoration marked so screen readers skip them.</li>
-              <li><strong>Alternative text</strong> that serves the same purpose as each meaningful image.</li>
+              <li><strong>Alternative text</strong> that serves the same purpose as each meaningful image, and a long description for maps and charts (<Link href="/guides/alt-text-maps-site-plans">how to write one</Link>).</li>
               <li><strong>A language and a title,</strong> so a screen reader pronounces it correctly and announces what it is.</li>
               <li><strong>Links whose purpose is clear</strong> from their text or its context, and colour that isn’t the only way to tell things apart.</li>
               <li><strong>Enough contrast</strong> between text and background.</li>

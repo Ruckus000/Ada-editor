@@ -48,7 +48,7 @@ export default function Page() {
               <li><strong>Headings:</strong> use the built-in heading styles (Heading 1, Heading 2…), in order, not bold or large text.</li>
               <li><strong>Lists:</strong> use the bullet and numbering buttons, not typed dashes or numbers.</li>
               <li><strong>Tables:</strong> mark the first row as a header. Microsoft’s steps use the Design tab (Table Design in current Word), then Header Row. Also set Table Properties, Row, “Repeat as header row at the top of each page”: that is the setting Ada Editor reads when it imports a table.</li>
-              <li><strong>Images:</strong> give each meaningful image alt text that conveys its content and purpose, as Microsoft puts it, and mark purely decorative ones as decorative.</li>
+              <li><strong>Images:</strong> give each meaningful image alt text that conveys its content and purpose, as Microsoft puts it, and mark purely decorative ones as decorative. For maps, site plans and charts, see our <Link href="/guides/alt-text-maps-site-plans">guide to describing complex images</Link>.</li>
               <li><strong>Title and language:</strong> give the document a title in its properties, and make sure its language is set correctly. WCAG asks for both (2.4.2 Page Titled, 3.1.1 Language of Page).</li>
               <li><strong>Check:</strong> in Word for Windows, choose Review, then Check Accessibility, and fix what it finds. Microsoft says to do this before making the PDF.</li>
             </ul>

@@ -40,7 +40,7 @@ export default function Page() {
       </section>
 
       <div className="site-wrap site-statement research">
-        <Toc items={[['download', 'Download'], ['inside', 'What’s inside, and why'], ['use', 'Using them'], ['minutes', 'Minutes and the Title II rule'], ['corrections', 'Corrections and limits'], ['sources', 'Sources']]} />
+        <Toc items={[['download', 'Download'], ['inside', 'What’s inside, and why'], ['use', 'Using them'], ['minutes-accessible', 'Making minutes accessible'], ['minutes', 'Minutes and the Title II rule'], ['corrections', 'Corrections and limits'], ['sources', 'Sources']]} />
         <div className="site-col">
           <section id="download" aria-labelledby="download-title">
             <h2 id="download-title">Download</h2>
@@ -74,7 +74,7 @@ export default function Page() {
           <section id="use" aria-labelledby="use-title">
             <h2 id="use-title">Using them</h2>
             <ol>
-              <li><strong>Fill it in, keeping the styles.</strong> Change the document’s title in its properties (in Word, under File, then Info or Properties) to the meeting’s name and date. Add a new item by copying an item heading, not by typing bold text. Give any image alt text, and write links that say what they open.</li>
+              <li><strong>Fill it in, keeping the styles.</strong> Change the document’s title in its properties (in Word, under File, then Info or Properties) to the meeting’s name and date. Add a new item by copying an item heading, not by typing bold text. Give any image alt text (<Link href="/guides/alt-text-maps-site-plans">how to describe maps and site plans</Link>), and write links that say what they open.</li>
               <li>
                 <strong>Export a tagged PDF.</strong> In Word for Windows, use File, Save As, choose PDF, open Options
                 and keep “Document structure tags for accessibility” checked. In Word for Mac, choose PDF and “Best for
@@ -85,6 +85,17 @@ export default function Page() {
               <li><strong>Or import it into Ada Editor,</strong> which checks it as you write and exports a tagged PDF in your browser.</li>
               <li><strong>Post the PDF itself.</strong> Our <Link href="/help#posting">steps for posting a PDF to an agenda system</Link> explain why the copy people open should be the one you made. Where your website can publish pages, <Link href="/guides/agendas-html-or-pdf">post the agenda as a page too</Link>.</li>
             </ol>
+          </section>
+
+          <section id="minutes-accessible" aria-labelledby="minutes-accessible-title">
+            <h2 id="minutes-accessible-title">Making minutes accessible</h2>
+            <p>The minutes template has the structure. What’s left is what you write into it:</p>
+            <ul>
+              <li><strong>Record each motion and its result in words,</strong> and each roll-call vote in the vote table. Don’t show a vote only by colour or bold, which screen readers don’t announce by default.</li>
+              <li><strong>Name each exhibit or attachment</strong> the minutes refer to, and link it where it’s posted, so “the attached report” is something a reader can find.</li>
+              <li><strong>Describe any image you include,</strong> such as a map or photo shown at the meeting: our guide to <Link href="/guides/alt-text-maps-site-plans">describing maps, site plans and charts</Link> has examples.</li>
+              <li><strong>Post the approved minutes</strong> as a page where your website allows it, with the PDF linked: our guide to <Link href="/guides/agendas-html-or-pdf">agendas as a web page or a PDF</Link> applies to minutes too.</li>
+            </ul>
           </section>
 
           <section id="minutes" aria-labelledby="minutes-title">
