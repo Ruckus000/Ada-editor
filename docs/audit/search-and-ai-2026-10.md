@@ -234,7 +234,7 @@ Bing Webmaster Tools, a sitemap there, and IndexNow come before anything else ai
 4. **Content, about a page a week:**
    1. the agenda-platform research;
    2. Title II for meeting documents, with the current dates (April 26, 2027 and April 26, 2028), the lawsuit's status and DOJ's own examples. *Published 2026-10-12 at `/guides/title-ii-meeting-documents`, an Article like the research page, every claim checked against the regulation's text, DOJ's fact sheet or the docket. Left out, as no query asked for them: state laws, HHS's Section 504 dates, and the two exceptions that don't touch meeting documents;*
-   3. what "ADA compliant PDF" can and can't mean;
+   3. what "ADA compliant PDF" can and can't mean. *Published 2026-10-12 at `/guides/ada-compliant-pdf`, an Article sourced to the 508 standards, 28 CFR 35.200, the PDF Association (ISO 14289, Matterhorn Protocol 1.1), and our agenda-platform research. It ships with one decision: the site's tagline "Write documents that meet WCAG 2.1 AA and Section 508" (footer, default meta description, web manifest, share image and its alt text, README) contradicted the guide on its own page, so all copies became "Write documents checked against WCAG 2.1 AA". That resolves the messaging conflict research-niche.md recorded. Not in the footer: it has one guide slot, and the page is linked from the home Promise, Help and About instead;*
    4. accessible agenda and minutes templates;
    5. Word to tagged PDF;
    6. agendas as HTML or PDF;

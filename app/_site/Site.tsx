@@ -26,7 +26,7 @@ export function Site({ current, children }: { current?: 'about' | 'accessibility
         <div className="site-footer__cols">
           <div className="site-footer__about">
             <p className="site-brand"><span className="site-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</p>
-            <p>Write documents that meet WCAG 2.1 AA and Section 508, and know exactly what a checker can’t tell you.</p>
+            <p>Write documents checked against WCAG 2.1 AA, and know exactly what a checker can’t tell you.</p>
           </div>
           <nav aria-labelledby="site-foot-product">
             <h2 id="site-foot-product">Product</h2>

@@ -77,6 +77,14 @@ export const PAGES = [
     updated: '2026-10-12',
     kind: 'article',
   },
+  {
+    path: '/guides/ada-compliant-pdf',
+    title: 'What “ADA compliant PDF” can and can’t mean · Ada Editor',
+    description: 'What an “ADA compliant PDF” can mean (WCAG 2.1 AA, Section 508, PDF/UA), what checkers and PDF/UA labels can’t confirm, and how to make an accessible one.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
 ] as const satisfies readonly SitePage[];
 
 export type SitePath = (typeof PAGES)[number]['path'];

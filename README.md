@@ -26,7 +26,7 @@ axe-core in CI
 
 ---
 
-Write documents that meet WCAG 2.1 AA and Section 508.
+Write documents checked against WCAG 2.1 AA.
 
 A writing tool that checks documents for accessibility problems as you write —
 and is honest about the limits of what a checker can know.

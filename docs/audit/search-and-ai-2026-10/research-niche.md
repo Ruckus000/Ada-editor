@@ -249,3 +249,20 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
 - **The docket** (PacerMonitor, read 2026-10-12): entry 16, NFB's motion for summary judgment on 2026-09-28. Judge Richard D. Bennett. No cross-motion or ruling shown.
 - **What the complaint asks** (read in full, [browngold.com](https://browngold.com/wp-content/uploads/2026/05/NFB-v.-DOJ_5-21-2026.pdf)): its Prayer for Relief asks the court to "Hold unlawful, vacate, and/or set aside the IFRs" and declare them unlawful. It never asks to "restore" dates; that is the summaries' gloss, and it corrects "seeks to restore the original dates" above.
 - **The 2024 rule on agendas:** agendas, minutes and other documents for meetings after the compliance date "would likely not" be archived content (89 FR 31340), and "would generally need to conform to WCAG 2.1 Level AA" (89 FR 31362). Instructions for documents still in use aren't excepted, and "currently used" is "a fact-specific analysis" (89 FR 31365).
+
+### Addendum, 2026-10-12: sourced for the "ADA compliant PDF" guide
+- **Matterhorn Protocol 1.1** (PDF Association, April 2021; supersedes 1.02). It reads: "a set of 31 checkpoints comprised of 136 failure conditions… 87 failure conditions can be determined by software alone, 47 failure conditions usually require human judgment. 2 failure conditions have no specific tests (23-001 and 27-001)."
+  - Machine examples: 14-003 (skipped heading levels), 13-004 (Figure alt text missing), 06-003 (no dc:title).
+  - Human examples: 14-001 (headings not tagged), 16-003 (a list not tagged as a list), 06-004 (title doesn't identify the document).
+  - The 1.1 table adds 13-008 (human), so the table holds 137 conditions, 48 of them human, while the introduction still says 136 and 47. The PDF Association's `techniques-for-accessible-pdf/config/matterhorn.yaml` agrees with the table. The guide quotes the introduction and notes the addition.
+  - pdfa.org blocks scripted fetches; it was read in a browser.
+- **PDF Association, ISO 14289-1 page:**
+  - PDF/UA "provides a means of making PDF files that conform to" WCAG.
+  - "By itself, conformity to PDF/UA does not necessarily ensure the accessibility of a document's content", and colour and contrast are outside it.
+  - ISO 14289-2:2024 is PDF/UA-2, for PDF 2.0.
+- **Revised 508 Standards (Access Board):**
+  - E205.4: electronic content "shall conform to Level A and Level AA Success Criteria and Conformance Requirements in WCAG 2.0".
+  - Non-Web documents are excepted from 2.4.1, 2.4.5, 3.2.3 and 3.2.4.
+  - 702.10.1 incorporates WCAG 2.0 (December 11, 2008).
+- **PAC 2026.1:** free; Windows 10 or 11 with .NET Framework 4.8; checks ISO 14289 and WCAG.
+- **veraPDF:** an "open source, file-format validator covering all PDF/A and PDF/UA parts and conformance levels".
