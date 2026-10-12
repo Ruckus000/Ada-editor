@@ -110,7 +110,7 @@ export default function Page() {
             <h2 id="how-title">How to get one</h2>
             <ol>
               <li><strong>Make it accessible where you write it.</strong> Use real headings, lists and tables in Word or your editor, and write alt text there. A tagged export can only carry the structure the source document has. For meetings, our <Link href="/guides/accessible-agenda-minutes-templates">agenda and minutes templates</Link> have it built in.</li>
-              <li><strong>Export a tagged PDF.</strong> Use the export option that keeps tags, not Print to PDF or the print dialog’s Save as PDF, which drop the structure.</li>
+              <li><strong>Export a tagged PDF.</strong> Use the export option that keeps tags. Don’t print a Word document to PDF, through Print to PDF or the print dialog’s Save as PDF: in our sample of one agenda platform’s attachments, printed files carried no structure at all. Our guide to <Link href="/guides/word-to-tagged-pdf">turning a Word document into a tagged PDF</Link> has the steps for each program.</li>
               <li><strong>Run a checker.</strong> PAC (free, for Windows) checks PDF/UA and WCAG; veraPDF (free and open source) validates PDF/UA. Fix what they find.</li>
               <li><strong>Have a person read it,</strong> ideally with a screen reader, for the things software can’t judge.</li>
               <li><strong>Check the copy you posted.</strong> Some agenda and document systems strip tags when they publish. Our <Link href="/help#posting">steps for posting a PDF to an agenda system</Link> cover what to do.</li>
@@ -141,7 +141,9 @@ export default function Page() {
               <a href="https://github.com/Ruckus000/Ada-editor/issues/new?title=Guide%20correction%3A%20">Report a correction to this guide</a>{' '}
               (public, on GitHub).
             </p>
-            <p>None yet.</p>
+            <ul>
+              <li><time dateTime="2026-10-12">12 October 2026</time>: the advice against printing to PDF now applies to printing a Word document, and says where our evidence comes from. It had read as true of every print-to-PDF route, and some browsers do make tagged PDFs when they print.</li>
+            </ul>
           </section>
 
           <section id="sources" aria-labelledby="sources-title">

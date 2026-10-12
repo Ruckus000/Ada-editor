@@ -93,6 +93,14 @@ export const PAGES = [
     updated: '2026-10-12',
     kind: 'article',
   },
+  {
+    path: '/guides/word-to-tagged-pdf',
+    title: 'How to turn a Word document into a tagged PDF · Ada Editor',
+    description: 'Turn a Word document into a tagged PDF: what to fix first, then the export steps for Word on Windows, Mac and the web, Google Docs and LibreOffice.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
 ] as const satisfies readonly SitePage[];
 
 export type SitePath = (typeof PAGES)[number]['path'];
