@@ -40,7 +40,7 @@ This decision came out of three steps, all taken in October 2026.
 | Legistar | Mostly kept: re-saved, title replaced with the file number. But 7 served files in 2 of 16 cities had their tags removed somewhere (sample, October 12) | No packet to test | Converted to a tagged PDF | Moderate: served copies sampled in 16 cities; originals blocked |
 | PrimeGov / OneMeeting | Kept in FL town P1, **removed** in town P2 | **Removed** (both towns) | Untagged | Strong for packets |
 | CivicClerk | Kept, served as uploaded | Tags and headings kept (20 of 22 packets in the October 12 sample of 25 towns), but the document language is dropped (22 of 22) and the page stamps aren't marked, so it **fails PDF/UA** | Thinly tagged (paragraphs only) | Strong: sampled across 25 towns |
-| Municode Meetings | **No attachment link**, only "Agenda" and "Agenda Packet" | **Removed** (2 of 2 towns) | Not tested | Strong for packets |
+| Municode Meetings | **No attachment link**, only "Agenda" and "Agenda Packet" | **Removed** in 7 of 7 towns (2 in the research, 5 by browser collection on October 12) | Not tested | Strong for packets |
 | Diligent Community / iCompass | Only Diligent's rebuilt PDFs are public | **Re-tagged as plain paragraphs**, yet labelled PDF/UA-1 | The vendor says not to rely on it | One town |
 | CivicPlus Agenda Center | Kept, served as uploaded | Untagged when the platform builds it; the clerk can upload their own | Not tested | Moderate |
 | OnBase (FL town O1) | Kept, served as uploaded | None published | Untagged | One meeting |
@@ -201,9 +201,28 @@ Sampled 41 Florida towns on 2 platform(s), meetings from 2026-08-25 to 2026-10-1
 - **Three quarters of CivicClerk attachments, and over half of Legistar's, arrive tagged.** Most CivicClerk "converter" pages are CivicClerk's own conversions of uploaded Word and Excel files. Printed-to-PDF files (17% of CivicClerk attachment pages) carry no structure at all.
 - **Legistar: some files reach the public with their tags removed.** 7 served attachments in 2 of 16 cities carry tag remnants without a tree, including Word files, which are always tagged when saved normally. The research's one file from town L2 kept its tags through Legistar's re-save. Without the stored originals (behind robots.txt), the sampler can't tell whether Legistar or the author removed the tags. **This needs a person to compare a few originals with their served copies in a browser.**
 - **Packets are mostly Word, editors and scans.** Office files are 31% (CivicClerk) and 52% (Legistar) of attachment pages, plus most of CivicClerk's converter pages. Scans are 6% and 9%. That is more Word than decision 5 assumed, but the sample is pages from attachments, not whole packets, and Office origin doesn't mean the clerk wrote it.
-- **Not measured:** PDF/UA conformance of the packets (run with `--vera` for that), and anything on PrimeGov, Municode Meetings or Diligent.
+- **Not measured:** PDF/UA conformance of the packets (run with `--vera` for that), and anything on PrimeGov or Diligent. Municode Meetings was measured by hand instead; see below.
 
 Per-town rows are on the machine that ran the sampler and are not committed.
+
+### Browser collection: Municode Meetings
+
+**October 12, 2026.** The owner opened five more Florida towns' Municode Meetings pages in a browser and copied the links to the latest meeting's Agenda and Agenda Packet (route 2 above). The files themselves sit on Azure storage that serves our tool, so the comparison ran with the sampler's fetcher and `comparePacket`. This took 11 requests and 101 MB.
+
+| Measure | Result |
+|---|---|
+| Towns | 5 (plus 2 in the October research) |
+| Agendas | 5 of 5 tagged Word PDFs (42 to 108 structure elements each), language set |
+| Packets | 5 of 5 **removed**: no structure tree. 554 of their 844 pages still point into a tree that was dropped |
+| Packet language | dropped in 5 of 5 |
+| Packet built by | the platform in 5 of 5 (Aspose.PDF for .NET 23.8.0), not the clerk |
+
+**What it says:**
+- **Municode Meetings removes every tag from every packet it builds:** 7 of 7 towns, with the same library version each time. This is the platform's merge, not the clerks: their agendas arrive tagged.
+- **On Municode, an Ada document is accessible in the packet only if the platform changes.** There's no per-item attachment link, so the agenda is the only separately posted file. For anything else, decision 1's guidance (post the PDF on the town website too) is the only route a clerk has.
+- **The same company's other product keeps the tags.** CivicPlus owns both Municode Meetings and CivicClerk, and both build packets with Aspose.PDF. CivicClerk (22.12) keeps the attachments' structure, while Municode Meetings (23.8) drops it. That makes a concrete, fixable report to CivicPlus, and the strongest opening for the research-access request in route 1.
+
+Per-town results and the town key are kept outside the repository.
 
 ## Discovery calls with clerks
 
