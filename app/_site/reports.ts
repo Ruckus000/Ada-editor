@@ -36,6 +36,8 @@ export function scrubReport(event: ErrorEvent): ErrorEvent {
   // extra, Postgres's "Failing row contains (…)" with it: the document itself.
   delete event.extra;
   delete event.user;
+  // Timezone and locale: more about the person than a bug needs.
+  delete event.contexts?.culture;
   // Only the page and the browser; the Referer can name another document.
   const { url, headers } = event.request ?? {};
   event.request = { ...(url && { url: scrubUrl(url) }), ...(headers?.['User-Agent'] && { headers: { 'User-Agent': headers['User-Agent'] } }) };

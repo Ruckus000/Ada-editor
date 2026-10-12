@@ -87,6 +87,7 @@ check('a long message is cut', valueOf(report({ exception: { values: [{ type: 'E
 check('extra goes (a Supabase error is a plain object; its details hold the failing row)',
   report({ extra: { __serialized__: { code: '23514', details: 'Failing row contains (Budget hearing, …)' } } }).extra, undefined);
 check('no user, so no IP address', report({ user: { ip_address: '{{auto}}' } }).user, undefined);
+check('no timezone or locale', report({ contexts: { culture: { timezone: 'America/New_York', locale: 'en-US' }, browser: { name: 'Chrome' } } }).contexts, { browser: { name: 'Chrome' } });
 check('the page goes as its route, with no query or fragment',
   report({ request: { url: `${SITE}/editor/${UID}?from=desk#h2`, headers: { 'User-Agent': 'Safari', Referer: `${SITE}/editor/budget-hearing` } } }).request,
   { url: `${SITE}/editor/[docId]`, headers: { 'User-Agent': 'Safari' } });

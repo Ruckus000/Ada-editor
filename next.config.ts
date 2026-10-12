@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next';
-import { withSentryConfig } from '@sentry/nextjs';
+import { withSentryConfig } from '@sentry/nextjs/config';
 
 // Error reporting is browser-only by choice (app/_site/sentry.ts), so the
 // plugin's "no server instrumentation file" warning is expected.
@@ -60,6 +60,8 @@ export default withSentryConfig(nextConfig, {
   telemetry: false,
   silent: !process.env.CI,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // Every chunk, not just the pages': the editor's code lives in shared ones.
+  widenClientFileUpload: true,
   webpack: {
     autoInstrumentServerFunctions: false,
     autoInstrumentMiddleware: false,

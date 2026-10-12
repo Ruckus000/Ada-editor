@@ -35,7 +35,7 @@ I proposed a small reporter of our own: an endpoint, a Supabase table and an ema
 
    Clicks and console lines are dropped. Page changes and network requests stay, with queries and fragments removed, ids replaced by `[id]`, and editor addresses sent as `/editor/[docId]`.
 
-Reports carry no user (so Sentry has no IP address to infer), no Referer header, and no session pings. Session pings count visits per release, which is counting the privacy page doesn't list. The analytics gate (`scripts/verify-analytics.mjs`) checks each rule with crafted reports, and fails if anything tells Sentry who the visitor is.
+Reports carry no user, no Referer header, no timezone or locale, and no session pings. Session pings count visits per release, which is counting the privacy page doesn't list. The analytics gate (`scripts/verify-analytics.mjs`) checks each rule with crafted reports, and fails if anything tells Sentry who the visitor is.
 
 **What would change it:** a report in Sentry that shows document text. That means a new way in, which then gets a rule here and a check in the gate.
 
@@ -76,6 +76,16 @@ Global Privacy Control turns off the visit counting, because counting is optiona
 The app does almost nothing on the server: it serves pages and stores documents in Supabase. Vercel keeps the server's logs. There's no server-side Sentry, and the build's warning about the missing server file is switched off on purpose.
 
 **What would change it:** server routes that do real work.
+
+### Location, from the connection
+
+The first live test showed that Sentry works out a city from the connection, even though it doesn't keep the IP address and the SDK attaches no user. Reports still reach Sentry with the visitor's address, forwarded by `/monitoring`. Sentry's settings don't promise to stop this, so the privacy page says it, in the same words as the visit counting: country, region and city, from your connection.
+
+**What would change it:** a Sentry setting that verifiably stops location lookups, or a forwarder of our own that strips the address. At that point the sentence comes off the privacy page.
+
+### Source maps for every chunk
+
+By default the plugin uploads source maps only for the page-level chunks. The first live test's stack trace stayed minified, because the code it ran through sits in a shared chunk, and so does most of the editor. `widenClientFileUpload` uploads them all, at the cost of a slightly longer build.
 
 ## Setup that lives outside the code
 
