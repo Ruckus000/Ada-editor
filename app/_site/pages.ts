@@ -70,6 +70,14 @@ export const PAGES = [
     kind: 'article',
   },
   {
+    path: '/research/wcag-meeting-documents',
+    title: 'WCAG 2.1 AA for meeting documents: what a checker can decide · Ada Editor',
+    description: 'All 50 WCAG 2.1 A and AA criteria for agendas, packets and minutes: which come up, which software can decide, and which need a person.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
+  {
     path: '/guides/title-ii-meeting-documents',
     title: 'ADA Title II and meeting documents: the dates, the exceptions · Ada Editor',
     description: 'When ADA Title II requires accessible agendas, packets and minutes: the 2027 and 2028 dates, the archive and preexisting exceptions, and DOJ’s examples.',

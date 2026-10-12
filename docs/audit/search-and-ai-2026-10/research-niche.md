@@ -305,3 +305,22 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
   - images of text: put the text in `alt`, or use an empty `alt` if the text is already nearby;
   - complex information: "Include the information contained in the image elsewhere on the page";
   - "purely decorative": "Use an empty `alt` attribute".
+
+### Addendum, 2026-10-12: sourced for the WCAG-by-criterion page
+- **28 CFR 35.200** (eCFR, issue of 2026-10-08): web content must "comply with Level A and Level AA success criteria and conformance requirements specified in WCAG 2.1", from April 26, 2027 or April 26, 2028. No criterion is excepted; the exceptions in 35.201 are by kind of content. It incorporates the 2018 edition (`REC-WCAG21-20180605`).
+- **WCAG 2.1, 4.1.1 Parsing:** the current edition's note, "This Success Criterion should be considered as always satisfied for any content using HTML or XML", isn't in the 2018 edition.
+- **W3C, WCAG2ICT** (Group Note, 11 December 2025), which "does not set requirements":
+  - 2.4.1, 2.4.5, 3.2.3 and 3.2.4 are read as applying to a "set of non-web documents";
+  - 1.4.4: a viewer that zooms to 200% satisfies it, unless the content doesn't work with that zoom;
+  - 1.4.10: where a document type's viewers don't support reflow, meeting it "may not be possible";
+  - 1.4.12: only for documents in markup languages that let the user change spacing;
+  - 1.3.5: technologies without input-purpose attributes are "not in scope";
+  - 4.1.1: satisfied for a PDF, which isn't authored in a markup language.
+- **Section 508, E205.4:** WCAG 2.0 Level A and AA, with an exception: "Non-Web documents shall not be required to conform" to 2.4.1, 2.4.5, 3.2.3 and 3.2.4.
+- **W3C WAI, Selecting Web Accessibility Evaluation Tools:** "Tools cannot check all accessibility aspects automatically. Human judgement is required."
+- **The fact check** (a fresh agent, before the PR) found 6 errors, all fixed. Among them:
+  - 4.1.1 and 3.1.1 had been marked "Software";
+  - 2.1.1 had been filed under forms only, though links need it;
+  - a sentence claimed Apply fix appears only when a fix is certain. That isn't true: it appears on some "Needs your call" findings, and it's the primary action wherever it exists.
+
+  Software now decides none of the 22 criteria that come up in every meeting document on its own.

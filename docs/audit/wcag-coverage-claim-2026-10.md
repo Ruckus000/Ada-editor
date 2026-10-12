@@ -55,3 +55,7 @@ A primary source that counts WCAG 2.1 AA success criteria by whether software
 can decide them, for documents. Or our own count: classify each criterion as
 machine-decidable, partly or needs a person, record it here, and state the result
 with that as its source.
+
+**2026-10-12:** done for meeting documents. [`/research/wcag-meeting-documents`](../../app/research/wcag-meeting-documents/page.tsx)
+sorts all 50 WCAG 2.1 A and AA criteria, gives its reason for each row, and
+computes its counts from that table. It still claims no share of WCAG in general.
