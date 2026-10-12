@@ -10,7 +10,7 @@
  * Errors come back as values ({ ok: false, reason }) so a batch can carry on.
  */
 
-export const USER_AGENT = 'Ada Editor platform research (+https://www.adaedit.com/help#posting)';
+export const USER_AGENT = 'Ada Editor platform research (+https://www.adaedit.com/research/agenda-platforms#method)';
 const BLOCK_STATUSES = new Set([401, 403, 429, 503]);
 const DROPPED = /other side closed|ECONNRESET|socket hang up|ENHANCE_YOUR_CALM|empty reply/i;
 const MB = 1024 * 1024;

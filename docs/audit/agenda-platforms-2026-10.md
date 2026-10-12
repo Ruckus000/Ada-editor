@@ -3,10 +3,11 @@
 **The question:** a town clerk exports a tagged PDF from Ada Editor and posts it through the town's agenda system. Is it still accessible when a resident opens it?
 
 **What I looked at:**
-- 23 public files from 9 Florida towns and cities on 7 agenda platforms, from meetings held between July and October 2026.
+- 23 public files from 10 Florida towns and cities on 7 agenda platforms, from meetings held between July and October 2026. (This said 9 until October 12, 2026; the notes' own table lists 10.)
 - Spot checks in Boulder CO, Burbank CA, Dubuque IA, Wethersfield CT and Battle Creek MI.
 - Vendor documentation, accessibility statements and release notes.
 - The full evidence is in [`agenda-platforms-2026-10/`](agenda-platforms-2026-10/): [the report](agenda-platforms-2026-10/report.md) and [the four research notes](agenda-platforms-2026-10/notes/).
+- **Published** on October 12, 2026 at [adaedit.com/research/agenda-platforms](https://www.adaedit.com/research/agenda-platforms) (`app/research/agenda-platforms/page.tsx`), naming platforms and never towns, as decision 6 below requires. A change to a finding here changes that page too, with a dated correction line and a new `updated` date in `app/_site/pages.ts`.
 
 ## The one-line verdict
 
@@ -22,7 +23,7 @@ This decision came out of three steps, all taken in October 2026.
 
 ## Method and its limits
 
-- **Structure, not validation.** Every finding comes from reading the files' internals: the tag tree (StructTreeRoot), MarkInfo, `/Lang`, the ParentTree, page `/StructParents` keys, tag counts by type, and Producer strings. Nobody ran veraPDF or PAC on a platform's output.
+- **Structure, not validation.** Every finding comes from reading the files' internals: the tag tree (StructTreeRoot), MarkInfo, `/Lang`, the ParentTree, page `/StructParents` keys, tag counts by type, and Producer strings. No finding rests on veraPDF or PAC. veraPDF was later run on two pairs of platform files only, while testing `check-posted` (decision 4).
 - **Small samples.** Most platforms rest on one or two towns, and a town's own settings may change the result. PrimeGov/OneMeeting gave opposite results in two towns.
 - **Not tested.**
   - eSCRIBE and BoardDocs blocked automated downloads.
@@ -119,7 +120,7 @@ Decided October 12, 2026, after the owner asked whether the pilot could be run w
   - eSCRIBE and BoardDocs block scripted downloads, as the research found.
 
   That leaves **CivicClerk and Legistar** for automated sampling. For Legistar, only the served copies: most clients' stored originals sit on legistar.granicus.com, whose robots.txt disallows crawlers. The other platforms need one of the routes in "What the sampler can't reach" below. crt.sh, the usual source for finding a platform's customers, disallows crawling too, so towns are found through the Wayback Machine's index instead.
-- **A correction to the October research.** Its scripted downloads from PrimeGov, Municode and Diligent didn't check robots.txt. Those findings stand as observations of public files, but the same method won't be repeated. From now on, every automated request goes through the sampler's fetcher, which checks robots.txt first.
+- **A correction to the October research.** Its scripted downloads from PrimeGov, Municode and Diligent, and of stored Legistar originals from legistar.granicus.com, didn't check robots.txt. Those findings stand as observations of public files, but the same method won't be repeated. From now on, every automated request goes through the sampler's fetcher, which checks robots.txt first.
 
 ## What would change these decisions
 

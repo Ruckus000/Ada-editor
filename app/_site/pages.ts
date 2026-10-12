@@ -20,6 +20,9 @@ type SitePage = {
   published: string;
   /** YYYY-MM-DD, the last change to what the page says. */
   updated: string;
+  /** Research and guides: dated, bylined, with Article markup that the search
+   *  gate holds to these dates (articleData in JsonLd.tsx). */
+  kind?: 'article';
 };
 
 export const PAGES = [
@@ -57,6 +60,14 @@ export const PAGES = [
     description: 'Who makes Ada Editor (YourLaunchPad LLC), why it exists, what it promises about compliance claims and your documents, and how to reach a person.',
     published: '2026-10-12',
     updated: '2026-10-12',
+  },
+  {
+    path: '/research/agenda-platforms',
+    title: 'Do agenda platforms keep accessible PDFs accessible? · Ada Editor',
+    description: 'What Legistar, CivicClerk, PrimeGov, Municode, Diligent, CivicPlus and OnBase do to tagged PDFs: attachment links, agenda packets and Word uploads.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
   },
 ] as const satisfies readonly SitePage[];
 

@@ -41,6 +41,8 @@ const BOT = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; OAI-
 /** The app's private routes: never in the sitemap, always noindex. A real path
  *  stands in for each dynamic route. Keep in step with next.config.ts headers(). */
 const PRIVATE = { '/desk': '/desk', '/editor/[docId]': '/editor/hearing-notice', '/sign-in': '/sign-in', '/sign-up': '/sign-up' };
+/** Who writes and publishes the site's articles (app/_site/JsonLd.tsx). */
+const MAKER = 'YourLaunchPad LLC';
 /** What the home page owes Google's site name and the entity behind the product. */
 const HOME_TYPES = ['WebSite', 'Organization', 'WebApplication'];
 
@@ -173,6 +175,30 @@ async function robotsAndSitemap(pages) {
   return locs;
 }
 
+/* ---------- articles: one date everywhere ---------- */
+
+// An article's dates appear three times: on the page, in its Article markup
+// and in the sitemap (from the registry). Search engines and AI answers weigh
+// freshness, and Google calls mismatched dates a reason to distrust them, so
+// all three must be the registry's. The byline must be the maker's.
+function article(entry, nodes, main) {
+  const art = nodes.find((n) => [n['@type']].flat().includes('Article'));
+  if (!art) { fail('ARTICLE  an article page has no Article structured data'); return; }
+  const byId = (ref) => (ref?.['@id'] ? nodes.find((n) => n['@id'] === ref['@id']) : ref);
+  if (art.datePublished !== entry.published) fail(`ARTICLE  datePublished is ${JSON.stringify(art.datePublished)}; the registry says ${entry.published}`);
+  if (art.dateModified !== entry.updated) fail(`ARTICLE  dateModified is ${JSON.stringify(art.dateModified)}; the registry says ${entry.updated}`);
+  for (const role of ['author', 'publisher']) {
+    const who = byId(art[role]);
+    if (who?.name !== MAKER) fail(`ARTICLE  ${role} is ${JSON.stringify(who?.name ?? art[role])}, not ${MAKER} (an @id must resolve on the page)`);
+  }
+  // React writes `dateTime`; HTML attribute names ignore case, linkedom doesn't.
+  const shown = new Set([...(main?.querySelectorAll('time') ?? [])].map((t) => t.getAttribute('datetime') ?? t.getAttribute('dateTime')));
+  for (const [label, date] of [['published', entry.published], ['updated', entry.updated]]) {
+    if (!shown.has(date)) fail(`ARTICLE  the page doesn't show its ${label} date (<time dateTime="${date}">)`);
+  }
+  if (!failures.some((f) => f.startsWith(`[${page}] ARTICLE`))) note(`Article markup by ${MAKER}, dated as the page and the sitemap say`);
+}
+
 /* ---------- each listed page, as served ---------- */
 
 const seen = { titles: new Map(), descriptions: new Map() };
@@ -231,14 +257,19 @@ async function listed(loc, pages) {
   }
 
   const types = new Set();
+  const nodes = [];
   for (const block of document.querySelectorAll('script[type="application/ld+json"]')) {
     try {
       const data = JSON.parse(block.textContent);
-      for (const node of [data, ...(data['@graph'] ?? [])]) for (const t of [node['@type']].flat()) if (t) types.add(t);
+      for (const node of [data, ...(data['@graph'] ?? [])]) {
+        nodes.push(node);
+        for (const t of [node['@type']].flat()) if (t) types.add(t);
+      }
     } catch (error) {
       fail(`JSON-LD  a block does not parse: ${error.message}`);
     }
   }
+  if (entry?.kind === 'article') article(entry, nodes, main);
   if (path === '/') {
     const missing = HOME_TYPES.filter((t) => !types.has(t));
     if (missing.length) fail(`JSON-LD  the home page has no ${missing.join(', ')}`);

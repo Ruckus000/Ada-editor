@@ -192,6 +192,12 @@ The [agenda-platforms research](agenda-platforms-2026-10.md) becomes a public pa
 
 **Why:** nobody else has documented what agenda systems do to tagged PDFs. Original research is what both people and AI answers cite, and it's the strongest reason for anyone to link to the site.
 
+**Where it stands (2026-10-12):** the page is `/research/agenda-platforms`. Two rulings by the owner came with it:
+- **Platforms only.** Vendors are named; towns are not, and no town's files are linked. This keeps decision 6 of the research record.
+- **Corrections through a GitHub issue form** (`.github/ISSUE_TEMPLATE/research-correction.yml`). They're public before anyone checks them, and the owner accepted that.
+
+Article pages carry `kind: 'article'` in `app/_site/pages.ts`. The search gate holds their Article markup, their visible dates and the sitemap to the registry's dates, and their byline to YourLaunchPad LLC. Every claim on the page was checked against the evidence before publishing.
+
 ### 9. A monthly presence check, not a share-of-voice tool
 
 Twelve questions, as a clerk would ask them, go to four engines each month ([the presence check](search-and-ai-2026-10/presence-check.md)).

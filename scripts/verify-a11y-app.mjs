@@ -1585,6 +1585,7 @@ try {
   await staticPage('/privacy', 'Privacy · Ada Editor');
   await staticPage('/help', 'Help · Ada Editor');
   await staticPage('/about', 'About · Ada Editor');
+  await staticPage('/research/agenda-platforms', 'Do agenda platforms keep accessible PDFs accessible? · Ada Editor');
   await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
   await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();

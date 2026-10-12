@@ -1,0 +1,49 @@
+name: Research correction
+description: Something on adaedit.com/research/agenda-platforms is wrong or out of date.
+title: "Research correction: "
+labels: ["research"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. We check every correction, update the page, and list the change on it with its date.
+        This is public: please don't include anything private, and don't name a town unless its files are already public.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Legistar
+        - PrimeGov / OneMeeting
+        - CivicClerk
+        - Municode Meetings
+        - Diligent Community / iCompass
+        - CivicPlus Agenda Center
+        - OnBase Agenda Online
+        - Another platform
+        - The method or the page in general
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What the page says, and what's wrong with it
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Your evidence
+      description: Public links to files or documentation, release notes, or how you tested.
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: You are
+      options:
+        - With the vendor
+        - A clerk or staff member who posts through it
+        - Someone else
+    validations:
+      required: false
