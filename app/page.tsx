@@ -38,8 +38,8 @@ export default function Page() {
           </p>
           <div className="site-actions">
             <Link href={START} className="ada-button ada-button--primary">Write your first document</Link>
-            <Link href={START} className="ada-button ada-button--secondary">Upload a .docx</Link>
-            {/* ponytail: both go to sign-in; add an ?import deep link if the upload CTA should open the picker */}
+            <Link href={START} className="ada-button ada-button--secondary">Import a Word file</Link>
+            {/* Both go to sign-up: a new account's empty desk offers Import a Word file first, and a file picker can't open without a click. */}
           </div>
           {/* Also in the description and structured data (app/_site/): keep all three in step. */}
           <p className="site-hero__note">Free during early access.</p>
