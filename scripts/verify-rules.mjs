@@ -1381,6 +1381,27 @@ check('table-no-header: a table without header cells blocks, and the fix makes r
   assert(!mod.editorCommands.makeFirstRowHeader(0)(state), 'no table at the position: no-op');
 });
 
+check('table-no-header: a layout table turns into text, in reading order', () => {
+  // The walkthrough's officials, laid out in a grid: headers would be wrong.
+  const { EditorState } = mod.pmState;
+  const { tableToText } = mod.editorCommands;
+  const blank = { td: [N.paragraph.create()] };
+  const grid = doc(para('Members'), table([['Mayor', 'Commissioner, District 1'], ['Vice Mayor', blank]], 'City Commission'), para('After.'));
+  let state = EditorState.create({ doc: grid });
+  const at = grid.child(0).nodeSize;
+  assert(tableToText(at)(state, (tr) => { state = state.apply(tr); }), 'it applies');
+  deepEq(state.doc.content.content.map((n) => `${n.type.name}:${n.textContent}`),
+    ['paragraph:Members', 'paragraph:City Commission', 'paragraph:Mayor', 'paragraph:Commissioner, District 1', 'paragraph:Vice Mayor', 'paragraph:After.'],
+    'caption first, then each cell row by row; the empty cell is dropped');
+  eq(mod.check.checkDocument(state.doc, { prose: false }).filter((f) => f.ruleId === 'table-no-header').length, 0, 'no table, no finding');
+  // A document that was only an empty table keeps a paragraph to type in.
+  let empty = EditorState.create({ doc: doc(table([[blank, blank]])) });
+  assert(tableToText(0)(empty, (tr) => { empty = empty.apply(tr); }), 'an empty table applies');
+  eq(empty.doc.childCount, 1, 'one block left');
+  eq(empty.doc.child(0).type.name, 'paragraph', 'an empty paragraph');
+  assert(!tableToText(0)(EditorState.create({ doc: doc(para('x')) })), 'no table at the position: no-op');
+});
+
 check('table-merged-cells: merged cells get a gentle advisory; cells are still checked inside tables', () => {
   const { checkDocument } = mod.check;
   const findings = (d) => checkDocument(d, { prose: false });

@@ -247,6 +247,24 @@ export const makeFirstRowHeader = (tablePos: number): Command => (state, dispatc
   return true;
 };
 
+/** A table that only lays text out side by side, as plain text: its caption,
+ *  then each cell's content in reading order (row by row), empty cells
+ *  dropped. The other way out of table-no-header, for layout tables. */
+export const tableToText = (tablePos: number): Command => (state, dispatch) => {
+  const table = state.doc.nodeAt(tablePos);
+  if (!table || table.type !== N.table) return false;
+  if (dispatch) {
+    const caption = String(table.attrs.caption ?? '');
+    const blocks: PMNode[] = caption ? [N.paragraph!.create(null, schema.text(caption))] : [];
+    table.forEach((row) => row.forEach((cell) => cell.forEach((block) => {
+      if (block.textContent.trim() || block.type === N.figure) blocks.push(block);
+    })));
+    if (!blocks.length) blocks.push(N.paragraph!.create());
+    dispatch(state.tr.replaceWith(tablePos, tablePos + table.nodeSize, blocks).scrollIntoView());
+  }
+  return true;
+};
+
 export interface NewTable {
   rows: number;
   cols: number;
