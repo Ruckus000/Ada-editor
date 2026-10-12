@@ -34,7 +34,7 @@ export const ADAPTERS = {
 /**
  * Adapters written but switched off, with the reason. PrimeGov's parser was
  * checked against the October research's captures, but its tenants' robots.txt
- * disallows everything (Oviedo and Boulder, 2026-10-12), so it can't run.
+ * disallows everything (two tenants checked, 2026-10-12), so it can't run.
  */
 export const DISABLED = {
   primegov: 'robots.txt on PrimeGov tenants disallows all crawlers (checked 2026-10-12)',
