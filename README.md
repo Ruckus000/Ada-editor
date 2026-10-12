@@ -193,6 +193,7 @@ npm run dev        # the app, in local mode: the landing page at http://localhos
 npm run verify     # typecheck, verifier tests, analytics gate, engine gate, PDF gate, token gate, accessibility gates, search gate
 npm run seo        # the public pages as a crawler that runs no JavaScript sees them (titles, canonicals, sitemap, noindex)
 npm run analytics  # what counting may send: /editor/[docId] for documents, no fragments, nothing under Global Privacy Control
+npm run indexnow -- /about   # once a new or changed page is live: tells Bing (and so Copilot) to recrawl it
 npm run preview    # the design-system preview at http://127.0.0.1:8080
 ```
 

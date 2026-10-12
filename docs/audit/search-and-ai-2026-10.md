@@ -207,9 +207,11 @@ Bing Webmaster Tools, a sitemap there, and IndexNow come before anything else ai
 
 **Why:** Copilot answers come from Bing, and ChatGPT partly does too. Brave, which Claude searches, has no submission at all, so links from pages it already knows (GitHub, the W3C list, directories) are the only way in.
 
+**Where it stands (2026-10-12):** Search Console (a domain property, verified by a DNS record) and Bing Webmaster Tools are set up. IndexNow is wired: the key lives in `app/_site/pages.ts`, its file in `public/`, and the search gate checks the file is served. Run `npm run indexnow -- <paths>` once a new or changed page is live. Only for changes to what a page says, since engines treat code-only resubmissions as noise. It doesn't run on its own yet. If pages change often enough to forget it, have CI submit the pages whose `updated` date changed.
+
 ## The plan, and where it stands
 
-1. **This PR: a home page search engines can read.** It covers:
+1. **First PR: a home page search engines can read.** It covers:
    - the route change;
    - canonical addresses;
    - robots.txt and the sitemap;
@@ -219,7 +221,7 @@ Bing Webmaster Tools, a sitemap there, and IndexNow come before anything else ai
    - the search gate in CI.
 2. **Second PR: counting visits without cookies.** Analytics, events, the privacy page and an About page (decision 7).
 3. **Owner setup, week 1:**
-   - Search Console (a DNS record on Vercel DNS) and Bing Webmaster Tools, with the sitemap;
+   - Search Console (a DNS record on Vercel DNS) and Bing Webmaster Tools, with the sitemap (done 2026-10-12), and IndexNow (third PR);
    - GitHub's description ("A document editor that checks your writing against WCAG 2.1 AA as you type, and exports tagged PDF/UA-1 and HTML"), its homepage and its topics;
    - a link from yourlaunchpad.org;
    - the first presence check.

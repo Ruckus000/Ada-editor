@@ -6,7 +6,8 @@
  * its title, description, canonical address, headings, words and structured
  * data — has to be in the HTML the server sends. Also checks robots.txt and
  * the sitemap, noindex on the app's private routes, the /welcome redirect,
- * and that the production .vercel.app alias stays out of search.
+ * that the production .vercel.app alias stays out of search, and the IndexNow
+ * key file that lets the site tell Bing about changed pages.
  * Why: docs/audit/search-and-ai-2026-10.md.
  *
  *   node scripts/verify-seo.mjs [--verbose] [--no-build]
@@ -56,8 +57,7 @@ async function loadPages() {
   if (!existsSync(REGISTRY)) return null;
   // Type-only imports, so the bundle is the registry and nothing else.
   const out = await build({ entryPoints: [REGISTRY], bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'silent' });
-  const { PAGES } = await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
-  return PAGES;
+  return import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
 }
 
 /* ---------- serve the app ---------- */
@@ -117,6 +117,21 @@ function registry(pages) {
     else if (p.updated > today) fail(`DATES  ${p.path} is dated ${p.updated}, in the future`);
   }
   note(`${pages.length} pages, dates checked`);
+}
+
+/* ---------- IndexNow: the key file that proves submissions come from this site ---------- */
+
+// Bing (and so Copilot) and other IndexNow engines fetch https://www.adaedit.com/<key>.txt
+// before they accept a submission (scripts/indexnow.mjs); without it every one is refused.
+async function indexNowKey(key) {
+  page = 'IndexNow key';
+  if (!/^[0-9a-f]{32}$/.test(key ?? '')) { fail(`INDEXNOW  INDEXNOW_KEY in app/_site/pages.ts must be 32 hex characters (got ${JSON.stringify(key)})`); return; }
+  page = `/${key}.txt`;
+  const res = await get(`/${key}.txt`);
+  if (res.status !== 200) fail(`INDEXNOW  the key file answered ${res.status}: add public/${key}.txt`);
+  else if (res.body.trim() !== key) fail(`INDEXNOW  the key file holds ${JSON.stringify(res.body.trim())}, not the key`);
+  else if (!/^text\/plain/.test(String(res.headers['content-type']))) fail(`INDEXNOW  the key file is served as ${res.headers['content-type']}, not text/plain`);
+  else note('the IndexNow key file is served, holding the key');
 }
 
 /* ---------- robots.txt and the sitemap ---------- */
@@ -303,7 +318,8 @@ function coverage(locs) {
 }
 
 try {
-  const pages = await loadPages();
+  const registryModule = await loadPages();
+  const pages = registryModule?.PAGES;
   if (!pages) {
     page = 'app/_site/pages.ts';
     fail('REGISTRY  no page registry: the sitemap, titles and descriptions come from app/_site/pages.ts');
@@ -314,6 +330,7 @@ try {
   await redirects();
   await hosts();
   coverage(locs);
+  await indexNowKey(registryModule?.INDEXNOW_KEY);
 } finally {
   server.kill();
 }
