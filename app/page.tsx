@@ -117,7 +117,7 @@ export default function Page() {
               <span>reading .docx in your browser</span><strong>0 bytes uploaded</strong>
             </div>
             <h3>Private by construction</h3>
-            <p>Word files are read on your device. Saved documents are stored privately: only you can open them, and they sync after you reconnect.</p>
+            <p>Word files are read on your device. Saved documents are stored privately: no other account can open them, and they sync after you reconnect.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-small" aria-hidden="true">

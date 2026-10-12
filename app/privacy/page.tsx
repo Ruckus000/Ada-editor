@@ -37,7 +37,7 @@ export default function Page() {
                 <tbody>
                   <tr><th scope="row">Your email address</th><td>To send you sign-in codes</td><td>You delete your account</td></tr>
                   <tr><th scope="row">The documents you write or import</th><td>So they’re there when you come back</td><td>You delete them, or your account</td></tr>
-                  <tr><th scope="row">The images you add to your documents</th><td>Stored privately in your account: only you can open them</td><td>No document of yours uses them (below)</td></tr>
+                  <tr><th scope="row">The images you add to your documents</th><td>Stored privately in your account: no other account can open them</td><td>No document of yours uses them (below)</td></tr>
                   <tr><th scope="row">A sign-in session</th><td>Stored in your browser, so you stay signed in</td><td>You sign out</td></tr>
                   <tr><th scope="row">Messages you send us from this page, with your email address</th><td>So we can reply</td><td>You delete your account</td></tr>
                   <tr><th scope="row">Error reports, when something in Ada Editor breaks</th><td>So we can fix it. A report says what broke, where in our code, which page (a document’s as <code>/editor/[docId]</code>), your browser, operating system and kind of device, and your country, region and city (Sentry works them out from your connection and doesn’t keep your IP address). Never what a document says, and it isn’t linked to your account.</td><td>Sentry deletes them, within 90 days</td></tr>
