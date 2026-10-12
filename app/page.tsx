@@ -110,7 +110,7 @@ export default function Page() {
               <span className="site-chip site-chip--primary">Go to text</span><span className="site-chip">Dismiss</span>
             </div>
             <h3>The findings list is the interface</h3>
-            <p>Keyboard-first and announced to screen readers. When no safe fix exists, “Go to text” is the primary action.</p>
+            <p>Keyboard-first and announced to screen readers. Most findings lead with “Go to text”. “Apply fix” appears only where software can make the change.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-card__art--stack site-small" aria-hidden="true">

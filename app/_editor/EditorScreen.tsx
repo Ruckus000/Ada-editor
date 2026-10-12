@@ -96,7 +96,7 @@ const wordsIn = (state: EditorState) =>
 const EDITOR_TOUR: TourStep[] = [
   { target: '#document-text', title: 'Write here', body: 'Structure checks run as you type: headings, links, images, tables, contrast. Wording checks run when you leave the page or choose Recheck.' },
   { target: 'aside[aria-label="Accessibility findings"]', title: 'Your findings', body: 'Most serious first, each with the WCAG criterion it comes from. Filter by severity at the top.' },
-  { target: 'aside [role="group"][aria-labelledby^="finding-"]', title: 'Work through one', body: 'Go to text takes you to it. Apply fix appears when the fix is certain. Learn more explains the check.' },
+  { target: 'aside [role="group"][aria-labelledby^="finding-"]', title: 'Work through one', body: 'Go to text takes you to it. Where software can make the change, Apply fix comes first, but on findings marked Needs your call, you decide whether to use it. Learn more explains the check.' },
   { target: '.tour-export', title: 'Export when you’re ready', body: 'Save a web page or a tagged PDF. Exports keep the document exactly as it is.' },
 ];
 
