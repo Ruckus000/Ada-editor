@@ -18,10 +18,10 @@ import { report } from '../_site/sentry';
 import { BrandMark } from '../_site/BrandMark';
 import { Tour } from '../_tour/Tour';
 import type { TourStep } from '../_tour/Tour';
-import { putImage } from '../_data/images';
+import { ImageError, putImage } from '../_data/images';
 import { MAX_IMAGE_BYTES, remapImageKeys } from '../_data/imageFormat';
 import type { Remapped } from '../_data/imageFormat';
-import { prepareImage } from '../_editor/prepareImage';
+import { UnreadableImage, prepareImage } from '../_editor/prepareImage';
 import { NewDocumentDialog } from '../_editor/dialogs';
 import { schema } from '../_editor/editorSchema';
 import { summaryLine } from '../_editor/findings';
@@ -403,7 +403,8 @@ export function Home() {
           if (prepared.bytes.length > MAX_IMAGE_BYTES) { unsaved++; continue; }
           const stored = await putImage(prepared.bytes);
           if (stored.key !== key) shrunk.set(key, stored);
-        } catch {
+        } catch (error) {
+          if (!(error instanceof ImageError || error instanceof UnreadableImage)) report(error);
           unsaved++;
         }
       }

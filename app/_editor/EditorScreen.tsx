@@ -709,7 +709,8 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       current.focus();
       announce(`Image inserted: ${label}${resized}. It has no alternative text yet, so it was added as a blocking finding.`);
     } catch (error) {
-      // Shown, and read out once by role="alert".
+      // Shown, and read out once by role="alert". An ImageError is the file's doing; anything else is ours.
+      if (!(error instanceof ImageError)) report(error);
       setImageError(error instanceof ImageError ? error.message : 'That image couldn’t be added.');
     }
   };
