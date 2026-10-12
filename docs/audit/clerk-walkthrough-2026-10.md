@@ -17,6 +17,8 @@
 
 **The path works, and the PDF it produces is valid PDF/UA-1. But an agenda's most important structure, its section headings, never gets flagged, and fixing a "click here" link the obvious way deletes the link.** A clerk who does everything Ada asks still posts an agenda that a screen reader user can't navigate by section.
 
+*Both were fixed on 12 October 2026, the day of the walkthrough: findings 1 and 2 say how.*
+
 ## What worked
 
 - **Sign-up to desk.** Separate sign-up, a code by email, then an empty desk that explains itself, with a two-step tour offered rather than forced.
@@ -38,6 +40,8 @@ This matters more than anything else here. Moving by heading is how screen reade
 
 **What would change it:** if real clerks' Word files turn out to use Word's heading styles, which the importer already understands, this matters less. The pilot's own files will show.
 
+**Fixed (#87).** A new check, `heading-unmarked`, asks about a top-level line of up to 12 words that is all bold or all heading-sized and doesn't end like a sentence. Apply makes it a heading: H1 if none comes before it, otherwise H2. It also removes the bold, size and underline that faked the heading. On the 28 real documents in the test corpus it fires 11 times: nine section titles and two names. A line set only in capitals or only underlined isn't counted yet; that's the next step if the pilot's agendas show it.
+
 ### 2. Typing over "click here" deletes the link (must fix)
 
 "Go to text" selects the words "click here". Typing a better description over them, which is the obvious thing to do, removes the link and its address. The finding then disappears, so it looks fixed. The link dialog can't help either: it edits the address, not the words. The only way to keep the link is to retype the words, select them, and paste the address back in.
@@ -45,6 +49,8 @@ This matters more than anything else here. Moving by heading is how screen reade
 The cause is that links are non-inclusive in the editor (`inclusive: false` in `app/_editor/editorSchema.ts`), so text typed over the whole link doesn't inherit it.
 
 **What to do:** give the link dialog a "Link text" field, and open it from the finding, so that fixing link text never touches the address. Typing over a whole selected link could also keep the link, but the dialog is the clearer fix.
+
+**Fixed differently (#85).** Working on it showed the cause is the editor's typing, not the dialog. So the fix keeps a link when its words are typed over, on every route to it, and needs no new controls. Typing after a link the cursor has moved to still isn't linked. Pasting over a link, and IME or Android input, still drop it; that's marked in the code.
 
 ### 3. The table fix is wrong for layout tables (should fix)
 
