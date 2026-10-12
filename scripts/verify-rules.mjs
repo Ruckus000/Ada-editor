@@ -1812,6 +1812,24 @@ for (const producer of ['pandoc', 'libreoffice']) {
   });
 }
 
+// The public templates (templates/README.md) must arrive structured and raise nothing from our own checker.
+for (const [file, title, lists, tables] of [
+  ['accessible-meeting-agenda-template.docx', '[Board or council name] agenda, [meeting date]', ['bullet_list', 'ordered_list', 'ordered_list'], 0],
+  ['accessible-meeting-minutes-template.docx', '[Board or council name] minutes, [meeting date]', ['bullet_list', 'bullet_list'], 2],
+]) {
+  await acheck(`templates: ${file} imports with its title, one h1, real lists and headed tables, and no findings`, async () => {
+    const r = await importDocx(new Uint8Array(readFileSync(resolve(ROOT, 'public/templates', file))), file, parseXml);
+    eq(r.title, title, 'docProps title');
+    const s = shape(r.content);
+    eq(s.filter((t) => t === 'h1').length, 1, `one h1: ${s}`);
+    eq(s[0], 'h1', 'the h1 comes first');
+    deepEq(s.filter((t) => t.endsWith('_list')), lists, 'lists are real lists');
+    eq(s.filter((t) => t === 'table').length, tables, 'tables');
+    deepEq(r.notes, [], 'nothing left out');
+    deepEq(findingIds(r.content), [], 'no findings');
+  });
+}
+
 await acheck('import: a TextEdit .docx with fake headings and typed bullets stays unstructured, and is flagged', async () => {
   const r = await importDocx(fixture('library-hours.textedit.docx'), 'library-hours.textedit.docx', parseXml);
   eq(r.title, 'library-hours.textedit', 'no docProps title: the file name');

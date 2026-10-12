@@ -266,3 +266,9 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
   - 702.10.1 incorporates WCAG 2.0 (December 11, 2008).
 - **PAC 2026.1:** free; Windows 10 or 11 with .NET Framework 4.8; checks ISO 14289 and WCAG.
 - **veraPDF:** an "open source, file-format validator covering all PDF/A and PDF/UA parts and conformance levels".
+
+### Addendum, 2026-10-12: sourced for the templates guide
+- **Microsoft, "Create accessible PDFs":**
+  - Word for Windows: File > Save As (or Save a Copy), PDF, then Options, then "Document structure tags for accessibility".
+  - Mac: File Format PDF, then "Best for electronic distribution and accessibility (uses Microsoft online service)", which "ensures the PDF is tagged". Microsoft notes the file is uploaded for conversion.
+  - Word for the web: Download as PDF.

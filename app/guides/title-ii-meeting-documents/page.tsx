@@ -174,7 +174,7 @@ export default function Page() {
           <section id="now" aria-labelledby="now-title">
             <h2 id="now-title">What a clerk can do now</h2>
             <ul>
-              <li><strong>Make new documents accessible as they are written,</strong> since new documents are covered.</li>
+              <li><strong>Make new documents accessible as they are written,</strong> since new documents are covered. Our <Link href="/guides/accessible-agenda-minutes-templates">free agenda and minutes templates</Link> start you off with the structure in place.</li>
               <li><strong>Find out what your agenda system does to a tagged file.</strong> Some keep the tags, some strip them in the packet. Then follow our steps for <Link href="/help#posting">posting a PDF to an agenda system</Link>.</li>
               <li><strong>Set up the archive the way the rule describes:</strong> a clearly labelled area, kept for reference only, with documents left unedited once they’re in it.</li>
               <li><strong>Say how to ask for an accessible copy</strong> of anything excepted. DOJ says that even then, a government “would likely still need to provide the content to a person with a disability” who needs it in an accessible format.</li>

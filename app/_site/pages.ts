@@ -85,6 +85,14 @@ export const PAGES = [
     updated: '2026-10-12',
     kind: 'article',
   },
+  {
+    path: '/guides/accessible-agenda-minutes-templates',
+    title: 'Accessible agenda and minutes templates (free, Word) · Ada Editor',
+    description: 'Free Word templates for an accessible meeting agenda and minutes: real headings, lists and vote tables, no account, and how to export a tagged PDF.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
 ] as const satisfies readonly SitePage[];
 
 export type SitePath = (typeof PAGES)[number]['path'];

@@ -109,7 +109,7 @@ export default function Page() {
           <section id="how" aria-labelledby="how-title">
             <h2 id="how-title">How to get one</h2>
             <ol>
-              <li><strong>Make it accessible where you write it.</strong> Use real headings, lists and tables in Word or your editor, and write alt text there. A tagged export can only carry the structure the source document has.</li>
+              <li><strong>Make it accessible where you write it.</strong> Use real headings, lists and tables in Word or your editor, and write alt text there. A tagged export can only carry the structure the source document has. For meetings, our <Link href="/guides/accessible-agenda-minutes-templates">agenda and minutes templates</Link> have it built in.</li>
               <li><strong>Export a tagged PDF.</strong> Use the export option that keeps tags, not Print to PDF or the print dialog’s Save as PDF, which drop the structure.</li>
               <li><strong>Run a checker.</strong> PAC (free, for Windows) checks PDF/UA and WCAG; veraPDF (free and open source) validates PDF/UA. Fix what they find.</li>
               <li><strong>Have a person read it,</strong> ideally with a screen reader, for the things software can’t judge.</li>
