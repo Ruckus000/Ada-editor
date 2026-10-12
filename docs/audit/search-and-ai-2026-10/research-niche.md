@@ -272,3 +272,18 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
   - Word for Windows: File > Save As (or Save a Copy), PDF, then Options, then "Document structure tags for accessibility".
   - Mac: File Format PDF, then "Best for electronic distribution and accessibility (uses Microsoft online service)", which "ensures the PDF is tagged". Microsoft notes the file is uploaded for conversion.
   - Word for the web: Download as PDF.
+
+### Addendum, 2026-10-12: sourced for the Word to tagged PDF guide
+- **Microsoft 365 devblog, December 2, 2024:**
+  - PDF export now uses "PDF/UA tags".
+  - Nested lists, alt text and multiple languages read better, and decorative elements are skipped.
+  - It applies to Office 2024, Office LTSC 2024, and Microsoft 365 version 2408 and later.
+- **Microsoft, "Make your Word documents accessible":**
+  - "select Review > Check Accessibility";
+  - table header: "On the Design tab, choose the Table Styles Options group, and then choose Header row";
+  - "Use the built-in heading styles".
+  - University guides add Table Properties > Row > "Repeat as header row at the top of each page", which writes `w:tblHeader`, the only header signal Ada Editor's importer accepts.
+- **Google Workspace Updates, December 6, 2024:** "improved tagging for paragraphs, headings, hyperlinks, image alt text, and lists", completed by mid-January 2025. Tables aren't listed. Some university guides still advise against Docs' PDF export.
+- **LibreOffice Help, PDF export General tab:**
+  - "Universal Accessibility (PDF/UA)" "follows the requirements of PDF/UA (ISO 14289)";
+  - "Tagged PDF (add document structure)".

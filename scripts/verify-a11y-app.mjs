@@ -1632,6 +1632,7 @@ try {
   await staticPage('/guides/title-ii-meeting-documents', 'ADA Title II and meeting documents: the dates, the exceptions · Ada Editor');
   await staticPage('/guides/ada-compliant-pdf', 'What “ADA compliant PDF” can and can’t mean · Ada Editor');
   await staticPage('/guides/accessible-agenda-minutes-templates', 'Accessible agenda and minutes templates (free, Word) · Ada Editor');
+  await staticPage('/guides/word-to-tagged-pdf', 'How to turn a Word document into a tagged PDF · Ada Editor');
   await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
   await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();

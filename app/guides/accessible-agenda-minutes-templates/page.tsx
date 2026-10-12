@@ -79,7 +79,8 @@ export default function Page() {
                 <strong>Export a tagged PDF.</strong> In Word for Windows, use File, Save As, choose PDF, open Options
                 and keep “Document structure tags for accessibility” checked. In Word for Mac, choose PDF and “Best for
                 electronic distribution and accessibility”, which Microsoft says sends the document to its online
-                service. Don’t print to PDF: it <Link href="/guides/ada-compliant-pdf#how">drops the structure</Link>.
+                service. Don’t print to PDF: it <Link href="/guides/ada-compliant-pdf#how">drops the structure</Link>. Our{' '}
+                <Link href="/guides/word-to-tagged-pdf">Word to tagged PDF guide</Link> covers Google Docs and LibreOffice too.
               </li>
               <li><strong>Or import it into Ada Editor,</strong> which checks it as you write and exports a tagged PDF in your browser.</li>
               <li><strong>Post the PDF itself.</strong> Our <Link href="/help#posting">steps for posting a PDF to an agenda system</Link> explain why the copy people open should be the one you made.</li>
