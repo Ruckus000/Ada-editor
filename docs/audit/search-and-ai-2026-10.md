@@ -180,7 +180,7 @@ The owner chose to measure more than planned. Vercel Web Analytics and Speed Ins
 
 `scrub()` in `app/_site/analytics.ts` does the rewriting, and `npm run analytics` holds it to the list above. The e2e and app accessibility gates check that each step is counted once and that local builds load no analytics.
 
-"Sign up" counts an account the first time its address is confirmed: the auth server's own confirmation and sign-in times, a minute apart at most. An existing account coming in through the sign-up door isn't counted again. Supabase's `auth.users` stays the true count; the event is what ties a sign-up to the site that sent the visitor.
+"Sign up" counts a sign-in through the sign-up door by an account created within the past hour, the code's lifetime. Both times are the auth server's, and neither depends on when the project confirms addresses. An existing account coming in through the sign-up door is older, so it isn't counted again; one that does so within its first hour is counted twice, which is rare enough to accept. Supabase's `auth.users` stays the true count; the event is what ties a sign-up to the site that sent the visitor.
 
 The privacy page says all of this, and names YourLaunchPad LLC. A new `/about` page names the maker and how to reach a person.
 

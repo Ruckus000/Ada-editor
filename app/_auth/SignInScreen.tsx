@@ -19,12 +19,13 @@ type Problem = { text: string; invalid: boolean; noAccount?: boolean };
  *  never through the URL. */
 const CARRY = 'ada.signup.email';
 
-/** A new account: this sign-in is the one that confirmed its address. Both
- *  times are the auth server's, so the browser's clock doesn't matter, and an
- *  existing account coming in through the sign-up door isn't counted again. */
+/** A new account: created by this code's request, so it signs in within the
+ *  code's lifetime (otp_expiry, an hour). Both times are the auth server's, so
+ *  the browser's clock doesn't matter, and neither depends on whether the
+ *  project confirms addresses at the request or at the code. An existing
+ *  account coming in through the sign-up door is older, and isn't counted. */
 const isNewAccount = (user: User | null) =>
-  !!user?.email_confirmed_at && !!user.last_sign_in_at
-  && Math.abs(Date.parse(user.last_sign_in_at) - Date.parse(user.email_confirmed_at)) < 60_000;
+  !!user?.last_sign_in_at && Date.parse(user.last_sign_in_at) - Date.parse(user.created_at) < 3_600_000;
 
 /** What went wrong, in words a person can act on (Supabase error codes).
  *  `invalid` marks the field only when the input itself is the problem. */
@@ -129,7 +130,7 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
     busyRef.current = false;
     setBusy(false);
     if (failed) { setError(problemFor(failed, 'code', mode)); return; }
-    if (isNewAccount(data.user)) count('Sign up');
+    if (mode === 'sign-up' && isNewAccount(data.user)) count('Sign up');
     announce('Signed in.');
     // What the pre-paint script marks on a full load: the public header then
     // hides "Sign in" at once on any page this tab opens next.

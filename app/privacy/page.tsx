@@ -67,7 +67,11 @@ export default function Page() {
                 city (from your connection), and your browser, operating system and kind of device. A document’s
                 address is sent as <code>/editor/[docId]</code>, so it never says which document.
               </li>
-              <li><strong>How fast pages load and respond</strong> on your device, and your connection type (such as 4g).</li>
+              <li>
+                <strong>How fast pages load and respond</strong> on your device: which page, the part of it that was
+                slow (by its tag and class names, never its text), your connection type (such as 4g), and the same
+                location, browser and device details.
+              </li>
               <li>
                 <strong>Five steps:</strong> creating an account, creating a document, importing a Word file,
                 exporting a PDF and exporting HTML. Each is counted like a page view, with the same details, and

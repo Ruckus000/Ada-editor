@@ -41,7 +41,8 @@ export default function Page() {
             <p>
               The ADA’s Title II rule now holds state and local governments’ web content, documents included, to
               WCAG 2.1 AA: from April 26, 2027 for those serving 50,000 people or more, and from April 26, 2028 for
-              smaller ones and special districts.
+              smaller ones and special districts. The Department of Justice set those dates in April 2026, and a
+              lawsuit asks to restore the earlier ones.
             </p>
             <p>
               Most accessibility problems are made while a document is written, and most checkers find them only
@@ -57,7 +58,10 @@ export default function Page() {
                 <strong>No compliance claims.</strong> Automated checks cover only part of WCAG, so Ada Editor never
                 calls a document compliant. What needs a person is marked “Needs your call”.
               </li>
-              <li><strong>Your Word files stay with you.</strong> They are read in your browser and never uploaded.</li>
+              <li>
+                <strong>Your Word files stay with you.</strong> They are read in your browser; the file itself is never
+                uploaded, only the document made from it.
+              </li>
               <li>
                 <strong>The editor is held to the standard it checks.</strong> Where it falls short, the{' '}
                 <Link href="/accessibility">accessibility statement</Link> says so.
