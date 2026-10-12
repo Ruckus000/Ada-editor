@@ -3,6 +3,7 @@
  * decision record. It names platforms, never towns: the gate checks that no
  * tenant or municipality appears in the output.
  */
+import { pageOrigin } from '../posted-pdf.mjs';
 
 const pct = (n, d) => (d ? `${Math.round((100 * n) / d)}%` : '—');
 const count = (list, key) => list.reduce((m, x) => { const k = key(x); m[k] = (m[k] ?? 0) + 1; return m; }, {});
@@ -37,14 +38,16 @@ export function summarize(rows, { platform } = {}) {
     const towns = sampled.filter((r) => r.platform === p);
     const attachments = towns.flatMap((r) => r.attachments ?? []).filter((a) => a.inspection);
     const tagged = attachments.filter((a) => a.inspection.tagged);
-    // Served copies that carry page tag links but no tree: stripped on the way out.
+    // Served copies that carry page tag links but no tree: their tags were
+    // removed somewhere between the author and the public. Without the stored
+    // original, the sampler can't say whether the platform or the author did it.
     const strippedServed = attachments.filter((a) => !a.inspection.tagged && a.inspection.orphanPages > 0);
     const townsStripping = towns.filter((r) => (r.attachments ?? []).some((a) => a.inspection && !a.inspection.tagged && a.inspection.orphanPages > 0));
     const paths = attachments.filter((a) => a.attachmentPath);
     const pathsTagged = paths.filter((a) => a.stored.inspection.tagged);
     const packets = towns.filter((r) => r.packet?.verdict);
     const comparable = packets.filter((r) => r.packet.verdict.taggedAttachments > 0);
-    const pages = count(attachments.flatMap((a) => Array(a.inspection.pages ?? 0).fill(a.origin)), (o) => o);
+    const pages = count(attachments.flatMap((a) => Array(a.inspection.pages ?? 0).fill(pageOrigin(a.inspection))), (o) => o);
     const totalPages = Object.values(pages).reduce((a, b) => a + b, 0);
 
     out.push(`### ${PLATFORM_NAMES[p] ?? p}`);
@@ -60,13 +63,15 @@ export function summarize(rows, { platform } = {}) {
       const withUa = pathsTagged.filter((a) => a.stored.inspection.pdfua);
       if (withUa.length) out.push(`| PDF/UA identifier on the attachment link | ${breakdown(count(withUa, (a) => a.attachmentPath.pdfua))} |`);
     }
-    out.push(`| Served attachments with tags stripped (page tag links, no tree) | ${strippedServed.length} in ${townsStripping.length} of ${towns.length} towns |`);
+    out.push(`| Served attachments untagged but carrying tag remnants (tags removed before or during publishing) | ${strippedServed.length} in ${townsStripping.length} of ${towns.length} towns |`);
     if (packets.length) {
       out.push(`| Packets inspected | ${packets.length}; with a tagged attachment to compare: ${comparable.length} |`);
       out.push(`| Packet structure vs. its tagged attachments | ${breakdown(count(comparable, (r) => r.packet.verdict.tags))} |`);
+    const lost = count(comparable.flatMap((r) => r.packet.verdict.lostGroups ?? []), (g) => g);
+    if (Object.keys(lost).length) out.push(`| Kinds of structure short in "partly kept" packets | ${breakdown(lost)} |`);
       out.push(`| Packet language | ${breakdown(count(comparable, (r) => r.packet.verdict.language))} |`);
       out.push(`| Packet tagged but not marked as tagged | ${comparable.filter((r) => r.packet.verdict.notMarked).length} of ${comparable.length} |`);
-      out.push(`| Packet built by (from its Producer) | ${breakdown(count(packets, (r) => r.packet.verdict.builtBy))} |`);
+      out.push(`| Packet built by (from its Producer) | ${breakdown(count(packets, (r) => r.packet.verdict.builtBy ?? pageOrigin(r.packet.inspection)))} |`);
     }
     const vera = towns.filter((r) => r.packet?.veraFailed);
     if (vera.length) out.push(`| Packets passing PDF/UA-1 (veraPDF) | ${vera.filter((r) => r.packet.veraFailed.length === 0).length} of ${vera.length} |`);

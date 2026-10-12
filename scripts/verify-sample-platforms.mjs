@@ -145,11 +145,13 @@ await check('with no tagged attachment there is nothing to compare', async () =>
   const scan = await inspectPdf(SCAN);
   eq(comparePacket([scan], await inspectPdf(PACKET)).tags, 'no tagged attachments to compare');
 });
-await check('page origins: a scan, Word, Word through Acrobat, a server converter', async () => {
+await check('page origins: a scan, Word, Word through Acrobat, a server converter, a print driver, an editor behind a platform re-save', async () => {
   eq(pageOrigin(await inspectPdf(SCAN)), 'scan');
   eq(pageOrigin({ pages: 2, scannedPages: 0, creator: 'Microsoft® Word for Microsoft 365', producer: 'Microsoft® Word for Microsoft 365' }), 'office');
   eq(pageOrigin({ pages: 2, scannedPages: 0, creator: 'Acrobat PDFMaker 23 for Word', producer: 'Adobe PDF Library 23.1.96' }), 'office');
   eq(pageOrigin({ pages: 2, scannedPages: 0, creator: null, producer: 'Aspose.PDF for .NET 23.8.0' }), 'converter');
+  eq(pageOrigin({ pages: 2, scannedPages: 0, creator: null, producer: 'Microsoft: Print To PDF' }), 'printed');
+  eq(pageOrigin({ pages: 2, scannedPages: 0, creator: 'Adobe Acrobat Pro 2020', producer: 'PDFlib PLOP 4.1 (.NET/Win64)/Adobe Acrobat Pro 2020' }), 'pdf editor');
 });
 
 console.log('\nPlatform sampler — a town end to end, against the local stand-in');

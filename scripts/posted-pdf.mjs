@@ -167,19 +167,25 @@ function isScannedPage(pageNode, lookup) {
 }
 
 /**
- * Where a file's pages came from, from its Producer and Creator: 'office'
- * (Word, LibreOffice and their siblings, directly or through Acrobat's PDFMaker,
- * or converted by the platform from an uploaded document), 'acrobat',
- * 'scan' (mostly pictures of text), 'converter' (a server library such as
- * Aspose or PDFlib), or 'other'. An estimate: a file re-saved by a platform
- * reports the platform's library, not the author's tool.
+ * Where a file's pages came from, from its Producer and Creator:
+ *   'office'      Word, LibreOffice and their siblings, directly, through
+ *                 Acrobat's PDFMaker, or converted by the platform from an
+ *                 uploaded document;
+ *   'pdf editor'  Acrobat, Nitro, Power PDF, Bluebeam, Foxit;
+ *   'printed'     a print-to-PDF driver, which keeps no structure at all;
+ *   'scan'        mostly pictures of text;
+ *   'converter'   a server library (Aspose, PDFlib, iText...), origin unknown;
+ *   'other'       design tools (Canva), report and map software, unknown.
+ * An estimate: a file re-saved by a platform reports the platform's library
+ * after the author's tool, and the author's tool is what's looked for first.
  */
 export function pageOrigin(inspection) {
   const producer = `${inspection.creator ?? ''} | ${inspection.producer ?? ''}`;
   if (inspection.pages && inspection.scannedPages / inspection.pages >= 0.8) return 'scan';
+  if (/Print To PDF|PDF Printer|CutePDF|PDFCreator|novaPDF|Bullzip|doPDF|Quartz PDFContext|Microsoft: Print/i.test(producer)) return 'printed';
   if (/\b(Word|PowerPoint|Excel|Microsoft.{0,3}Office|Microsoft® Word|LibreOffice|OpenOffice|Writer)\b/i.test(producer)) return 'office';
-  if (/Acrobat|Adobe PDF Library|Distiller|PDFMaker/i.test(producer)) return 'acrobat';
-  if (/Aspose|PDFsharp|iText|ABCpdf|UniDoc|PDFlib|PLOP|wkhtmltopdf|Skia|Chromium|HeadlessChrome|Telerik|Syncfusion|PDFKit/i.test(producer)) return 'converter';
+  if (/Acrobat|Adobe PDF Library|Distiller|PDFMaker|Nitro|Power PDF|Bluebeam|Foxit|PDF-XChange/i.test(producer)) return 'pdf editor';
+  if (/Aspose|PDFsharp|iText|ABCpdf|UniDoc|PDFlib|PLOP|wkhtmltopdf|Skia|Chromium|HeadlessChrome|Telerik|Syncfusion|PDFKit|PDFium|CombinePDF|EO\.Pdf/i.test(producer)) return 'converter';
   return 'other';
 }
 
@@ -235,7 +241,7 @@ export function comparePdfs(original, posted, failed = null) {
  */
 export function comparePacket(attachments, packet) {
   const tagged = attachments.filter((a) => a.tagged);
-  if (!tagged.length) return { tags: 'no tagged attachments to compare', taggedAttachments: 0 };
+  if (!tagged.length) return { tags: 'no tagged attachments to compare', taggedAttachments: 0, builtBy: pageOrigin(packet) };
   const groups = Object.fromEntries(Object.keys(GROUPS).map((g) => [g, tagged.reduce((n, a) => n + a.groups[g], 0)]));
   const langs = tagged.map((a) => a.lang).filter(Boolean);
   const lang = langs.sort((a, b) => langs.filter((x) => x === b).length - langs.filter((x) => x === a).length)[0] ?? null;
