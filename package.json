@@ -29,6 +29,7 @@
     "a11y:app": "node scripts/verify-a11y-app.mjs",
     "seo": "node scripts/verify-seo.mjs",
     "analytics": "node scripts/verify-analytics.mjs",
+    "indexnow": "node scripts/indexnow.mjs",
     "e2e": "node scripts/verify-e2e.mjs",
     "check-posted": "node scripts/check-posted-pdf.mjs",
     "icons:build": "node scripts/build-icons.mjs"

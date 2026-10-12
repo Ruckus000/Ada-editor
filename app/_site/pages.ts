@@ -71,5 +71,10 @@ export function pageMetadata(path: SitePath): Metadata {
   return { title: page.title, description: page.description, alternates: { canonical: page.path } };
 }
 
+/** IndexNow's key. Public by design: engines fetch it from public/<key>.txt to
+ *  check that a submission (scripts/indexnow.mjs) comes from this site. The
+ *  search gate checks the file is served. */
+export const INDEXNOW_KEY = '4a8d476393adbf2cef73876a3a858e07';
+
 /** The app's private screens, kept out of search. */
 export const NOINDEX: Metadata['robots'] = { index: false, follow: true };
