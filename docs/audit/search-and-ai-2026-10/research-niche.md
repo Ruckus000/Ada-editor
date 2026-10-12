@@ -287,3 +287,11 @@ Demand basis: G = Google autocomplete variants; PAA = Brave "People also ask"; n
 - **LibreOffice Help, PDF export General tab:**
   - "Universal Accessibility (PDF/UA)" "follows the requirements of PDF/UA (ISO 14289)";
   - "Tagged PDF (add document structure)".
+
+### Addendum, 2026-10-12: sourced for the HTML-or-PDF guide
+- **GDS**, Neil Williams, 16 July 2018 ([blog](https://gds.blog.gov.uk/2018/07/16/why-gov-uk-content-should-be-published-in-html-and-not-pdf/)):
+  - "The default should be to create all content in HTML."
+  - "Compared with HTML content, information published in a PDF is harder to find, use and maintain."
+  - "PDFs are not designed to be flexible in their layout."
+  - "unless created with sufficient care PDFs can often be bad for accessibility and rarely comply with open standards."
+  - "If you can't avoid publishing a PDF, ideally it should be in addition to an HTML version"; "the PDF must meet accessibility standards and archiving standards."

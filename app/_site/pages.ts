@@ -101,6 +101,14 @@ export const PAGES = [
     updated: '2026-10-12',
     kind: 'article',
   },
+  {
+    path: '/guides/agendas-html-or-pdf',
+    title: 'Should agendas be HTML or PDF? · Ada Editor',
+    description: 'Should a town post its meeting agenda as a web page or a PDF? Both, written once: the page first, with a tagged PDF linked from it, and why.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
+    kind: 'article',
+  },
 ] as const satisfies readonly SitePage[];
 
 export type SitePath = (typeof PAGES)[number]['path'];
