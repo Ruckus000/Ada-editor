@@ -9,8 +9,8 @@ import { Site } from './_site/Site';
 
 export const metadata: Metadata = pageMetadata('/');
 
-/* Copy is held to what the code does: 19 rules (rules.ts, 3 of them AAA, so
- * never "19 AA rules"); prose rules run on blur, not on a pause; codes are 8
+/* Copy is held to what the code does: 20 rules (rules.ts, 3 of them AAA, so
+ * never "20 AA rules"); prose rules run on blur, not on a pause; codes are 8
  * digits. Public, server-rendered, no client JS. */
 
 const FINDINGS = [
@@ -96,7 +96,7 @@ export default function Page() {
               <p>Live <span className="ada-underline" data-severity="blocker">structure</span> checks, prose checks <span className="ada-underline" data-severity="manual">on blur</span>.</p>
             </div>
             <h3>A real checking engine</h3>
-            <p>Nineteen WCAG rules run against the live ProseMirror document, not a canned demo.</p>
+            <p>Twenty WCAG rules run against the live ProseMirror document, not a canned demo.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-small" aria-hidden="true">

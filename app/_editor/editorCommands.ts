@@ -180,6 +180,20 @@ function shiftIndent(delta: 1 | -1): Command {
 export const indent = chainCommands(sinkListItem(N.list_item!), shiftIndent(1));
 export const outdent = chainCommands(liftListItem(N.list_item!), shiftIndent(-1));
 
+/** Make the textblock at `pos` a heading at `level`: a heading's level fix
+ *  (heading-skip), or a line set like a heading made one (heading-unmarked),
+ *  which drops the bold, size and underline that faked it. */
+export const setHeadingLevel = (pos: number, level: number): Command => (state, dispatch) => {
+  const node = state.doc.nodeAt(pos);
+  if (!node?.isTextblock) return false;
+  if (dispatch) {
+    const tr = state.tr.setNodeMarkup(pos, N.heading, { ...node.attrs, level });
+    if (node.type !== N.heading) for (const mark of [M.strong!, M.fontSize!, M.underline!]) tr.removeMark(pos + 1, pos + 1 + node.content.size, mark);
+    dispatch(tr);
+  }
+  return true;
+};
+
 /** Replace (or remove, when `attrs` is null) a mark across the selection. */
 export const setMark = (type: MarkType, attrs: Record<string, unknown> | null): Command => (state, dispatch) => {
   const { from, to, empty } = state.selection;
