@@ -278,3 +278,15 @@ After this brief was registered, the owner moved three rules from violation
   questions. These rulings shipped without pack tables because the packs
   hadn't run. A change of that kind should show its second test: no new
   assertion on the good twin or the six clean documents.
+
+## Addition, 2026-10-12: the packs have run
+
+[The results for the four planted files](engine-benchmark-2026-10/results-packs.md)
+are in, Word first and then Ada at 7b2ce34, with main as its own column.
+P1, P2 and P4 were wrong, P3 and P7 held, and P5 and P6 wait for the six
+documents.
+
+**A correction to "What I knew when I wrote these":** the 34 municipal
+`.docx` files come from 8 publishers, counted by URL host, not "about 12".
+The selection rule doesn't change. Taking the first file from each new
+publisher in id order still gives r01, r21, n34, n35, n43 and n47.

@@ -1,0 +1,298 @@
+{
+  "benchmark-bad.docx": {
+    "title": "Parks Board meeting, November 3, 2026",
+    "lang": "en-US",
+    "notes": [
+      "4 Word form fields imported as plain text; they are not fillable here."
+    ],
+    "headerImage": {
+      "id": "header-img-1",
+      "alt": ""
+    },
+    "footerImage": null,
+    "headings": [
+      "h1 Parks Board meeting, November 3, 2026",
+      "h2 Status of this agenda",
+      "h2 Schedule",
+      "h2 Roll call",
+      "h2 Present:",
+      "h2 Public comment",
+      "h2 Volunteer sign-up",
+      "h2 Consent agenda",
+      "h2 Projects",
+      "h2 Park visits",
+      "h2 New playground",
+      "h2 Riverside Park cleanup",
+      "h2 Announcements",
+      "h2 Reports",
+      "h2 Park hours",
+      "h2 Contact",
+      "h2 Directions",
+      "h2 Budget documents",
+      "h2 Speaker sign-up",
+      "h2 𝐍𝐎𝐓𝐈𝐂𝐄",
+      "h2 Seating",
+      "h2 Website",
+      "h2 Votes",
+      "h2 Fall festival",
+      "h2 Rental contact",
+      "h2 Partners",
+      "h2 Fees",
+      "h2 Parking",
+      "h2 Language assistance"
+    ],
+    "figures": {
+      "img-1": {
+        "pos": 940,
+        "alt": "Chart"
+      },
+      "img-2": {
+        "pos": 996,
+        "alt": "IMG_0412.jpg"
+      },
+      "img-3": {
+        "pos": 1084,
+        "alt": ""
+      },
+      "img-4": {
+        "pos": 1133,
+        "alt": ""
+      },
+      "img-5": {
+        "pos": 1220,
+        "alt": "line"
+      },
+      "img-6": {
+        "pos": 2242,
+        "alt": "Riverside Park in autumn"
+      },
+      "img-7": {
+        "pos": 2472,
+        "alt": ""
+      }
+    },
+    "findings": [
+      {
+        "id": "heading-unmarked:Old business",
+        "severity": "manual",
+        "title": "This line looks like a heading",
+        "excerpt": "Old business",
+        "under": "Public comment"
+      },
+      {
+        "id": "img-alt-suspicious:Chart",
+        "severity": "manual",
+        "title": "Alternative text may not describe the image",
+        "excerpt": "Chart",
+        "under": "Park visits"
+      },
+      {
+        "id": "img-alt-suspicious:IMG_0412.jpg",
+        "severity": "manual",
+        "title": "Alternative text may not describe the image",
+        "excerpt": "IMG_0412.jpg",
+        "under": "New playground"
+      },
+      {
+        "id": "img-alt-img-3",
+        "severity": "blocker",
+        "title": "Image has no alternative text",
+        "excerpt": "image 3",
+        "under": "Riverside Park cleanup"
+      },
+      {
+        "id": "img-alt-img-4",
+        "severity": "blocker",
+        "title": "Image has no alternative text",
+        "excerpt": "image 4",
+        "under": "Announcements"
+      },
+      {
+        "id": "img-alt-suspicious:line",
+        "severity": "manual",
+        "title": "Alternative text may not describe the image",
+        "excerpt": "line",
+        "under": "Reports"
+      },
+      {
+        "id": "table-no-header:1. Take Main Street north. 3. Turn right into the ",
+        "severity": "blocker",
+        "title": "Table has no header cells",
+        "excerpt": "1. Take Main Street north. 3. Turn right into the ",
+        "under": "Directions"
+      },
+      {
+        "id": "link-text-generic:Click here",
+        "severity": "violation",
+        "title": "Link text is not meaningful out of context",
+        "excerpt": "Click here",
+        "under": "Budget documents"
+      },
+      {
+        "id": "form-blank",
+        "severity": "manual",
+        "title": "Document has 12 fill-in blanks",
+        "excerpt": "",
+        "under": "Seating"
+      },
+      {
+        "id": "colour-only-reference:Items in red need a vote.",
+        "severity": "manual",
+        "title": "Instruction may rely on colour alone",
+        "excerpt": "Items in red need a vote.",
+        "under": "Votes"
+      },
+      {
+        "id": "contrast-minimum:Fall festival: October 31, 4 to 7 pm, at Riverside Park.|#ffffff on #ffffff",
+        "severity": "violation",
+        "title": "Text contrast is below 3:1",
+        "excerpt": "Fall festival: October 31, 4 to 7 pm, at Riverside Park.",
+        "under": "Fall festival"
+      },
+      {
+        "id": "img-alt-img-7",
+        "severity": "blocker",
+        "title": "Image has no alternative text",
+        "excerpt": "image 7",
+        "under": "Partners"
+      },
+      {
+        "id": "table-no-header:Fee Amount Pavilion rental, half day $40 Pavilion ",
+        "severity": "blocker",
+        "title": "Table has no header cells",
+        "excerpt": "Fee Amount Pavilion rental, half day $40 Pavilion ",
+        "under": "Fees"
+      },
+      {
+        "id": "contrast-minimum:Parking is free after 5 pm in the Town Hall lot.|#999999 on #ffffff",
+        "severity": "violation",
+        "title": "Text contrast is below 4.5:1",
+        "excerpt": "Parking is free after 5 pm in the Town Hall lot.",
+        "under": "Parking"
+      },
+      {
+        "id": "language-of-parts:Si necesita ayuda en español, llame al 555-0100. Los servicios de idioma son gratuitos",
+        "severity": "manual",
+        "title": "Text may be in Spanish but isn’t marked",
+        "excerpt": "Si necesita ayuda en español, llame al 555-0100. Los servic…",
+        "under": "Language assistance"
+      },
+      {
+        "id": "img-alt-header-img-1",
+        "severity": "blocker",
+        "title": "Image has no alternative text",
+        "excerpt": "header image",
+        "under": "(header)"
+      }
+    ]
+  },
+  "benchmark-good.docx": {
+    "title": "Parks Board meeting, November 3, 2026",
+    "lang": "en-US",
+    "notes": [
+      "2 decorative images marked in Word left out.",
+      "2 Word form fields imported as plain text; they are not fillable here."
+    ],
+    "headerImage": null,
+    "footerImage": null,
+    "headings": [
+      "h1 Parks Board meeting, November 3, 2026",
+      "h2 Status of this agenda",
+      "h2 Schedule",
+      "h2 Roll call",
+      "h2 Public comment",
+      "h2 Old business",
+      "h2 Volunteer sign-up",
+      "h2 Consent agenda",
+      "h2 Projects",
+      "h2 Park visits",
+      "h2 New playground",
+      "h2 Riverside Park cleanup",
+      "h2 Announcements",
+      "h2 Reports",
+      "h2 Park hours",
+      "h2 Contact",
+      "h2 Directions",
+      "h2 Budget documents",
+      "h2 Speaker sign-up",
+      "h2 Notice",
+      "h2 Seating",
+      "h2 Website",
+      "h2 Votes",
+      "h2 Fall festival",
+      "h2 Rental contact",
+      "h2 Partners",
+      "h2 Fees",
+      "h2 Parking",
+      "h2 Language assistance"
+    ],
+    "figures": {
+      "img-1": {
+        "pos": 1007,
+        "alt": "Bar chart of monthly park visits, March to October 2026. Visits rose from 900 in March to 2,300 in July, then fell to 1,100 in October."
+      },
+      "img-2": {
+        "pos": 1063,
+        "alt": "The site of the new playground at Riverside Park"
+      },
+      "img-3": {
+        "pos": 1151,
+        "alt": "Riverside Park trail after the October cleanup"
+      },
+      "img-4": {
+        "pos": 2335,
+        "alt": "Riverside Park in autumn"
+      },
+      "img-5": {
+        "pos": 2504,
+        "alt": "Example Parks Foundation"
+      }
+    },
+    "findings": [
+      {
+        "id": "img-long-description:img-1",
+        "severity": "manual",
+        "title": "Does this image need a long description?",
+        "excerpt": "Bar chart of monthly park visits, March to October 2026. Vi…",
+        "under": "Park visits"
+      },
+      {
+        "id": "table-no-header:Town of Example Parks Department, 12 Main Street C",
+        "severity": "blocker",
+        "title": "Table has no header cells",
+        "excerpt": "Town of Example Parks Department, 12 Main Street C",
+        "under": "Contact"
+      }
+    ]
+  },
+  "benchmark-row07-title.docx": {
+    "title": "Document1",
+    "lang": "en-US",
+    "notes": [],
+    "headerImage": null,
+    "footerImage": null,
+    "headings": [],
+    "figures": {},
+    "findings": []
+  },
+  "benchmark-row30-language.docx": {
+    "title": "Reunión de la Junta de Parques, 3 de noviembre de 2026",
+    "lang": "en-US",
+    "notes": [],
+    "headerImage": null,
+    "footerImage": null,
+    "headings": [
+      "h1 Reunión de la Junta de Parques, 3 de noviembre de 2026"
+    ],
+    "figures": {},
+    "findings": [
+      {
+        "id": "document-language",
+        "severity": "manual",
+        "title": "Document language is English, but most of it reads as Spanish",
+        "excerpt": "",
+        "under": "Reunión de la Junta de Parques, 3 de noviembre de 2026"
+      }
+    ]
+  }
+}
