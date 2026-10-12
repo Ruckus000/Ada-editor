@@ -202,8 +202,8 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 20 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 20, 'rule count');
+check('RULES ports the 21 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 21, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
@@ -212,7 +212,7 @@ check('RULES ports the 20 rules with the §8.1 structural/prose split', () => {
   deepEq(RULES.map((r) => r.id).sort(), [
     'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip', 'heading-unmarked',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
-    'link-text-raw-url', 'long-sentence', 'reading-level', 'table-merged-cells', 'table-no-header',
+    'link-text-raw-url', 'long-sentence', 'reading-level', 'table-layout', 'table-merged-cells', 'table-no-header',
   ], 'rule ids');
 });
 
@@ -1411,6 +1411,32 @@ check('table-no-header: a table without header cells blocks, and the fix makes r
   assert(!mod.editorCommands.makeFirstRowHeader(0)(state), 'no table at the position: no-op');
 });
 
+check('table-layout: a table of sentences asks instead of blocking, and header cells on one are asked about', () => {
+  const { checkDocument } = mod.check;
+  const tables = (d) => checkDocument(d, { prose: false }).filter((f) => f.id.startsWith('table-')).map((f) => `${f.ruleId}:${f.severity}`);
+  // The engine benchmark's Contact block (row 16 and its good twin).
+  const contact = [['Town of Example Parks Department, 12 Main Street', 'Call 555-0100 or write to parks@example.com.'],
+    ['Questions about this agenda go to the parks office.', 'Large-print copies are available at the meeting.']];
+  const [plain] = checkDocument(doc(table(contact)), { prose: false });
+  deepEq(tables(doc(table(contact))), ['table-layout:manual'], 'no header cells: a question, not a blocker');
+  eq(plain.title, 'Table may only lay text out', 'title');
+  assert(/row by row/.test(plain.explanation), 'it asks about reading order');
+  eq(plain.fix, undefined, 'no Apply: only the writer knows');
+  eq(plain.anchor.kind, 'table', 'anchored on the table');
+  const headed = doc(table([contact[0].map((th) => ({ th })), contact[1]]));
+  deepEq(tables(headed), ['table-layout:manual'], 'a header row on it (F46): asked about');
+  eq(checkDocument(headed, { prose: false })[0].title, 'Table may only lay text out, but has header cells', 'header title');
+  deepEq(tables(doc(table([[{ th: contact[0][0] }, contact[0][1]], [{ th: contact[1][0] }, contact[1][1]]]))), ['table-layout:manual'], 'a header column on it too');
+  // One short cell reads as data, so the blocker stays.
+  deepEq(tables(doc(table([['Fee', 'Amount'], ['Pavilion rental, half day', '$40']]))), ['table-no-header:blocker'], 'the benchmark’s Fees table still blocks');
+  deepEq(tables(doc(table([[contact[0][0], 'Open'], contact[1]]))), ['table-no-header:blocker'], 'one short cell among sentences: data');
+  const blank = { td: [N.paragraph.create()] };
+  deepEq(tables(doc(table([[blank, blank], [blank, blank]]))), ['table-no-header:blocker'], 'a new empty table still blocks');
+  deepEq(tables(doc(table([[contact[0][0], blank]]))), ['table-no-header:blocker'], 'one filled cell is too little to tell');
+  // A data table done right never looks like layout: its labels are short.
+  deepEq(tables(doc(table([[{ th: 'Contaminant' }, { th: 'Legal limit' }], ['Lead', '15 parts per billion']]))), [], 'seed-style data table: clean');
+});
+
 check('table-no-header: a layout table turns into text, in reading order', () => {
   // The walkthrough's officials, laid out in a grid: headers would be wrong.
   const { EditorState } = mod.pmState;
@@ -2135,6 +2161,31 @@ await acheck('import: tables keep merged cells, header rows only where Word mark
   deepEq(t.child(0).child(0).attrs.colwidth, [200], 'grid widths in px (twips ÷ 15)');
   deepEq(t.child(0).child(1).attrs.colwidth, [100, 100], 'a spanning cell takes each column it covers');
   deepEq(r.notes, [], 'nothing left out');
+});
+
+// The engine benchmark's planted packs, table rows only (decision 5, 2026-10-12;
+// docs/audit/engine-benchmark-2026-10/decision-5-table-layout.md). Each table's
+// findings are keyed by the heading above it.
+await acheck('benchmark packs: layout tables ask (rows 16, 17), the unmarked data table blocks (row 28), the good twin asserts nothing', async () => {
+  const byHeading = async (file) => {
+    const r = await importDocx(fixture(`benchmark/${file}`), file, parseXml);
+    const found = mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.anchor.kind === 'table');
+    const out = {};
+    let heading = '';
+    r.content.forEach((node, pos) => {
+      if (node.type.name === 'heading') heading = node.textContent;
+      if (node.type.name !== 'table') return;
+      out[heading] = found.filter((f) => f.from === pos).map((f) => `${f.ruleId}:${f.severity}`);
+    });
+    return out;
+  };
+  deepEq(await byHeading('benchmark-bad.docx'), {
+    Projects: [], // row 8's data table, header row marked
+    Contact: ['table-layout:manual'],
+    Directions: ['table-layout:manual'],
+    Fees: ['table-no-header:blocker'],
+  }, 'bad pack');
+  deepEq(await byHeading('benchmark-good.docx'), { Schedule: [], Projects: [], Contact: ['table-layout:manual'], Fees: [] }, 'good twin: row 12 fixed as a real table');
 });
 
 await acheck('import: a bold first row without Word’s header-row mark stays data, and is flagged', async () => {

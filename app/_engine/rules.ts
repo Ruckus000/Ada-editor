@@ -7,7 +7,9 @@
  *
  * `table-no-header` was deferred until the schema had tables (§5 of
  * docs/audit/checking-engine-plan.md); it now runs on whole tables in
- * `summarizeTable`, beside the engine-only `table-merged-cells`. The spike's
+ * `summarizeTable`, beside the engine-only `table-merged-cells` and
+ * `table-layout`. Since the engine benchmark's decision 5 (2026-10-12) it
+ * leaves tables that look like layout to `table-layout`, which asks. The spike's
  * `document-language` ("no language declared")
  * can't happen here: every document has a language (the doc node's `lang`,
  * English by default). The engine's `document-language` instead checks the
@@ -50,7 +52,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { FindingFix } from '../_editor/findings';
 import { figureNoun, schema } from '../_editor/editorSchema';
-import { hasHeaderCell, hasMergedCells, tableText } from '../_editor/tableHeaders';
+import { hasHeaderCell, hasMergedCells, looksLikeLayout, tableText } from '../_editor/tableHeaders';
 import {
   COLOUR_REFERENCE,
   COLOUR_WORDS,
@@ -165,6 +167,12 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'table-no-header', name: 'Tables without header cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
     about: 'Without header cells, a screen reader can’t say which column or row a value belongs to.',
     fix: 'If the table holds data, choose Apply fix, or turn on Header row (and Header column if the first column labels the rows) from the Table menu. If it only lays text out side by side, such as names or contact details, choose Turn into text.' },
+  // Engine-only. Manual: whether a table holds data or only lays text out is
+  // the writer's call. W3C names both ways a layout table fails: header cells
+  // on it (F46, 1.3.1) and an order that only makes sense by eye (F49, 1.3.2).
+  { id: 'table-layout', name: 'Tables that may only lay text out', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'Every cell holds a sentence or a long phrase, which is how layout tables look. A screen reader reads a table row by row, and announces header cells with every cell below them.',
+    fix: 'If it only lays text out, choose Turn into text, or check it reads in order row by row and has no header cells. If it holds data, turn on Header row and dismiss this.' },
   // Engine-only. Advisory: merged cells aren't a failure, but a table the
   // editor can't give explicit header links to deserves a human check.
   { id: 'table-merged-cells', name: 'Tables with merged cells', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
@@ -755,8 +763,13 @@ function languageFindings(entries: readonly BlockEntry[], pageLang: string): Raw
 export function summarizeTable(node: PMNode): RawFinding[] {
   const out: RawFinding[] = [];
   const snippet = tableText(node).slice(0, 50);
-  // Port of the spike: any header cell anywhere passes.
-  if (!hasHeaderCell(node)) {
+  const headed = hasHeaderCell(node);
+  const layout = looksLikeLayout(node);
+  // Port of the spike: any header cell anywhere passes. A table that looks like
+  // layout is left to table-layout, which asks: asserting "no header cells" on a
+  // correct layout table was the engine benchmark's one wrong claim on its good
+  // twin (decision 5, 2026-10-12).
+  if (!headed && !layout) {
     out.push({
       ruleId: 'table-no-header',
       severity: 'blocker',
@@ -767,6 +780,21 @@ export function summarizeTable(node: PMNode): RawFinding[] {
       hint: 'Make the first row a header row',
       // A one-row table has no data under a header row, so there is nothing to suggest.
       ...(node.childCount >= 2 ? { fix: { kind: 'tableHeaderRow' } as const } : {}),
+      anchor: { kind: 'table' },
+    });
+  }
+  if (layout) {
+    out.push({
+      ruleId: 'table-layout',
+      // Needs your call: only the writer knows whether the cells are data.
+      severity: 'manual',
+      criterion: crit('table-layout'),
+      title: headed ? 'Table may only lay text out, but has header cells' : 'Table may only lay text out',
+      explanation: headed
+        ? 'Every cell holds a sentence or a long phrase. If the table only lays text out, its header cells are wrong: a screen reader announces them with every cell below. Turn it into text. If it holds data, dismiss this.'
+        : 'Every cell holds a sentence or a long phrase. A screen reader reads a table row by row, left to right: check the text makes sense in that order, or turn it into text. If it holds data, turn on Header row.',
+      snippet,
+      hint: headed ? 'Turn into text, or dismiss if it holds data' : 'Check the reading order, or turn it into text',
       anchor: { kind: 'table' },
     });
   }

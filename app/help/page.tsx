@@ -28,7 +28,7 @@ const GROUPS: [string, string, string[]][] = [
   ['structure', 'Headings and structure', ['document-no-headings', 'heading-unmarked', 'document-no-h1', 'heading-skip', 'heading-empty']],
   ['language', 'Language and reading', ['document-language', 'language-of-parts', 'reading-level', 'long-sentence']],
   ['colour', 'Colour and contrast', ['contrast-minimum', 'colour-only-reference']],
-  ['tables', 'Tables and forms', ['table-no-header', 'table-merged-cells', 'form-blank']],
+  ['tables', 'Tables and forms', ['table-no-header', 'table-layout', 'table-merged-cells', 'form-blank']],
 ];
 
 const KEYS: [string, string][] = [

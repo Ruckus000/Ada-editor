@@ -47,6 +47,24 @@ export function hasMergedCells(table: PMNode): boolean {
 }
 
 /**
+ * A table that seems to lay text out rather than hold data: at least two cells
+ * have text, and every one of them is four words or more. Header labels and
+ * data values are short ("Fee", "$40", "Monday"), so one short cell reads as
+ * data. Sentences side by side, such as a contact block, read as layout.
+ */
+export function looksLikeLayout(table: PMNode): boolean {
+  let filled = 0;
+  let allLong = true;
+  table.forEach((row) => row.forEach((cell) => {
+    const words = cell.textContent.split(/\s+/).filter(Boolean).length;
+    if (!words) return;
+    filled++;
+    if (words < 4) allLong = false;
+  }));
+  return filled >= 2 && allLong;
+}
+
+/**
  * The scope a header cell gets: a header row labels the columns below it; a
  * header cell starting a data row labels its row; anything else is taken as a
  * column header. `col` is the cell's grid column (after spans), not its index.
