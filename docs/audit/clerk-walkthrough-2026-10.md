@@ -80,7 +80,7 @@ At 375 px the findings list starts about 3,000 px down the page, after the agend
 
 - **The landing page talks to developers.** It mentions ProseMirror, an `issue.json` sample, "veraPDF in CI" and "row-level security". A clerk deciding whether to trust the product won't know these terms. The same points can be made in plain words.
 - **"Upload a .docx" leads to the sign-up page,** which says nothing about uploading. Either say "Create an account to import your Word file" there, or call the button "Start writing".
-- **The alt text dialog says "Describe what this image 1 shows".** Use "this image" (`app/_editor/dialogs.tsx`).
+- **The alt text dialog says "Describe what this image 1 shows".** Use "this image" (`app/_editor/dialogs.tsx`). **Fixed (#104)** in that dialog and in four other sentences that had the same wording. Button names and finding excerpts keep the number, because there it tells pictures apart.
 - **The title comes from Word's file properties,** which clerks never see. This file's title was "Agenda". A real one may carry last month's meeting or the template's name. Show the imported title in the import announcement, and make it easy to change.
 
 ## What I didn't check
