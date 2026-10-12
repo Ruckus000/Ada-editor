@@ -31,8 +31,20 @@ export const COLOUR_REFERENCE = /\b(the|in|marked|shown|highlighted|coloured|col
 
 export const REDUNDANT_ALT_PREFIX = /^\s*(image|picture|photo|graphic|icon|screenshot)\s+(of|showing)\s+/i;
 /** Alt text naming an image whose details rarely fit in alt text (WCAG G74).
- *  Whole words only: "graphic", "photograph" and "roadmap" are not charts. */
-export const COMPLEX_IMAGE = /\b(chart|graph|diagram|map|infographic|flowchart|schematic)s?\b/i;
+ *  Whole words only: "graphic", "photograph" and "roadmap" are not charts.
+ *  Planning packets add site and floor plans, plats, elevations and technical
+ *  drawings. Never a bare "plan" ("lesson plan", "plan to attend"), "drawing"
+ *  ("children's drawings", "the raffle drawing"), "elevation" ("flood
+ *  elevation marker") or "parcel" ("food parcels"; a parcel map already says
+ *  "map"), nor an "open floor plan" (a room, not a drawing). Spaces and
+ *  hyphens between the words vary: "siteplan", "site-plan", "site  plan".
+ *  ponytail: named kinds only, so a photo of people "reviewing the site plan"
+ *  is asked, as "looking at a map" is; add a kind ("plot plan", "grading
+ *  plan") when a packet's alt text names it and goes unasked. */
+export const COMPLEX_IMAGE =
+  /\b(chart|graph|diagram|map|infographic|flowchart|schematic|plat|site[\s-]*plan|floor[\s-]*plan|(north|south|east|west|front|rear|side|exterior)[\s-]+elevation|(architectural|engineering|construction|technical|elevation)[\s-]+drawing)s?\b/i;
+/** Removed before COMPLEX_IMAGE tests the alt (no lookbehind: Safari 12). */
+export const OPEN_FLOOR_PLAN = /\bopen[\s-]+floor[\s-]*plans?\b/gi;
 /** Alt text that already points to a long description nearby (G74's own
  *  instruction): "details below", "described in the text". A bare "below" is
  *  not enough: "Map of parcels below the dam" still needs asking.

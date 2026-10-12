@@ -21,8 +21,8 @@
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
  * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
  * `form-blank` finds fill-in blanks, of which the corpus has none;
- * `img-long-description` asks whether a chart, map or diagram needs more than
- * its alt text, and the parity gate pins its three corpus firings;
+ * `img-long-description` asks whether a chart, map, diagram, plan or drawing
+ * needs more than its alt text, and the parity gate pins its three corpus firings;
  * `language-of-parts` finds unmarked passages in another language, and is
  * silent on the whole (English) corpus, names in other alphabets included;
  * `document-language` asks when most of a document reads as a language other
@@ -51,6 +51,7 @@ import {
   COLOUR_REFERENCE,
   COLOUR_WORDS,
   COMPLEX_IMAGE,
+  OPEN_FLOOR_PLAN,
   DESCRIPTION_POINTER,
   GENERIC_LINK_TEXT,
   REDUNDANT_ALT_PREFIX,
@@ -104,7 +105,7 @@ export const RULES: readonly RuleInfo[] = [
     about: 'Alt text that starts “Image of…” is read twice (screen readers already say it’s an image), and very short or file-name-like alt text often doesn’t describe the picture. Only a person can judge that.',
     fix: 'Remove the “Image of” prefix, then read the description beside the picture and ask: would someone who can’t see it learn what they need?' },
   { id: 'img-long-description', name: 'Images that may need a long description', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural',
-    about: 'Charts, maps and diagrams usually carry more than a sentence of alt text can hold.',
+    about: 'Charts, maps, diagrams, site and floor plans, plats, elevations and technical drawings usually carry more than a sentence of alt text can hold.',
     fix: 'If the picture holds data or detail the text around it doesn’t, add a long description: a paragraph or table nearby that says the same thing in words.' },
   { id: 'link-text-generic', name: 'Links like “click here”', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
     about: 'People using screen readers often jump from link to link, hearing only the link text. “Click here” or “read more” tells them nothing about where it goes.',
@@ -482,7 +483,7 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
             hint: 'Confirm it describes the image',
             anchor: { kind: 'figure', figureId: id },
           });
-        } else if (english && COMPLEX_IMAGE.test(trimmed) && !DESCRIPTION_POINTER.test(trimmed)) {
+        } else if (english && COMPLEX_IMAGE.test(trimmed.replace(OPEN_FLOOR_PLAN, '')) && !DESCRIPTION_POINTER.test(trimmed)) {
           // Last in the chain on purpose: one alt-text question per image at a
           // time, so "map" is asked "does this describe it?" first. Alt text
           // that already says "details below" has answered the question.
@@ -496,7 +497,7 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
             criterion: crit('img-long-description'),
             title: `Does this ${label} need a long description?`,
             explanation:
-              'Alt text can name a chart, map or diagram but can’t carry its data, routes or trends. ' +
+              'Alt text can name a chart, map, diagram, plan or drawing but can’t carry its data, trends, routes or measurements. ' +
               'If readers need those details, describe them in a paragraph or table next to the image, ' +
               'and mention it in the alt text (for example, “details below”).',
             snippet: trimmed,
