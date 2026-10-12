@@ -1026,6 +1026,11 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           {doc.targets.length ? <p className={styles.targets}>{`Checked against ${doc.targets.join(' and ')}`}</p> : null}
         </div>
         <div className={styles.topbarEnd}>
+          {/* Narrow screens stack the findings under the whole document; this
+              is the way to them (the F6 cycle, without a keyboard). */}
+          <button type="button" className={`${styles.btnGhost} ${styles.toFindings}`} onClick={() => headingRef.current?.focus()}>
+            {findings.length === 1 ? '1 finding' : `${findings.length || 'No'} findings`}
+          </button>
           <span className={styles.status}>
             <span className={styles.statusDot} data-checking={checking} aria-hidden="true" />
             {checking ? 'Checking…' : 'Up to date'}
