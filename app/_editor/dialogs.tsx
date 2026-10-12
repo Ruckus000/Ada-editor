@@ -356,7 +356,7 @@ export function LinkDialog({
       open={open}
       onOpenChange={(o) => { if (!o) onClose(); }}
       title="Link"
-      description="The selected text becomes the link. Make sure it says where the link goes — “click here” fails SC 2.4.4."
+      description="The selected text becomes the link. Make sure it says where the link goes — “click here” says nothing on its own (SC 2.4.4)."
       onSubmit={(e) => {
         e.preventDefault();
         const href = safeHref(value.trim());
