@@ -154,6 +154,8 @@ documents in this browser's localStorage only, exactly as before accounts.
 - **[Search and AI visibility](docs/audit/search-and-ai-2026-10.md)** — what
   search engines and AI assistants actually need (and which "AI optimization"
   is folklore), the metrics, the audit of the site, and the plan
+- **[Error reporting](docs/audit/error-reporting-2026-10.md)** — how crashes
+  reach Sentry without what a document says, and what is and isn't reported
 
 ## Architecture
 

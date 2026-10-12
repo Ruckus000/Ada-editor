@@ -1,4 +1,9 @@
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
+
+// Error reporting is browser-only by choice (app/_site/sentry.ts), so the
+// plugin's "no server instrumentation file" warning is expected.
+process.env.SENTRY_SUPPRESS_INSTRUMENTATION_FILE_WARNING ??= '1';
 
 /** Keeps a response out of search engines. */
 const NOINDEX = { key: 'X-Robots-Tag', value: 'noindex' };
@@ -44,4 +49,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Error reports (app/_site/sentry.ts). Source maps go to Sentry, then
+// are deleted from the deployment, when SENTRY_AUTH_TOKEN is set (production
+// builds; the plugin reads SENTRY_ORG and SENTRY_PROJECT itself); other
+// builds skip the upload. Reports reach Sentry through
+// /monitoring on our own domain: blockers can't drop them, and the visitor's
+// browser never talks to a fourth company. No tracing, replay or server SDK.
+export default withSentryConfig(nextConfig, {
+  tunnelRoute: '/monitoring',
+  telemetry: false,
+  silent: !process.env.CI,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  webpack: {
+    autoInstrumentServerFunctions: false,
+    autoInstrumentMiddleware: false,
+    autoInstrumentAppDirectory: false,
+    treeshake: { removeDebugLogging: true, removeTracing: true, excludeReplayIframe: true, excludeReplayShadowDOM: true, excludeReplayCompressionWorker: true },
+  },
+});
