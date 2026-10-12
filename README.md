@@ -133,7 +133,13 @@ shrunk to that as it's added, dropped, pasted or imported
 (`app/_editor/prepareImage.ts`). Deleting a document removes the images no other document
 uses; an image edited out of every document stays (undo can bring it back)
 until a once-a-day sweep after sign-in removes it, a week or more after its
-upload (`sweepImages` in `app/_data/sync.ts`). Local mode keeps them in IndexedDB only. Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
+upload (`sweepImages` in `app/_data/sync.ts`). Local mode keeps them in IndexedDB only.
+Messages from the privacy page's form are read, and answered, in the Table
+Editor (`contact_messages`). Each one emails the owner through Resend that a
+message is waiting, without its text or sender, at most 10 times a day; it's
+off until the Vault holds `contact_alert_resend_key` (a send-only key) and
+`contact_alert_to`, so locally it never sends
+(`supabase/migrations/20261012120000_contact_alert.sql`). Without `NEXT_PUBLIC_SUPABASE_URL` and a publishable key
 set — CI, or a plain `npm run dev` — the app runs in **local mode**: no sign-in,
 documents in this browser's localStorage only, exactly as before accounts.
 

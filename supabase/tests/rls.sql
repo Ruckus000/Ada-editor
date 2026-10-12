@@ -137,6 +137,47 @@ do $$ begin
 end $$;
 -- (The staged row goes with the rollback: storage forbids deleting in SQL.)
 
+-- A new message emails the owner once the Vault holds a key and an inbox, never
+-- saying what the message is or who sent it, and at most 10 times a day.
+reset role;
+delete from vault.secrets where name in ('contact_alert_resend_key', 'contact_alert_to');
+create temp table alerts_before on commit drop as
+  select count(*) as n from net.http_request_queue where url = 'https://api.resend.com/emails';
+set local role authenticated;
+set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated", "email": "rls-a@test.invalid"}';
+insert into public.contact_messages (message) values ('Sent before alerts are set up');
+reset role;
+do $$ begin
+  if (select count(*) from net.http_request_queue where url = 'https://api.resend.com/emails') <> (select n from alerts_before)
+  then raise exception 'a message queued an alert with no Vault secrets'; end if;
+end $$;
+select vault.create_secret('test-key', 'contact_alert_resend_key');
+select vault.create_secret('alerts@test.invalid', 'contact_alert_to');
+set local role authenticated;
+insert into public.contact_messages (message) values ('Private words for the owner');
+do $$ begin
+  for i in 1..12 loop
+    insert into public.contact_messages (message) values ('Message ' || i);
+  end loop;
+end $$;
+reset role;
+do $$
+declare
+  alert record;
+begin
+  -- Two earlier messages today, so 'Private words' and Messages 1–7 (the 3rd to
+  -- 10th of the day) alert; Messages 8–12 don't.
+  if (select count(*) from net.http_request_queue where url = 'https://api.resend.com/emails') - (select n from alerts_before) <> 8
+  then raise exception 'expected 8 alerts (10 a day), got %',
+    (select count(*) from net.http_request_queue where url = 'https://api.resend.com/emails') - (select n from alerts_before); end if;
+  select * into alert from net.http_request_queue where url = 'https://api.resend.com/emails' order by id desc limit 1;
+  if alert.headers ->> 'Authorization' <> 'Bearer test-key' or convert_from(alert.body, 'UTF8')::jsonb ->> 'to' <> 'alerts@test.invalid'
+  then raise exception 'the alert is not sent with the Vault key to the Vault inbox'; end if;
+  if exists (select 1 from net.http_request_queue where url = 'https://api.resend.com/emails'
+    and convert_from(body, 'UTF8') ~ '(Private words|Message [0-9]|rls-a@)')
+  then raise exception 'an alert carries the message or its sender'; end if;
+end $$;
+
 -- A deletes their account: A, A's documents and A's messages go; B is untouched.
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated", "email": "rls-a@test.invalid"}';
