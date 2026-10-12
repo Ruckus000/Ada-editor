@@ -6,7 +6,7 @@
  * docs/audit/agenda-platforms-2026-10.md ("Platform testing without clerks").
  *
  *   npm run sample-platforms -- discover
- *   npm run sample-platforms -- run --platform civicclerk [--towns 25] [--tenant alachuafl] [--dry-run] [--vera] [--record]
+ *   npm run sample-platforms -- run --platform civicclerk [--towns 25] [--tenant exampletownfl] [--dry-run] [--vera] [--record]
  *   npm run sample-platforms -- summary [--platform civicclerk]
  *
  * Per-town results go to scripts/sample-platforms/out/ (gitignored) and stay

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><body>
+<a href="LegislationDetail.aspx?ID=8257555&amp;GUID=B3F20A00-7CC4-B6C1-1EAC-2D99035A93FD&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-3222</a>
+<a href="LegislationDetail.aspx?ID=8255279&amp;GUID=BC33EEAD-D6BE-FDD0-C0B5-2862CEFD421F&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-6447</a>
+<a href="LegislationDetail.aspx?ID=8257586&amp;GUID=0816F62A-C8D8-226F-D315-E83842BFE01D&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-4845</a>
+<a href="LegislationDetail.aspx?ID=8257540&amp;GUID=CA503A29-E458-5473-72C4-7623F32E1FFC&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-1140</a>
+<a href="LegislationDetail.aspx?ID=8257547&amp;GUID=15F718D7-69EA-CD07-E21E-CC353CB5E6B7&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-2333</a>
+<a href="LegislationDetail.aspx?ID=8257567&amp;GUID=09A8089B-704D-E1AB-8E66-B7E369D41594&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-4694</a>
+<a href="LegislationDetail.aspx?ID=8257588&amp;GUID=70F759D9-747F-B790-386F-50D267CB09F5&amp;G=C0516128-821C-7785-7795-DEA2F4EA7FDA&amp;Options=&amp;Search=">85-8070</a>
+</body></html>
