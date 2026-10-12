@@ -76,6 +76,9 @@ jobs:
       - name: Posted-PDF checker gate (what agenda systems do to an export)
         run: node scripts/verify-check-posted.mjs
 
+      - name: 'Platform sampler gate (offline: politeness, packets, adapters, privacy)'
+        run: node scripts/verify-sample-platforms.mjs
+
   # The account path end to end, against a local Supabase stack in Docker
   # (supabase/config.toml): sign-in by emailed code (read from Mailpit), sync,
   # offline, cross-tab sign-out, a signed-in PDF export through veraPDF, the

@@ -1,0 +1,113 @@
+{
+  "tenant": {
+    "platform": "civicclerk",
+    "tenant": "alachuafl",
+    "municipality": "Alachua",
+    "county": "Alachua",
+    "population": 10574,
+    "match": "inspected in the October 2026 research",
+    "source": "research notes"
+  },
+  "meetings": [
+    {
+      "id": "830",
+      "date": "2026-10-13"
+    },
+    {
+      "id": "789",
+      "date": "2026-10-12"
+    },
+    {
+      "id": "903",
+      "date": "2026-10-06"
+    }
+  ],
+  "meeting": {
+    "id": 789,
+    "date": "2026-10-12",
+    "title": "City Commission Meeting",
+    "eventId": 787,
+    "packetFileId": 2417
+  },
+  "files": {
+    "attachments": [
+      {
+        "name": "Colonial Heritage Month",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/8963084952a640ccb7352828202f9865.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "Florida City Week.APD",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/af352b563fe34492a5d7ffec9093d337.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "Proclamation_White Cane Safety Month_2026",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/cca9f01a8584403680eb4ed8a5e8b751.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "App.Fernandez",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/9dd5e439e5d94cdda1555d909e500ed2.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "App. Smith",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/c393e508d73e4c00aadd5cf88e360335.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "Ballot.Two",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/18480a800f694520b9018acccc581ad1.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "CATF Ad#1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/4dc5064abd6c4465a0e363ef07f7991a.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "APP.ANDERSON",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/4e6e245889014913bfc24929825b0347.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "APP.HAYES",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/bc3a33c4515a41f28117c5a2772fc89b.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "APP.HERNANDEZ",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/66c2d90cf45c461c9a4b5f9b1d6b9e37.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "APP.STEPHENS",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/ef947cc6757047a9b4d3dce621e5152c.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "APP.STRICKLAND",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/ef9f9d200377438e9bfe950944decda3.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "SRAB Ballot",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/ad1a7389ff4048f58c352ed464175c6b.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "SRAB Ad#1",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/2c0a94d5-4cc1-432e-a46b-3dfe8cd069d8.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "Ordinance 26-19 (Duke Energy Florida LLC)",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/01bf92a4ee0d40958675cc9dd1cdebdf.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "Ordinance 96-20",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/d9fb6192c70745c0a1b453db491d6782.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "26.09.28.M.CCM",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/918d5b02c739454598c6cb95b54ea724.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "Commission Calendar 2027",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/1e1459903b5644aeb047662ee53bd7f7.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      },
+      {
+        "name": "John-C-Hipp-Constr_NW-115th-Ext_CO#6_Additional Electrical Costs",
+        "served": "https://civicclerk.blob.core.windows.net/stream/ALACHUAFL/82ae050e30d3484ca93a82c80543d686.pdf?skoid=REDACTED&sktid=REDACTED&skt=REDACTED&ske=REDACTED&sks=REDACTED&skv=REDACTED&sv=REDACTED&st=REDACTED&se=REDACTED&sr=REDACTED&sp=REDACTED&sig=REDACTED"
+      }
+    ],
+    "packet": "https://alachuafl.api.civicclerk.com/v1/Meetings/GetMeetingFileStream(fileId=2417,plainText=false)"
+  }
+}

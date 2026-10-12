@@ -103,7 +103,9 @@ export async function inspectPdf(bytes) {
   const pages = doc.getPages();
   let pagesWithStructParents = 0;
   let orphanPages = 0;
+  let scannedPages = 0;
   for (const page of pages) {
+    if (isScannedPage(page.node, lookup)) scannedPages++;
     const key = lookup(page.node.get(name('StructParents')));
     if (!(key instanceof PDFNumber)) continue;
     pagesWithStructParents++;
@@ -133,7 +135,70 @@ export async function inspectPdf(bytes) {
     pdfua: pdfua ? Number(pdfua[1] ?? pdfua[2]) : null,
     pagesWithStructParents,
     orphanPages,
+    scannedPages,
   };
+}
+
+/**
+ * A page that is a picture of text: it draws an image and has no font to draw
+ * text with (looking one level into form XObjects, where scanners often put
+ * the image). A heuristic: OCR'd scans carry a font and count as text.
+ */
+function isScannedPage(pageNode, lookup) {
+  let hasImage = false;
+  let hasFont = false;
+  const visit = (resources, depth) => {
+    if (!(resources instanceof PDFDict) || depth > 1) return;
+    const fonts = lookup(resources.get(name('Font')));
+    if (fonts instanceof PDFDict && fonts.keys().length) hasFont = true;
+    const xobjects = lookup(resources.get(name('XObject')));
+    if (!(xobjects instanceof PDFDict)) return;
+    for (const key of xobjects.keys()) {
+      const x = lookup(xobjects.get(key));
+      const subtype = x?.dict?.get(name('Subtype'))?.decodeText?.();
+      if (subtype === 'Image') hasImage = true;
+      else if (subtype === 'Form') visit(lookup(x.dict.get(name('Resources'))), depth + 1);
+    }
+  };
+  let resources;
+  try { resources = pageNode.Resources(); } catch { return false; }
+  visit(resources, 0);
+  return hasImage && !hasFont;
+}
+
+/**
+ * Where a file's pages came from, from its Producer and Creator:
+ *   'office'      Word, LibreOffice and their siblings, directly, through
+ *                 Acrobat's PDFMaker, or converted by the platform from an
+ *                 uploaded document;
+ *   'pdf editor'  Acrobat, Nitro, Power PDF, Bluebeam, Foxit;
+ *   'printed'     a print-to-PDF driver, which keeps no structure at all;
+ *   'scan'        mostly pictures of text;
+ *   'converter'   a server library (Aspose, PDFlib, iText...), origin unknown;
+ *   'other'       design tools (Canva), report and map software, unknown.
+ * An estimate: a file re-saved by a platform reports the platform's library
+ * after the author's tool, and the author's tool is what's looked for first.
+ */
+export function pageOrigin(inspection) {
+  const producer = `${inspection.creator ?? ''} | ${inspection.producer ?? ''}`;
+  if (inspection.pages && inspection.scannedPages / inspection.pages >= 0.8) return 'scan';
+  if (/Print To PDF|PDF Printer|CutePDF|PDFCreator|novaPDF|Bullzip|doPDF|Quartz PDFContext|Microsoft: Print/i.test(producer)) return 'printed';
+  if (/\b(Word|PowerPoint|Excel|Microsoft.{0,3}Office|Microsoft® Word|LibreOffice|OpenOffice|Writer)\b/i.test(producer)) return 'office';
+  if (/Acrobat|Adobe PDF Library|Distiller|PDFMaker|Nitro|Power PDF|Bluebeam|Foxit|PDF-XChange/i.test(producer)) return 'pdf editor';
+  if (/Aspose|PDFsharp|iText|ABCpdf|UniDoc|PDFlib|PLOP|wkhtmltopdf|Skia|Chromium|HeadlessChrome|Telerik|Syncfusion|PDFKit|PDFium|CombinePDF|EO\.Pdf/i.test(producer)) return 'converter';
+  return 'other';
+}
+
+/** kept / partly kept / flattened / removed / missing, and which groups shrank. */
+function tagVerdict(original, posted) {
+  const lostGroups = [];
+  if (!posted.tagged) {
+    return { tags: posted.orphanPages > 0 ? 'removed' : original.tagged ? 'missing' : 'untagged in both', lostGroups };
+  }
+  for (const [group, n] of Object.entries(original.groups)) if (n > posted.groups[group]) lostGroups.push(group);
+  const richBefore = RICH.filter((g) => original.groups[g] > 0);
+  const flattened = richBefore.length > 0 && richBefore.every((g) => posted.groups[g] === 0) && posted.groups.paragraphs > 0;
+  return { tags: flattened ? 'flattened' : lostGroups.length ? 'partly kept' : 'kept', lostGroups };
 }
 
 const keptOrNot = (before, after) => (before === after ? 'kept' : after == null || after === '' ? 'dropped' : 'changed');
@@ -147,16 +212,7 @@ export function comparePdfs(original, posted, failed = null) {
     return { unchanged: true, packet: false, tags: 'unchanged', language: 'unchanged', rootLanguage: 'unchanged', title: 'unchanged', displayDocTitle: 'unchanged', pdfua: 'unchanged', bookmarks: 'unchanged', notMarked: false, lostGroups: [], newFailures: [] };
   }
   const packet = posted.pages > original.pages;
-  let tags;
-  const lostGroups = [];
-  if (!posted.tagged) {
-    tags = posted.orphanPages > 0 ? 'removed' : original.tagged ? 'missing' : 'untagged in both';
-  } else {
-    for (const [group, n] of Object.entries(original.groups)) if (n > posted.groups[group]) lostGroups.push(group);
-    const richBefore = RICH.filter((g) => original.groups[g] > 0);
-    const flattened = richBefore.length > 0 && richBefore.every((g) => posted.groups[g] === 0) && posted.groups.paragraphs > 0;
-    tags = flattened ? 'flattened' : lostGroups.length ? 'partly kept' : 'kept';
-  }
+  const { tags, lostGroups } = tagVerdict(original, posted);
   const title = !original.title ? (posted.title ? 'added' : 'not in the original') : original.title === posted.title ? 'kept' : posted.title ? 'replaced' : 'dropped';
   const newFailures = failed?.original && failed?.posted ? failed.posted.filter((id) => !failed.original.includes(id)) : null;
   return {
@@ -173,5 +229,31 @@ export function comparePdfs(original, posted, failed = null) {
     pdfua: original.pdfua ? (posted.pdfua === original.pdfua ? 'kept' : 'dropped') : 'not in the original',
     bookmarks: original.bookmarks ? (posted.bookmarks ? 'kept' : 'dropped') : posted.bookmarks ? 'added' : 'none',
     newFailures,
+  };
+}
+
+/**
+ * What a packet kept of the tagged files that went into it. There's no page
+ * mapping: the tagged attachments' structure is summed into one expectation,
+ * and the packet must hold at least that much of each kind. A packet may leave
+ * an attachment out, so "partly kept" is the weakest claim; "removed" and
+ * "flattened" are the strong ones.
+ */
+export function comparePacket(attachments, packet) {
+  const tagged = attachments.filter((a) => a.tagged);
+  if (!tagged.length) return { tags: 'no tagged attachments to compare', taggedAttachments: 0, builtBy: pageOrigin(packet) };
+  const groups = Object.fromEntries(Object.keys(GROUPS).map((g) => [g, tagged.reduce((n, a) => n + a.groups[g], 0)]));
+  const langs = tagged.map((a) => a.lang).filter(Boolean);
+  const lang = langs.sort((a, b) => langs.filter((x) => x === b).length - langs.filter((x) => x === a).length)[0] ?? null;
+  const expected = { tagged: true, groups, lang };
+  const { tags, lostGroups } = tagVerdict(expected, packet);
+  return {
+    tags,
+    lostGroups,
+    taggedAttachments: tagged.length,
+    notMarked: packet.tagged && packet.marked !== true,
+    orphanPages: packet.orphanPages,
+    language: lang ? keptOrNot(lang, packet.lang) : 'not in the attachments',
+    builtBy: pageOrigin(packet),
   };
 }

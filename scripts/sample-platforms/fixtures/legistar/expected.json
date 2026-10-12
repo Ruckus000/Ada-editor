@@ -1,0 +1,111 @@
+{
+  "tenant": {
+    "platform": "legistar",
+    "tenant": "fortlauderdale",
+    "municipality": "Fort Lauderdale",
+    "county": "Broward",
+    "population": 182760,
+    "match": "inspected in the October 2026 research",
+    "source": "research notes"
+  },
+  "meetings": [
+    {
+      "id": "2152",
+      "date": "2026-10-06"
+    },
+    {
+      "id": "2153",
+      "date": "2026-10-06"
+    },
+    {
+      "id": "2208",
+      "date": "2026-10-06"
+    }
+  ],
+  "meeting": {
+    "id": 2152,
+    "date": "2026-10-06",
+    "title": "City Commission Conference Meeting",
+    "page": "https://fortlauderdale.legistar.com/MeetingDetail.aspx?LEGID=2152&GID=252&G=F11871F6-88F5-40B5-BD94-B6711694F9A7"
+  },
+  "files": {
+    "attachments": [
+      {
+        "name": "Exhibit 1 - 07.30.2026 - Audit AB",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972239&GUID=044E428D-D791-4463-94F6-3A2D3DE9340D&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/4f4289af-652c-4e76-b082-735b5151f57d.pdf"
+      },
+      {
+        "name": "Exhibit 2 - 08.24.2026 - SAB",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972240&GUID=B272C2B5-60D8-4FF6-979D-5A030A18DA1F&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/e3ff0d43-2ced-4783-bfc7-7e49c743c31d.pdf"
+      },
+      {
+        "name": "Exhibit 3 - 09.03.2026 - MAB",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972241&GUID=6847854F-3813-4434-8B77-5537EAF05F65&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/5c43ff0c-9b9a-4798-a769-f2cac0eb11fe.pdf"
+      },
+      {
+        "name": "Commission Action Items 2027 for 10.06.2026",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15966671&GUID=5CA655E3-9964-455A-ACA3-A759C178EAEF&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/5d0a3a5f-4241-4ede-a400-49610f66b0b6.pdf"
+      },
+      {
+        "name": "Exhibit 1 - Audit of Print Shop and Mail Room Operations",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972293&GUID=8175FFE6-D8A1-449F-BA41-4D9F4FB7B6E0&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/f220e6f7-a527-4c45-acee-93f5cb76a67d.pdf"
+      },
+      {
+        "name": "Exhibit 2 - SRAC Vision Plan Document",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972037&GUID=0633F258-D7C8-456C-9214-D2E4D2BEC5AE&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/155313eb-23a2-4f89-b3c2-3d17933cf1f1.pdf"
+      },
+      {
+        "name": "Exhibit 1 - SRAC Vision Plan Presentation",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972232&GUID=1135B03C-A7DB-4CF1-ADF3-5F0FEA7FFA8D&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/bdfdfb57-e9ab-496d-9189-86f19f99d224.pdf"
+      },
+      {
+        "name": "Exhibit 2 - Public Meeting Survey Results",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972111&GUID=9A8BBF34-FDC0-4CED-900D-61DE7563C5AC&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/8a12666d-d1d3-4dc0-a56f-83eed5b0175e.pdf"
+      },
+      {
+        "name": "Exhibit 3 - August 26, 2026, Parks, Recreation, and Beaches Advisory Board Draft Minutes",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972192&GUID=01006FC0-B372-4C0B-A285-C4322C2A6690&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/9bebc1fc-bcf3-4d9e-8e09-d1e7409b8cd4.pdf"
+      },
+      {
+        "name": "Exhibit 1 - Presentation",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972203&GUID=1B0D185B-52A8-4BD7-8187-E4FE83D66431&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/fe174610-1a76-4895-80c9-c6e989610317.pdf"
+      },
+      {
+        "name": "Exhibit 2 - Commission Memorandum No. 22-097",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972248&GUID=8AD3CCA2-21BD-4DFA-BE84-0DBF5DECDB97&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/7ee078d0-c78f-4c04-a61d-590d82aa5eeb.pdf"
+      },
+      {
+        "name": "Exhibit 3 - LTC No. 26-056",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972251&GUID=574E3124-2468-46B6-BB60-3DE3DD17180C&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/1293ec1c-c816-4554-9f35-28b031fa2c04.pdf"
+      },
+      {
+        "name": "Exhibit 1 - Commission Memorandum No. 22-081",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972261&GUID=920AB955-2A0E-46C2-A1E4-1790F7978ECF&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/64a7158c-40df-432a-8ab8-952bfa71937a.pdf"
+      },
+      {
+        "name": "Exhibit 4 - Presentation",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972376&GUID=BCAD8CE9-28E1-4695-9632-11430D55206E&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/47f7eb7e-3c31-4020-9462-10d77af3b8fd.pdf"
+      },
+      {
+        "name": "Exhibit 1 - Presentation",
+        "served": "https://fortlauderdale.legistar.com/View.ashx?M=F&ID=15972332&GUID=2B11F12D-B263-4827-A179-F9D9B0649EC2&G=F11871F6-88F5-40B5-BD94-B6711694F9A7",
+        "stored": "https://legistar.granicus.com/FortLauderdale/attachments/75046cbb-24af-4a83-88e9-0cd26a0a2ad1.pdf"
+      }
+    ],
+    "packet": null
+  }
+}

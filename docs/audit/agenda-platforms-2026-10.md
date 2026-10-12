@@ -35,9 +35,9 @@ This decision came out of three steps, all taken in October 2026.
 
 | Platform | Ada PDF on its own attachment link | Ada PDF inside the packet | Word file uploaded instead | Evidence |
 |---|---|---|---|---|
-| Legistar | Kept. Re-saved, and its title is replaced with the file number | No packet to test | Converted to a tagged PDF | Strong for attachments |
+| Legistar | Mostly kept: re-saved, title replaced with the file number. But 7 served files in 2 of 16 cities had their tags removed somewhere (sample, October 12) | No packet to test | Converted to a tagged PDF | Moderate: served copies sampled in 16 cities; originals blocked |
 | PrimeGov / OneMeeting | Kept in Oviedo FL, **removed** in Boulder CO | **Removed** (both towns) | Untagged | Strong for packets |
-| CivicClerk | Kept, served as uploaded | Tags and headings kept, but the document language and title are dropped and the page stamps aren't marked, so it **fails PDF/UA** | Thinly tagged (paragraphs only) | Strongest packet evidence |
+| CivicClerk | Kept, served as uploaded | Tags and headings kept (20 of 22 packets in the October 12 sample of 25 towns), but the document language is dropped (22 of 22) and the page stamps aren't marked, so it **fails PDF/UA** | Thinly tagged (paragraphs only) | Strong: sampled across 25 towns |
 | Municode Meetings | **No attachment link**, only "Agenda" and "Agenda Packet" | **Removed** (2 of 2 towns) | Not tested | Strong for packets |
 | Diligent Community / iCompass | Only Diligent's rebuilt PDFs are public | **Re-tagged as plain paragraphs**, yet labelled PDF/UA-1 | The vendor says not to rely on it | One town |
 | CivicPlus Agenda Center | Kept, served as uploaded | Untagged when the platform builds it; the clerk can upload their own | Not tested | Moderate |
@@ -96,83 +96,147 @@ Both match what the research found by hand. It compares veraPDF results rule by 
 - **A packet builder only helps where the clerk controls the packet file.** That's confirmed for Agenda Center and town websites, and likely for Legistar. On CivicClerk, Municode Meetings and OneMeeting the platform builds the packet whatever Ada produces.
 - **Real packets are mostly other people's PDFs.** Scanned resolutions, contracts, maps and vendor PDFs, mostly untagged. A builder would have to import and repair those, which is PDF remediation: a much larger product with established competitors.
 
+### 6. Test the platforms from public files; talk to clerks only about demand
+
+Decided October 12, 2026, after the owner asked whether the pilot could be run without involving clerks.
+
+**What changed:** where the platforms allow it, the platform half of the pilot is now a script, `npm run sample-platforms` (see "Platform testing without clerks" below). It reads files Florida towns already publish and compares each tagged attachment with the packet it went into, the comparison the research did by hand. Clerks are no longer asked to post anything. The conversation with them is the discovery call the business review recommended, about how they work and how they buy.
+
+**Why:**
+- **It answers the platform questions better, where it can run.** About 25 towns per platform instead of one cooperating clerk each, and the packet questions are about the platform's merge, which any tagged attachment exercises.
+- **It costs clerks nothing** and puts nothing in their public record.
+- **What it can't answer stays with clerks:** whether they'd use Ada Editor, pay for it, and who signs. That was always the more important question for the business.
+- **What it can't prove:** that Ada's own exports behave like the tagged Word and Acrobat files it measures. Nothing in the research points to a difference, and `check-posted` settles it for any town that does post an Ada file.
+
+**The rules that come with it:**
+- **Results name platforms, never towns.** The repository is public, and a list of towns whose packets lose their tags is exactly what a plaintiff firm would want. Per-town rows stay on the machine that ran the sampler (`scripts/sample-platforms/out/`, gitignored). The offline gate checks that the summary names no town.
+- **Nothing goes to any town.** The ground rule against assessing a town's posts was about what we send and publish: the sampler reads public files the way any visitor does, and its per-town results go nowhere.
+- **Polite by construction:** robots.txt respected, one request at a time and at least two seconds apart per host, no retries, and the first block or browser check stops that host.
+- **Three of the five platforms turn automated research away, so they aren't sampled.** Checked October 12, 2026, while building the sampler:
+  - **PrimeGov / OneMeeting:** the tenants' robots.txt disallows all crawlers (Oviedo and Boulder alike).
+  - **Diligent (civicweb.net):** robots.txt disallows every crawler except named search engines.
+  - **Municode Meetings:** the load balancer in front of every tenant drops the connection for a User-Agent that names us as research, while it answers an anonymous client. Changing how we identify ourselves to get through would be working around a block.
+  - eSCRIBE and BoardDocs block scripted downloads, as the research found.
+
+  That leaves **CivicClerk and Legistar** for automated sampling. For Legistar, only the served copies: most clients' stored originals sit on legistar.granicus.com, whose robots.txt disallows crawlers. The other platforms need one of the routes in "What the sampler can't reach" below. crt.sh, the usual source for finding a platform's customers, disallows crawling too, so towns are found through the Wayback Machine's index instead.
+- **A correction to the October research.** Its scripted downloads from PrimeGov, Municode and Diligent didn't check robots.txt. Those findings stand as observations of public files, but the same method won't be repeated. From now on, every automated request goes through the sampler's fetcher, which checks robots.txt first.
+
 ## What would change these decisions
 
-- **The pilot shows most target towns publish only a packet** (Municode Meetings is common among small Florida towns): look again at a packet builder, or at a PDF the clerk uploads in place of the platform's packet.
-- **Clerks ask to check posted files themselves:** move the checker to a Vercel route that fetches the link (with the guarding above), with veraPDF in Vercel Sandbox.
+- **The sampler shows most target towns publish only a packet** (Municode Meetings is common among small Florida towns), or its origin estimate shows most packet pages start in Word: look again at a packet builder, or at a PDF the clerk uploads in place of the platform's packet.
+- **Clerks ask to check posted files themselves** (in discovery calls or after trying Ada): move the checker to a Vercel route that fetches the link (with the guarding above), with veraPDF in Vercel Sandbox.
 - **A vendor ships packets that keep tags:** update the Help guidance and the platform table above. Granicus's 2026 release notes already mention a fix for attachments losing "accessibility features" in publishing; it hadn't reached Boulder's files in September 2026.
-- **The pilot contradicts a row of the table:** the pilot wins. The table is structural inspection of a few towns; the pilot is a known file through a real account.
+- **The sampler contradicts a row of the table:** the sampler wins. The table is a few towns inspected by hand; the sampler is about 25 per platform.
+- **A town posts an Ada file and `check-posted` disagrees with the sampler for its platform:** the Ada file wins, since it's the thing the product promises.
 
-## Pilot: one real document through each platform
+## Platform testing without clerks
 
-This is the test the research couldn't run: a document of known quality, posted by a real clerk on a real platform, with what the public receives compared against what Ada exported. I decided how to frame it on October 9, 2026. The one-page explainer for clerks is [`agenda-platforms-2026-10/pilot-explainer.md`](agenda-platforms-2026-10/pilot-explainer.md).
+Decision 6 replaced the clerk pilot's platform half with a sampler. It answers, per platform, the questions the pilot was going to answer one town at a time.
 
-### How it's framed: research on the software, not a sale and not an audit
+### What it does
 
-The opener to a clerk: *"We're testing which agenda systems keep accessible PDFs accessible after a clerk posts them. Would you help us find out for yours?"*
+1. **Finds the towns** (`npm run sample-platforms -- discover --write`). The Wayback Machine's index lists the hostnames archived under each platform's domain. Each tenant is matched to one of Florida's 411 municipalities (`scripts/sample-platforms/fl-municipalities.json`) by name or by a state suffix in the hostname. Legistar's index is too large for the Wayback Machine to scan, so Legistar clients are confirmed through Legistar's official Web API (built for programmatic use, no robots.txt), for municipalities of 25,000 people or more. On October 12, 2026 this found 68 CivicClerk towns and 21 Legistar cities. The candidates in `tenants.json` are reviewed by hand. Which towns use which platform is public (vendors publish their customers). How any of them performed is never recorded there.
+2. **Samples a platform** (`npm run sample-platforms -- run --platform civicclerk`). For up to 25 Florida towns, it takes the latest meeting from the last 120 days that has the files the platform is sampled for, then inspects every attachment (up to 30) and the packet. Each PDF is downloaded, inspected and discarded; only the inspection is kept.
+3. **Summarises** (`npm run sample-platforms -- summary`). The output is a table per platform with no town names, and it is what goes in "Sampler results" below.
+
+### What each platform is sampled for
+
+| Platform | Public files | What the sample settles |
+|---|---|---|
+| CivicClerk | Each attachment (the stored file is the served file) and the packet | Do headings, tables and alt text survive the packet? Does the language? |
+| PrimeGov / OneMeeting (switched off) | Each served attachment and the packet | Is attachment stripping (Boulder) a per-town setting? Does every packet drop the tree? |
+| Municode Meetings (no adapter) | The agenda and the packet (the agenda's pages are inside it) | Does every packet drop the tree? Who builds the packet: the platform (Aspose) or the clerk (Acrobat, Word)? |
+| Legistar | The copy the public link serves. The stored original is listed by the Web API, but most clients keep it on legistar.granicus.com, whose robots.txt disallows crawlers | How many served attachments keep a tag tree after the PLOP re-save, and whether any arrive stripped. The original-vs-served comparison only runs for clients whose originals sit on an allowed host |
+
+Packets are compared with the tagged attachments that went into them, with no page mapping: their structure is summed, and the packet must hold at least that much of each kind. "Removed" (no tree, pages still pointing into one) and "flattened" (headings, lists, tables and figures turned into paragraphs) are strong findings. "Partly kept" is weak, because a packet may leave an attachment out.
+
+Each attachment's pages are also labelled by origin (Word or another Office app, Acrobat, a scan, a server converter) from its Producer and from whether its pages are pictures without fonts. That gives an estimate of how much of a real packet starts in Word, the question behind decision 5.
+
+### What the sampler can't reach
+
+PrimeGov / OneMeeting, Municode Meetings and Diligent turn automated research away (decision 6). These are the platforms where the research saw packets lose their tags, and Municode is common among small Florida towns, so they matter most. Three routes, in order of preference:
+1. **Ask the vendor.** Write to Granicus (PrimeGov), CivicPlus (Municode) and Diligent: describe the research, the rate limits and the no-town-names rule, and ask them to allow the sampler. The PrimeGov adapter is already written and switched off (`DISABLED` in `adapters/index.mjs`); the others would be written once allowed.
+2. **A person in a browser.** robots.txt governs crawlers, not people. Someone opening a few towns' meeting pages and saving the files is ordinary use. `check-posted` then compares each tagged attachment with its packet. This is slower: maybe five towns per platform, not 25.
+3. **The clerk route.** The optional ask in the discovery calls, for a town that wants to try Ada Editor.
+
+### How to run it
+
+Start with `--dry-run` (listings only) on one town, then a real run. veraPDF is off by default: `--vera` runs it on everything a run downloads. The offline gate (`node scripts/verify-sample-platforms.mjs`, in `npm run verify` and CI) checks politeness, the packet verdicts, each adapter against recorded listings, and that no signature or town name reaches the output.
+
+### Sampler results
+
+**First run: October 12, 2026.** The output of `npm run sample-platforms -- summary`, unedited:
+
+Sampled 41 Florida towns on 2 platform(s), meetings from 2026-08-25 to 2026-10-12. Towns are not named; per-town rows stay local.
+
+#### CivicClerk
+
+| Measure | Result |
+|---|---|
+| Towns sampled (one meeting each) | 25 |
+| Attachments inspected | 367, of which tagged 276 (75%) |
+| Attachment pages by origin (estimate) | office 31%, converter 21%, printed 17%, other 15%, pdf editor 10%, scan 6% |
+| Served attachments untagged but carrying tag remnants (tags removed before or during publishing) | 2 in 2 of 25 towns |
+| Packets inspected | 25; with a tagged attachment to compare: 22 |
+| Packet structure vs. its tagged attachments | kept 20, partly kept 2 |
+| Kinds of structure short in "partly kept" packets | figures 2 |
+| Packet language | dropped 22 |
+| Packet tagged but not marked as tagged | 2 of 22 |
+| Packet built by (from its Producer) | converter 24, pdf editor 1 |
+
+#### Legistar
+
+| Measure | Result |
+|---|---|
+| Towns sampled (one meeting each) | 16 |
+| Attachments inspected | 158, of which tagged 88 (56%) |
+| Attachment pages by origin (estimate) | office 52%, pdf editor 24%, converter 14%, scan 9%, printed 1% |
+| Served attachments untagged but carrying tag remnants (tags removed before or during publishing) | 7 in 2 of 16 towns |
+
+**What it says:**
+- **CivicClerk keeps attachments' structure in its packets, at scale.** 20 of 22 packets held every kind of structure their tagged attachments carried. The other two were short only of some figures, which a packet that leaves an attachment out would also show. This confirms the research's finding from two towns across 25.
+- **CivicClerk drops the document language from every packet: 22 of 22.** This is decision 3's case. Ada's export now also puts the language on the root tag, which the packet keeps, but no CivicClerk packet in the sample contained an Ada file, so whether that is enough is still unproven.
+- **Three quarters of CivicClerk attachments, and over half of Legistar's, arrive tagged.** Most CivicClerk "converter" pages are CivicClerk's own conversions of uploaded Word and Excel files. Printed-to-PDF files (17% of CivicClerk attachment pages) carry no structure at all.
+- **Legistar: some files reach the public with their tags removed.** 7 served attachments in 2 of 16 cities carry tag remnants without a tree, including Word files, which are always tagged when saved normally. The research's one Fort Lauderdale file kept its tags through Legistar's re-save. Without the stored originals (behind robots.txt), the sampler can't tell whether Legistar or the author removed the tags. **This needs a person to compare a few originals with their served copies in a browser.**
+- **Packets are mostly Word, editors and scans.** Office files are 31% (CivicClerk) and 52% (Legistar) of attachment pages, plus most of CivicClerk's converter pages. Scans are 6% and 9%. That is more Word than decision 5 assumed, but the sample is pages from attachments, not whole packets, and Office origin doesn't mean the clerk wrote it.
+- **Not measured:** PDF/UA conformance of the packets (run with `--vera` for that), and anything on PrimeGov, Municode Meetings or Diligent.
+
+Per-town rows are on the machine that ran the sampler and are not committed.
+
+## Discovery calls with clerks
+
+Clerks are still the only source for the demand questions. The framing from the pilot carries over: this is research on the software, not a sale and not an audit of the town.
+
+**The opener:** *"We're testing which agenda systems keep accessible PDFs accessible after a clerk posts them, and we'd like to understand how your office produces agendas and packets."*
 
 **Why this framing:**
-- **It's true, and nobody else answers it.** No vendor publishes what its packets do to tags, and a clerk can't easily check.
-- **It's about the vendor's software, not the town's compliance.** A report telling a town manager "your packets are inaccessible" may count as notice under the deliberate-indifference standard (the business review's legal point, still to be put to a lawyer). If it does, town attorneys tell staff not to engage. "Here's what your agenda system does to a file" says nothing about the town's own documents.
-- **There's nothing to buy.** That keeps purchase splitting and purchasing thresholds out of the conversation until there's something to sell.
+- **It's true, and nobody else answers it.** No vendor publishes what its packets do to tags.
+- **It's about the vendor's software, not the town's compliance.** A report telling a town manager "your packets are inaccessible" may count as notice under the deliberate-indifference standard (the business review's legal point, still to be put to a lawyer).
+- **There's nothing to buy yet.** That keeps purchase splitting and purchasing thresholds out of the conversation.
 
-### The ask: one real document, not a test file
+**An optional ask, not a protocol:** a clerk who wants to try Ada Editor writes one item they'd post anyway, posts it the usual way, and we run `check-posted` on the links. Never a test file, which would put a fake document into the official record. The [explainer](agenda-platforms-2026-10/pilot-explainer.md) is on hold for this case.
 
-The first draft of this protocol had the clerk post a test file at a real meeting. I changed that: it would put a fake document into the town's official public record. Instead:
-
-1. The clerk writes **one item they'd post anyway** in Ada Editor: the next agenda, a public notice or a staff memo.
-2. They export the PDF and **post it the usual way**, uploading the PDF, not Word.
-3. They send us **two links**: the item's own attachment and the packet, if there is one.
-4. We run `npm run check-posted -- --original <their export> --posted <link>` on each link. If a portal blocks the download, we save the file in a browser and pass the file.
-5. We send the clerk a one-page result and record it below.
-
-A real document is also real use of the product. That is the demand evidence the business review found missing.
-
-### What the clerk gets
-
-- A one-page result for their system: which link keeps the document accessible, and what to point residents to.
-- Ada Editor at no cost for the pilot. It's a working account for the town's documents, not a personal gift. Nothing else of value is offered.
-- Credit in the published summary, if they want it. Otherwise their town isn't named.
-
-### Ground rules
-
-- **Write everything as if it will be published.** Under Chapter 119, every email, explainer and result note is a public record. Plan to publish the combined results: "How Florida agenda systems handle accessible PDFs" is something clerks and the Florida Association of City Clerks would pass around.
-- **Test only the clerk's own Ada document.** Never assess the town's existing posts, and never send unsolicited findings about its website.
-- **No town with a pending solicitation for this work.** Okeechobee is out: its ADA website work is headed for a bid, so contact could cost the right to bid, or break a contact ban.
+**Ground rules:**
+- **Write everything as if it will be published.** Under Chapter 119, every email and note is a public record.
+- **Never send a town findings about its own posts or website.** The sampler's per-town results stay local.
+- **No town with a pending solicitation for this work.** Okeechobee is out: its ADA website work is headed for a bid.
 - **Check lobbyist registration before contacting a town.** Palm Beach County's ordinance covers its cities. Every email carries a mailing address and an opt-out line.
-- **Lawyer first.** The explainer goes through the one-hour legal review the business review recommended (notice, public records, outreach rules) before anyone receives it.
-- **Recruit at the end of a discovery call**, not by cold email. The pilot is an offer that follows a conversation.
+- **Lawyer first** on notice, public records and outreach rules.
 
-### What we're measuring
+**What the calls measure:**
 
 | Question | Evidence |
 |---|---|
-| What each platform does to the file | The checker's verdict for the attachment link and the packet |
-| Whether clerks will use Ada | Whether they write a second document without being asked |
-| Whether a packet builder is ever worth it | The clerk's estimate of how many packet pages start in Word, against scans and outside PDFs |
+| Whether clerks will use Ada | Whether they try it on a real document, and then write a second one without being asked |
+| Whether a packet builder is ever worth it | Their account of how a packet is assembled, alongside the sampler's origin estimate |
 | How a purchase would happen | Who signs, and the amount that needs quotes or council approval |
 
-### Size, order and timing
-
-About five towns, one per platform. Councils meet every two weeks or monthly, so allow four to six weeks. Order, by what each result settles:
-1. **CivicClerk:** do headings, alt text and the root `/Lang` survive the packet?
-2. **Municode Meetings:** can a clerk supply their own packet?
-3. **A second Florida OneMeeting town:** settles Oviedo against Boulder.
-4. **Legistar:** does the PDF/UA identifier survive its re-save?
-5. **Diligent:** are rich tags flattened to paragraphs?
-
-eSCRIBE and BoardDocs blocked scripted downloads in the research. For those, the clerk or I save the posted files in a browser.
-
-### Results
-
-Update the table in "What we found" whenever a result contradicts it.
-
-| Platform | Town (if credited) | Date | Document | Attachment: tags / language / title | Packet: tags / language / title | New PDF/UA failures | Second document unprompted? | Packet pages from Word | Who signs, and at what amount |
-|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | |
+| Date | Town size (population band) | Platform | How packets are assembled | Tried Ada? Second document? | Who signs, at what amount | Notes |
+|---|---|---|---|---|---|---|
+| | | | | | | |
 
 ## Sources
 
-- [Pilot explainer for clerks](agenda-platforms-2026-10/pilot-explainer.md).
+- [Explainer for clerks](agenda-platforms-2026-10/pilot-explainer.md) (on hold since October 12, 2026).
 - [Report: agenda packets break what attachments preserve](agenda-platforms-2026-10/report.md), which has every citation, file URL and producer string.
 - Research notes: [Granicus](agenda-platforms-2026-10/notes/granicus.md), [CivicPlus and Municode](agenda-platforms-2026-10/notes/civicplus_municode.md), [Diligent, eSCRIBE, OnBase and others](agenda-platforms-2026-10/notes/diligent_escribe_onbase_others.md), and [the Florida file tests](agenda-platforms-2026-10/notes/empirical_florida_samples.md).

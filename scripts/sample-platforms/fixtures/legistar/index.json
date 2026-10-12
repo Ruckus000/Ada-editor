@@ -1,0 +1,12 @@
+{
+  "https://webapi.legistar.com/v1/fortlauderdale/events?%24top=20&%24orderby=EventDate+desc&%24filter=EventAgendaStatusName+eq+%27Final%27": "79ae6a7e1424d563.txt",
+  "https://webapi.legistar.com/v1/fortlauderdale/events/2152/eventitems?Attachments=1": "1600427fa364388f.txt",
+  "https://fortlauderdale.legistar.com/MeetingDetail.aspx?LEGID=2152&GID=252&G=F11871F6-88F5-40B5-BD94-B6711694F9A7": "78fc89bacc9ea31c.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8257555&GUID=E7B0DE5B-165D-4FD2-8E71-B115BA90341A&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "d18fdc26405413a5.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8255279&GUID=3A1369B9-ACA9-46F2-A51A-88060B8F231E&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "f399db7c84ee3342.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8257586&GUID=0AD78AE1-370A-48D5-91C4-31C8036EE382&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "3b34045cede48af6.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8257547&GUID=D246C3E6-58BD-4CA8-92DB-6A83EE5EC83D&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "29fc65adf731b7ca.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8257567&GUID=E734563E-C4F0-41E9-8020-2C140127B15C&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "5c6ca5da4a84c80a.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8257588&GUID=1356F3E3-D61D-49A9-81CE-8EE41256FBFD&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "29bb8339c7c8ae21.txt",
+  "https://fortlauderdale.legistar.com/LegislationDetail.aspx?ID=8257540&GUID=832FA94E-9F45-4D5D-86F7-5952447BACEC&G=F11871F6-88F5-40B5-BD94-B6711694F9A7&Options=&Search=": "15aa6e0cf23a8b8b.txt"
+}
