@@ -47,9 +47,16 @@ export const PAGES = [
   {
     path: '/privacy',
     title: 'Privacy · Ada Editor',
-    description: 'What Ada Editor keeps about you and why, who helps run it, how long it’s kept, and how to delete your account and everything in it.',
+    description: 'What Ada Editor keeps about you and why, what it counts without cookies, who helps run it, and how to delete your account and everything in it.',
     published: '2026-09-28',
-    updated: '2026-10-06',
+    updated: '2026-10-12',
+  },
+  {
+    path: '/about',
+    title: 'About · Ada Editor',
+    description: 'Who makes Ada Editor (YourLaunchPad LLC), why it exists, what it promises about compliance claims and your documents, and how to reach a person.',
+    published: '2026-10-12',
+    updated: '2026-10-12',
   },
 ] as const satisfies readonly SitePage[];
 

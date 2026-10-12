@@ -5,12 +5,12 @@ import { SiteAccount } from './SiteAccount';
 import './site.css';
 
 /**
- * Chrome for the public pages (the home page, /help, /accessibility, /privacy): skip link,
+ * Chrome for the public pages (the home page, /help, /about, /accessibility, /privacy): skip link,
  * header, main, footer. Server-rendered apart from the account links, which
  * need the session in this browser (SiteAccount). Every link here has a
  * name no other control on the page shares (the a11y gate checks it).
  */
-export function Site({ current, children }: { current?: 'accessibility' | 'privacy' | 'help'; children: ReactNode }) {
+export function Site({ current, children }: { current?: 'about' | 'accessibility' | 'privacy' | 'help'; children: ReactNode }) {
   const here = (page: typeof current) => (page === current ? 'page' : undefined);
   return (
     <div className="site">
@@ -36,6 +36,7 @@ export function Site({ current, children }: { current?: 'accessibility' | 'priva
           </nav>
           <nav aria-labelledby="site-foot-company">
             <h2 id="site-foot-company">Company</h2>
+            <Link href="/about" aria-current={here('about')}>About</Link>
             <Link href="/help" aria-current={here('help')}>Help</Link>
             <Link href="/accessibility" aria-current={here('accessibility')}>Accessibility</Link>
             <Link href="/privacy" aria-current={here('privacy')}>Privacy</Link>

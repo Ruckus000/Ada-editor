@@ -190,8 +190,9 @@ runs in local mode with eight sample documents.
 ```bash
 npm install
 npm run dev        # the app, in local mode: the landing page at http://localhost:3000, the desk at /desk
-npm run verify     # typecheck, verifier tests, engine gate, PDF gate, token gate, accessibility gates, search gate
+npm run verify     # typecheck, verifier tests, analytics gate, engine gate, PDF gate, token gate, accessibility gates, search gate
 npm run seo        # the public pages as a crawler that runs no JavaScript sees them (titles, canonicals, sitemap, noindex)
+npm run analytics  # what counting may send: /editor/[docId] for documents, no fragments, nothing under Global Privacy Control
 npm run preview    # the design-system preview at http://127.0.0.1:8080
 ```
 
