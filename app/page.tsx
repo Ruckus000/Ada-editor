@@ -156,7 +156,7 @@ export default function Page() {
       <section id="promise" className="site-section site-wrap site-split" aria-labelledby="promise-title">
         <div>
           <h2 id="promise-title" className="site-h2">We will never call your document “compliant.”</h2>
-          <p className="site-lede">Automated checks cover roughly a third of WCAG. Ada Editor flags what it can prove, marks what needs a person, and says so when it finds nothing. <Link href="/guides/ada-compliant-pdf">What “ADA compliant” can and can’t mean</Link>.</p>
+          <p className="site-lede">Automated checks cover only part of WCAG: whether alt text is accurate, or headings match the real structure, needs a person. Ada Editor flags what it can prove, marks what needs your call, and says so when it finds nothing. <Link href="/guides/ada-compliant-pdf">What “ADA compliant” can and can’t mean</Link>.</p>
         </div>
         <div className="site-panel">
           <p className="site-findings__head"><span>Findings</span><span className="site-count">0 automated</span></p>

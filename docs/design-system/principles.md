@@ -109,7 +109,7 @@ enhancement layer.
 
 ## 3. Never claim compliance the tool cannot verify
 
-Automated checking covers roughly a third of WCAG. The remainder — whether alt
+Automated checking covers only part of WCAG. The rest — whether alt
 text is *accurate*, whether link text is *meaningful*, whether headings reflect
 real structure — requires a human.
 

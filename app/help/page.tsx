@@ -78,7 +78,7 @@ export default function Page() {
                 </div>
               ))}
             </dl>
-            <p>No findings doesn’t mean a document is accessible. Automated checks cover roughly a third of WCAG; whether alt text is accurate, or headings match the real structure, still needs a person. More in our guide to <Link href="/guides/ada-compliant-pdf">what “ADA compliant PDF” can and can’t mean</Link>.</p>
+            <p>No findings doesn’t mean a document is accessible. Automated checks cover only part of WCAG; whether alt text is accurate, or headings match the real structure, still needs a person. More in our guide to <Link href="/guides/ada-compliant-pdf">what “ADA compliant PDF” can and can’t mean</Link>.</p>
           </section>
 
           <section id="checks" aria-labelledby="checks-title">

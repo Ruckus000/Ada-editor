@@ -170,8 +170,9 @@ in this design system.
 Grammarly drives toward an empty state: clear every suggestion and you are
 done. For grammar, roughly fair. For accessibility, actively misleading.
 
-Automated accessibility checking catches somewhere around a third of WCAG
-success criteria. The rest need human judgement: whether alt text actually
+Automated accessibility checking covers only part of WCAG. (This audit first
+said "somewhere around a third of WCAG success criteria", with no source; see
+[the note on that claim](wcag-coverage-claim-2026-10.md).) The rest need human judgement: whether alt text actually
 describes the image, whether "click here" is meaningful in context, whether the
 heading hierarchy reflects the document's real structure. A tool that renders a
 green "compliant" badge after its automated passes is making a claim it has no

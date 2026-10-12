@@ -21,8 +21,8 @@ axe-core in CI
   browser; signed-in documents sync through Supabase with revision checks, so
   edits from two devices are never silently overwritten.
 - **Honest about its limits.** Findings that need a human get their own
-  severity ("Needs your call"), because automated checking covers roughly a
-  third of WCAG.
+  severity ("Needs your call"), because automated checking covers only part
+  of WCAG.
 
 ---
 
@@ -241,7 +241,7 @@ card's primary action from "Apply fix" to "Go to text".
    mechanism reliably exposes an arbitrary inline annotation, so anything only
    reachable through the prose is unreachable for some users.
 3. **Nothing ever claims the document is compliant.** Automated checking covers
-   roughly a third of WCAG. Findings that need human judgement get their own
+   only part of WCAG. Findings that need human judgement get their own
    severity — `manual` — and the empty state says so.
 
 > **On the name:** "Ada" here is the Americans with Disabilities Act, not the
