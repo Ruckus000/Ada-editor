@@ -13,6 +13,7 @@ import type { DashboardData } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { removeDoc } from '../_data/sync';
 import { AccountMenu } from '../_auth/AccountMenu';
+import { count } from '../_site/analytics';
 import { BrandMark } from '../_site/BrandMark';
 import { Tour } from '../_tour/Tour';
 import type { TourStep } from '../_tour/Tour';
@@ -375,6 +376,7 @@ export function Home() {
     const content = N.doc!.create(null, [N.heading!.create({ level: 1 }, schema.text(title)), N.paragraph!.create()]);
     const { id, persisted } = createDoc({ title, header: '', footer: '', content: content.toJSON() as Record<string, unknown>, importNotes: [] });
     if (!persisted) saveDoc(id, { importNotes: [storageNote] });
+    count('Document created');
     setNewOpen(false);
     router.push(`/editor/${id}`);
     announce(`Created ${title}.`);
@@ -417,6 +419,7 @@ export function Home() {
       });
       const notes = [...imported.notes, ...imageNote];
       if (!persisted) { notes.push(storageNote); saveDoc(id, { importNotes: notes }); }
+      count('Word imported');
       router.push(`/editor/${id}`);
       // The announcer lives in the root layout, so this survives the navigation.
       announce([`Imported ${imported.title}.`, `${summaryLine(findings)}.`, ...notes].join(' '));

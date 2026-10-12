@@ -33,6 +33,9 @@ jobs:
       - name: Test the verifier
         run: node scripts/test-verifier.mjs
 
+      - name: Analytics gate (what counting may send)
+        run: node scripts/verify-analytics.mjs
+
       - name: Verify design tokens
         run: node scripts/verify-tokens.mjs --verbose
 

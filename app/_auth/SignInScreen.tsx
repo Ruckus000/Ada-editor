@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button, useAnnounce } from '../../design-system/primitives';
+import type { User } from '@supabase/supabase-js';
 import { getClient } from '../_data/supabase';
+import { count } from '../_site/analytics';
 import { BrandMark } from '../_site/BrandMark';
 import { DESK } from '../_site/routes';
 import './signin.css';
@@ -16,6 +18,13 @@ type Problem = { text: string; invalid: boolean; noAccount?: boolean };
 /** Carries the typed address from "no account" on sign-in to the sign-up form,
  *  never through the URL. */
 const CARRY = 'ada.signup.email';
+
+/** A new account: this sign-in is the one that confirmed its address. Both
+ *  times are the auth server's, so the browser's clock doesn't matter, and an
+ *  existing account coming in through the sign-up door isn't counted again. */
+const isNewAccount = (user: User | null) =>
+  !!user?.email_confirmed_at && !!user.last_sign_in_at
+  && Math.abs(Date.parse(user.last_sign_in_at) - Date.parse(user.email_confirmed_at)) < 60_000;
 
 /** What went wrong, in words a person can act on (Supabase error codes).
  *  `invalid` marks the field only when the input itself is the problem. */
@@ -116,10 +125,11 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
     busyRef.current = true;
     setBusy(true);
     setError(null);
-    const { error: failed } = await client.auth.verifyOtp({ email: sentTo, token: code.trim(), type: 'email' });
+    const { data, error: failed } = await client.auth.verifyOtp({ email: sentTo, token: code.trim(), type: 'email' });
     busyRef.current = false;
     setBusy(false);
     if (failed) { setError(problemFor(failed, 'code', mode)); return; }
+    if (isNewAccount(data.user)) count('Sign up');
     announce('Signed in.');
     // What the pre-paint script marks on a full load: the public header then
     // hides "Sign in" at once on any page this tab opens next.

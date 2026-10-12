@@ -58,6 +58,7 @@ import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
 import { isCloud } from '../_data/supabase';
 import { useSyncStatus } from '../_data/sync';
+import { count } from '../_site/analytics';
 import { DESK } from '../_site/routes';
 import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
@@ -585,6 +586,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, document.implementation.createHTMLDocument(''), images);
     const file = `${doc.id}.html`;
     download(new Blob([html], { type: 'text/html' }), file);
+    count('HTML exported');
     announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
   };
 
@@ -630,6 +632,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
       setPdfMissing([]);
       const file = `${doc.id}.pdf`;
       download(new Blob([result.bytes as BlobPart], { type: 'application/pdf' }), file);
+      count('PDF exported');
       announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
     } catch {
       announce('The PDF could not be built. Try again, or use Export HTML.');
