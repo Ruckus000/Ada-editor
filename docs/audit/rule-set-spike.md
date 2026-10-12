@@ -108,13 +108,14 @@ VERDICT: F2 tripped — the inline-assistant form is NOT supported as designed.
 > and the product's severity scale grades AAA as Advisory. The numbers above
 > are the spike's, as measured.
 >
-> **Later change (2026-10-12):** `heading-skip` and `link-text-generic` are
-> **Needs your call** (manual), not violation, by the owner's ruling. WCAG's
-> Understanding pages don't make either a failure on its own: 1.3.1 says
-> nothing about skipped levels, and 2.4.4 accepts link text whose sentence
-> names the destination. A skipped level still fails PDF/UA-1 (7.4.2), so the
-> finding says what Export PDF loses. Re-graded, the spike's own counts would
-> put 131 of 670 findings (19.6%) in manual, still well clear of F1.
+> **Later change (2026-10-12):** `heading-skip`, `link-text-generic` and
+> `link-text-raw-url` are **Needs your call** (manual), not violation, by the
+> owner's rulings. WCAG's Understanding pages don't make any of them a failure
+> on its own: 1.3.1 says nothing about skipped levels, and 2.4.4 accepts link
+> text whose words or sentence make the destination clear. A skipped level
+> still fails PDF/UA-1 (7.4.2), so the finding says what Export PDF loses.
+> Re-graded, the spike's own counts would put 158 of 670 findings (23.6%) in
+> manual, still well clear of F1.
 
 ### Sensitivity
 

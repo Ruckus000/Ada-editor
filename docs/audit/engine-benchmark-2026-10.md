@@ -261,3 +261,20 @@ Stated because the numbers will be quoted.
   They're added as dated rows.
 - **A free checker clerks actually use appears**, for example in an agenda
   platform. It becomes another column.
+
+## Addition, 2026-10-12: grades changed after registration
+
+After this brief was registered, the owner moved three rules from violation
+("Fails AA") to "Needs your call": `heading-skip` and `link-text-generic`
+(#111), then `link-text-raw-url`. Two of them are the sources P5 named.
+
+- **The registered run uses Ada as of 7b2ce34**, the commit that merged this
+  brief, as it says above. Run `importDocx` and `checkDocument` from that
+  commit for P2, P4, P5 and P6.
+- **Main's grades get their own column** in the results, so the effect of
+  these rulings is measured rather than mixed into the predictions.
+- **Decision 5's first test doesn't fit a regrade.** "Catches a row main
+  doesn't" can't hold for a change that only turns assertions into
+  questions. These rulings shipped without pack tables because the packs
+  hadn't run. A change of that kind should show its second test: no new
+  assertion on the good twin or the six clean documents.
