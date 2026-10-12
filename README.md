@@ -9,7 +9,7 @@ and Section 508 as you type — and never tells you a document is "compliant".**
 Supabase (Auth, Postgres + row-level security, Storage) · pdfkit · veraPDF and
 axe-core in CI
 
-- **Checks as you write.** Nineteen WCAG rules run in the browser against the
+- **Checks as you write.** Twenty WCAG rules run in the browser against the
   live ProseMirror document, and every finding cites the success criterion it
   comes from.
 - **Imports Word files without uploading them.** `.docx` tables (header rows,
@@ -21,12 +21,12 @@ axe-core in CI
   browser; signed-in documents sync through Supabase with revision checks, so
   edits from two devices are never silently overwritten.
 - **Honest about its limits.** Findings that need a human get their own
-  severity ("Needs your call"), because automated checking covers roughly a
-  third of WCAG.
+  severity ("Needs your call"), because automated checking covers only part
+  of WCAG.
 
 ---
 
-Write documents that meet WCAG 2.1 AA and Section 508.
+Write documents checked against WCAG 2.1 AA.
 
 A writing tool that checks documents for accessibility problems as you write —
 and is honest about the limits of what a checker can know.
@@ -74,7 +74,7 @@ criterion, with "Go to text" as the primary action.
 
 Working prototype. The homepage and editor screens are built from the design
 system, and every finding is computed by
-the **real checking engine**: nineteen WCAG rules running against the live
+the **real checking engine**: twenty WCAG rules running against the live
 ProseMirror document — structural rules as you type, prose heuristics on
 blur/Recheck. **Export HTML** downloads the document as a standalone page
 (the document's language, landmarks, headings and links intact, and its images
@@ -170,7 +170,7 @@ it.
 flowchart LR
   subgraph Browser
     IM[".docx import<br/>app/_import"] --> ED["ProseMirror editor<br/>app/_editor"]
-    ED -- "document tree" --> EN["Checking engine<br/>app/_engine · 19 rules"]
+    ED -- "document tree" --> EN["Checking engine<br/>app/_engine · 20 rules"]
     EN -- "findings" --> ED
     ED --> EX["HTML and PDF/UA-1 export<br/>exportHtml.ts · exportPdf.ts"]
     ED <--> ST["Working copy<br/>localStorage + IndexedDB"]
@@ -244,7 +244,7 @@ card's primary action from "Apply fix" to "Go to text".
    mechanism reliably exposes an arbitrary inline annotation, so anything only
    reachable through the prose is unreachable for some users.
 3. **Nothing ever claims the document is compliant.** Automated checking covers
-   roughly a third of WCAG. Findings that need human judgement get their own
+   only part of WCAG. Findings that need human judgement get their own
    severity — `manual` — and the empty state says so.
 
 > **On the name:** "Ada" here is the Americans with Disabilities Act, not the

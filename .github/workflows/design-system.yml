@@ -36,6 +36,9 @@ jobs:
       - name: Analytics gate (what counting may send)
         run: node scripts/verify-analytics.mjs
 
+      - name: Checking engine and Word import (includes the public templates)
+        run: node scripts/verify-rules.mjs
+
       - name: Verify design tokens
         run: node scripts/verify-tokens.mjs --verbose
 

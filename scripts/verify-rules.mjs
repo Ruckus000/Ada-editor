@@ -181,9 +181,9 @@ const table = (rows, caption = '') => N.table.create({ caption }, rows.map((r) =
 /** Mirrors check.ts's walk: one entry per textblock/figure, in doc order. */
 function entriesOf(document) {
   const entries = [];
-  document.descendants((node, pos) => {
+  document.descendants((node, pos, parent) => {
     if (node.isTextblock || node.type === N.figure) {
-      entries.push({ pos, contentSize: node.content.size, summary: summarizeBlock(node) });
+      entries.push({ pos, contentSize: node.content.size, summary: summarizeBlock(node), ...(parent !== document && { nested: true }) });
     }
     return true;
   });
@@ -202,15 +202,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 19 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 19, 'rule count');
+check('RULES ports the 20 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 20, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip',
+    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip', 'heading-unmarked',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level', 'table-merged-cells', 'table-no-header',
   ], 'rule ids');
@@ -229,6 +229,77 @@ check('link runs merge across inner formatting (§9.9)', () => {
   // Different hrefs must NOT merge into one run.
   const two = doc(para(text('here', link('https://x.org/a')), text('here', link('https://x.org/b'))));
   eq(blockFindings(two, 'link-text-generic').length, 2, 'two hrefs stay two runs');
+});
+
+check('typing over a link keeps its address (retypeLinkTr)', () => {
+  // Go to text selects a "click here" link; the clerk types better words.
+  // Links aren't inclusive, so without retypeLinkTr the words land unlinked.
+  const { EditorState, TextSelection } = mod.pmState;
+  const { editingPlugins, retypeLinkTr } = mod.editorCommands;
+  const start = (d) => EditorState.create({ doc: d, plugins: editingPlugins() });
+  const links = (d) => { const out = []; d.descendants((n) => { const m = n.isText && M.link.isInSet(n.marks); if (m) out.push(`${n.text}>${m.attrs.href}`); }); return out; };
+  const type = (state, from, to, ch) => { const tr = retypeLinkTr(state, from, to, ch); return tr ? state.apply(tr) : null; };
+  // "For shelters, click here." — the link is 15..25.
+  let state = start(doc(para('For shelters, ', text('click here', link('https://x.org/s')), '.')));
+  state = type(state, 15, 25, 't');
+  state = type(state, 16, 16, 'h');
+  state = type(state, 17, 17, 'e');
+  deepEq(links(state.doc), ['the>https://x.org/s'], 'each typed character stays in the link');
+  eq(state.doc.textContent, 'For shelters, the.', 'the old words are gone');
+  // Arrow off and straight back, too fast for a selection change to land:
+  // the key itself ends the retyping. Shift alone doesn't.
+  const plugin = state.plugins.find((p) => p.props.handleTextInput);
+  const view = { get state() { return state; }, dispatch: (tr) => { state = state.apply(tr); } };
+  plugin.props.handleKeyDown(view, { key: 'Shift' });
+  assert(retypeLinkTr(state, 18, 18, 's'), 'Shift alone keeps retyping');
+  plugin.props.handleKeyDown(view, { key: 'ArrowRight' });
+  plugin.props.handleKeyDown(view, { key: 'ArrowLeft' });
+  eq(retypeLinkTr(state, 18, 18, 'x'), null, 'after an arrow key, typing at the link\'s end is not linked');
+  // The cursor moves away and back: typing after the link is plain again.
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 18)));
+  eq(retypeLinkTr(state, 18, 18, 'x'), null, 'typing after a link the cursor arrived at is not linked');
+  // Only a selection that is all one link.
+  const mixed = start(doc(para('See ', text('here', link('https://x.org/a')), ' now.')));
+  eq(retypeLinkTr(mixed, 5, 13, 'x'), null, 'a link and plain text: ordinary typing');
+  const two = start(doc(para(text('one', link('https://x.org/a')), text('two', link('https://x.org/b')))));
+  eq(retypeLinkTr(two, 1, 7, 'x'), null, 'two different links: ordinary typing');
+});
+
+check('heading-unmarked asks about lines set like headings, and the fix makes one', () => {
+  // An agenda as clerks set it: a title, then bold section titles.
+  const bold = (s, extra = []) => text(s, [M.strong.create(), ...extra]);
+  const found = (d) => mod.check.checkDocument(d, { prose: false }).filter((f) => f.ruleId === 'heading-unmarked');
+  const agenda = doc(
+    heading(1, 'Agenda'),
+    para(bold('PUBLIC APPEARANCES', [M.underline.create()])),
+    para('Each speaker will be given three minutes.'),
+    para(bold('CITY MANAGER’S REPORT:')),
+    para(bold('Bring photo ID to the meeting.')),
+    para(bold('This bold line runs on far longer than any section title ever would in an agenda')),
+    para(bold('Watch live', link('https://x.org/live'))),
+    para('Partly ', bold('bold')),
+    para(text('Regional Activity Center', [M.fontSize.create({ size: 24 })])),
+    N.bullet_list.create(null, [N.list_item.create(null, [para(bold('Item label'))])]),
+    table([[{ td: [para(bold('Mayor'))] }, 'Vice Mayor']]),
+  );
+  const got = found(agenda);
+  deepEq(got.map((f) => f.excerpt), ['PUBLIC APPEARANCES', 'CITY MANAGER’S REPORT:', 'Regional Activity Center'],
+    'bold or heading-size short lines; not sentences, long lines, links, partly bold text, list items or table cells');
+  deepEq(got.map((f) => [f.severity, f.suggestion]), [['manual', 'h2'], ['manual', 'h2'], ['manual', 'h2']], 'a question, suggesting h2 after a heading');
+  const titleFirst = found(doc(para(bold('Winter Shelter Program')), para('Open nightly.')));
+  eq(titleFirst[0]?.suggestion, 'h1', 'h1 when no heading comes before it');
+  // Apply: the paragraph becomes the heading and loses the faked look.
+  const { EditorState } = mod.pmState;
+  let state = EditorState.create({ doc: agenda });
+  const pos = got[0].from - 1;
+  assert(mod.editorCommands.setHeadingLevel(pos, 2)(state, (tr) => { state = state.apply(tr); }), 'the fix applies');
+  const made = state.doc.nodeAt(pos);
+  eq(made.type.name, 'heading', 'a heading now');
+  eq(made.attrs.level, 2, 'at the suggested level');
+  deepEq(made.firstChild.marks.map((m) => m.type.name), [], 'bold and underline gone');
+  eq(found(state.doc).length, 2, 'its finding is gone, the others stay');
+  assert(!mod.editorCommands.setHeadingLevel(0, 2)(EditorState.create({ doc: doc(figure('img-1', 'x')) })), 'no textblock at the position: no-op');
 });
 
 check('link-text-generic fires only on generic labels', () => {
@@ -1774,6 +1845,24 @@ for (const producer of ['pandoc', 'libreoffice']) {
       assert(ids.includes(want), `finding ${want} in ${JSON.stringify(ids)}`);
     }
     assert(ids.some((id) => id.startsWith('link-text-raw-url')), `raw-URL link flagged in ${JSON.stringify(ids)}`);
+  });
+}
+
+// The public templates (templates/README.md) must arrive structured and raise nothing from our own checker.
+for (const [file, title, lists, tables] of [
+  ['accessible-meeting-agenda-template.docx', '[Board or council name] agenda, [meeting date]', ['bullet_list', 'ordered_list', 'ordered_list'], 0],
+  ['accessible-meeting-minutes-template.docx', '[Board or council name] minutes, [meeting date]', ['bullet_list', 'bullet_list'], 2],
+]) {
+  await acheck(`templates: ${file} imports with its title, one h1, real lists and headed tables, and no findings`, async () => {
+    const r = await importDocx(new Uint8Array(readFileSync(resolve(ROOT, 'public/templates', file))), file, parseXml);
+    eq(r.title, title, 'docProps title');
+    const s = shape(r.content);
+    eq(s.filter((t) => t === 'h1').length, 1, `one h1: ${s}`);
+    eq(s[0], 'h1', 'the h1 comes first');
+    deepEq(s.filter((t) => t.endsWith('_list')), lists, 'lists are real lists');
+    eq(s.filter((t) => t === 'table').length, tables, 'tables');
+    deepEq(r.notes, [], 'nothing left out');
+    deepEq(findingIds(r.content), [], 'no findings');
   });
 }
 

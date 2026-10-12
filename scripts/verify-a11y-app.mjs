@@ -655,6 +655,49 @@ async function language() {
     else if (refused !== '' || (await marked('de')) !== '') fail(`LANG  a refused language still shows or applied (menu=${JSON.stringify(refused)})`);
     else note('with nothing selected, the Language menu says to select text first and changes nothing');
 
+    // Retyping a link: Go to text selects the seed's "click here"; typed words
+    // replace it and the link keeps its address (retypeLinkTr). One undo puts
+    // "click here" back, still linked.
+    const linkNow = () => evaluate(send, `[...document.querySelectorAll('#document-text a[href]')].filter((a) => a.getAttribute('href').endsWith('/shelter')).map((a) => a.textContent).join('|')`);
+    const beforeLink = await findings();
+    const linkCard = await evaluate(send, `(() => {
+      const card = [...document.querySelectorAll('aside button')].find((b) => b.textContent.includes('Rewrite the link text'));
+      card?.click();
+      return Boolean(card);
+    })()`);
+    await sleep(200);
+    if (!linkCard || !(await focusByName(send, 'aside button', 'Go to text'))) fail('LINK  no Go to text on the "click here" finding');
+    else {
+      await key(send, 'Enter');
+      await sleep(200);
+      await send('Input.insertText', { text: 'the list of shelters' });
+      await sleep(400);
+      const retyped = await linkNow();
+      const afterLink = await findings();
+      // Off the link and straight back: the next words are plain again, even
+      // though the cursor is where the retyping left it.
+      await sleep(600);
+      await key(send, 'ArrowRight');
+      await key(send, 'ArrowLeft');
+      await send('Input.insertText', { text: ' today' });
+      await sleep(400);
+      const afterArrows = await linkNow();
+      const undo = () => evaluate(send, `(() => {
+        const mac = /Mac/.test(navigator.platform);
+        document.getElementById('document-text').dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }));
+      })()`);
+      await undo();
+      await sleep(300);
+      await undo();
+      await sleep(400);
+      const undone = await linkNow();
+      if (retyped !== 'the list of shelters') fail(`LINK  typing over "click here" left the link as ${JSON.stringify(retyped)}, expected the new words with the same address`);
+      else if (afterLink !== beforeLink - 1) fail(`LINK  findings ${beforeLink} -> ${afterLink} after rewriting the link text`);
+      else if (afterArrows !== 'the list of shelters') fail(`LINK  typing after arrowing off and back onto the link extended it to ${JSON.stringify(afterArrows)}`);
+      else if (undone !== 'click here') fail(`LINK  undo left the link as ${JSON.stringify(undone)}`);
+      else note('typing over a link\'s words keeps its address and clears the finding; typing after it once the cursor has moved does not extend it; undo restores it');
+    }
+
     // Document language: set the (English) FAQ to Spanish and it asks once
     // whether that's right; Apply sets it back and says what remains.
     const rootLang = () => evaluate(send, `document.getElementById('document-text').getAttribute('lang')`);
@@ -1586,6 +1629,9 @@ try {
   await staticPage('/help', 'Help · Ada Editor');
   await staticPage('/about', 'About · Ada Editor');
   await staticPage('/research/agenda-platforms', 'Do agenda platforms keep accessible PDFs accessible? · Ada Editor');
+  await staticPage('/guides/title-ii-meeting-documents', 'ADA Title II and meeting documents: the dates, the exceptions · Ada Editor');
+  await staticPage('/guides/ada-compliant-pdf', 'What “ADA compliant PDF” can and can’t mean · Ada Editor');
+  await staticPage('/guides/accessible-agenda-minutes-templates', 'Accessible agenda and minutes templates (free, Word) · Ada Editor');
   await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
   await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();

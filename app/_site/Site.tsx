@@ -5,12 +5,12 @@ import { SiteAccount } from './SiteAccount';
 import './site.css';
 
 /**
- * Chrome for the public pages (the home page, /help, /about, /accessibility, /privacy, /research/*): skip link,
+ * Chrome for the public pages (the home page, /help, /about, /accessibility, /privacy, /research/*, /guides/*): skip link,
  * header, main, footer. Server-rendered apart from the account links, which
  * need the session in this browser (SiteAccount). Every link here has a
  * name no other control on the page shares (the a11y gate checks it).
  */
-export function Site({ current, children }: { current?: 'about' | 'accessibility' | 'privacy' | 'help' | 'research'; children: ReactNode }) {
+export function Site({ current, children }: { current?: 'about' | 'accessibility' | 'privacy' | 'help' | 'research' | 'guides'; children: ReactNode }) {
   const here = (page: typeof current) => (page === current ? 'page' : undefined);
   return (
     <div className="site">
@@ -26,7 +26,7 @@ export function Site({ current, children }: { current?: 'about' | 'accessibility
         <div className="site-footer__cols">
           <div className="site-footer__about">
             <p className="site-brand"><span className="site-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</p>
-            <p>Write documents that meet WCAG 2.1 AA and Section 508, and know exactly what a checker can’t tell you.</p>
+            <p>Write documents checked against WCAG 2.1 AA, and know exactly what a checker can’t tell you.</p>
           </div>
           <nav aria-labelledby="site-foot-product">
             <h2 id="site-foot-product">Product</h2>
@@ -39,6 +39,7 @@ export function Site({ current, children }: { current?: 'about' | 'accessibility
             <Link href="/about" aria-current={here('about')}>About</Link>
             <Link href="/help" aria-current={here('help')}>Help</Link>
             <Link href="/research/agenda-platforms" aria-current={here('research')}>Research</Link>
+            <Link href="/guides/title-ii-meeting-documents" aria-current={here('guides')}>Title II guide</Link>
             <Link href="/accessibility" aria-current={here('accessibility')}>Accessibility</Link>
             <Link href="/privacy" aria-current={here('privacy')}>Privacy</Link>
             <Link href="/privacy#contact">Contact</Link>

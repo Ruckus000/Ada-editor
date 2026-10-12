@@ -9,8 +9,8 @@ import { Site } from './_site/Site';
 
 export const metadata: Metadata = pageMetadata('/');
 
-/* Copy is held to what the code does: 19 rules (rules.ts, 3 of them AAA, so
- * never "19 AA rules"); prose rules run on blur, not on a pause; codes are 8
+/* Copy is held to what the code does: 20 rules (rules.ts, 3 of them AAA, so
+ * never "20 AA rules"); prose rules run on blur, not on a pause; codes are 8
  * digits. Public, server-rendered, no client JS. */
 
 const FINDINGS = [
@@ -96,7 +96,7 @@ export default function Page() {
               <p>Live <span className="ada-underline" data-severity="blocker">structure</span> checks, prose checks <span className="ada-underline" data-severity="manual">on blur</span>.</p>
             </div>
             <h3>A real checking engine</h3>
-            <p>Nineteen WCAG rules run against the live ProseMirror document, not a canned demo.</p>
+            <p>Twenty WCAG rules run against the live ProseMirror document, not a canned demo.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-small" aria-hidden="true">
@@ -156,7 +156,7 @@ export default function Page() {
       <section id="promise" className="site-section site-wrap site-split" aria-labelledby="promise-title">
         <div>
           <h2 id="promise-title" className="site-h2">We will never call your document “compliant.”</h2>
-          <p className="site-lede">Automated checks cover roughly a third of WCAG. Ada Editor flags what it can prove, marks what needs a person, and says so when it finds nothing.</p>
+          <p className="site-lede">Automated checks cover only part of WCAG: whether alt text is accurate, or headings match the real structure, needs a person. Ada Editor flags what it can prove, marks what needs your call, and says so when it finds nothing. <Link href="/guides/ada-compliant-pdf">What “ADA compliant” can and can’t mean</Link>.</p>
         </div>
         <div className="site-panel">
           <p className="site-findings__head"><span>Findings</span><span className="site-count">0 automated</span></p>

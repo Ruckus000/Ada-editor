@@ -21,7 +21,7 @@ import { SITE_URL } from './_site/pages';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: 'Ada Editor',
-  description: 'Write documents that meet WCAG 2.1 AA and Section 508.',
+  description: 'Write documents checked against WCAG 2.1 AA.',
   openGraph: { siteName: 'Ada Editor', type: 'website', locale: 'en_US' },
 };
 

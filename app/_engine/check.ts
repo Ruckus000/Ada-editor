@@ -100,7 +100,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
   if (!memo) blockMemo.set(key, (memo = new WeakMap()));
   const entries: BlockEntry[] = [];
   const tables: { findings: RawFinding[]; pos: number; size: number }[] = [];
-  doc.descendants((node, pos) => {
+  doc.descendants((node, pos, parent) => {
     if (node.type === TABLE) {
       let findings = tableMemo.get(node);
       if (!findings) tableMemo.set(node, (findings = summarizeTable(node)));
@@ -114,7 +114,7 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
       summary = summarizeBlock(node, pageLang);
       memo.set(node, summary);
     }
-    entries.push({ pos, contentSize: node.content.size, summary });
+    entries.push({ pos, contentSize: node.content.size, summary, ...(parent !== doc && { nested: true }) });
     // Inline children carry nothing the block summary hasn't already seen.
     return false;
   });

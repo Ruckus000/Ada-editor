@@ -41,6 +41,7 @@ import {
   markTypes,
   nodeTypes,
   outdent,
+  setHeadingLevel,
   setMark,
   setTableCaption,
   tableAround,
@@ -837,10 +838,9 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     let tr: Transaction;
     if (f.fix?.kind === 'headingLevel') {
       const $pos = view.state.doc.resolve(f.from);
-      const pos = $pos.before($pos.depth);
-      const node = view.state.doc.nodeAt(pos);
-      if (!node) return;
-      tr = view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, level: f.fix.level });
+      let made: Transaction | undefined;
+      if (!setHeadingLevel($pos.before($pos.depth), f.fix.level)(view.state, (t) => { made = t; }) || !made) return;
+      tr = made;
     } else if (f.fix?.kind === 'figureAlt') {
       const node = view.state.doc.nodeAt(f.from);
       if (!node) return;

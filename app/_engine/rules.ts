@@ -16,7 +16,7 @@
  * Rules that only understand English (word lists, English syllables, spaces
  * between words) run only when the document is English; see `summarizeBlock`.
  *
- * Six rules are engine-only, added after the port: `document-no-headings`
+ * Seven rules are engine-only, added after the port: `document-no-headings`
  * closes the gap `document-no-h1` leaves (a document with no headings at all),
  * and the parity gate (scripts/measure-engine.mjs) pins its one corpus firing;
  * `contrast-minimum` judges colour marks, which the Markdown corpus never has;
@@ -26,7 +26,9 @@
  * `language-of-parts` finds unmarked passages in another language, and is
  * silent on the whole (English) corpus, names in other alphabets included;
  * `document-language` asks when most of a document reads as a language other
- * than the one it declares (silent on the corpus, which is English).
+ * than the one it declares (silent on the corpus, which is English);
+ * `heading-unmarked` asks about short lines set like headings, and the parity
+ * gate pins its eleven corpus firings (nine real section titles, two names).
  *
  * One severity departs from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA. Each rule now declares its
@@ -106,10 +108,10 @@ export const RULES: readonly RuleInfo[] = [
     fix: 'If the picture holds data or detail the text around it doesn’t, add a long description: a paragraph or table nearby that says the same thing in words.' },
   { id: 'link-text-generic', name: 'Links like “click here”', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
     about: 'People using screen readers often jump from link to link, hearing only the link text. “Click here” or “read more” tells them nothing about where it goes.',
-    fix: 'Rewrite the link so its words name the destination, for example “the full meeting agenda” instead of “click here”.' },
+    fix: 'Rewrite the link so its words name the destination, for example “the full meeting agenda” instead of “click here”. Go to text selects the link’s words: type the new ones, and the link keeps its address.' },
   { id: 'link-text-raw-url', name: 'Links that are a bare web address', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
     about: 'A bare web address is read out character by character, and rarely says what the page is.',
-    fix: 'Select the address and give the link a human label (Insert link), keeping the address as its destination.' },
+    fix: 'Select the address and type words that say where it goes, such as “the parks department’s events page”. The link keeps its address.' },
   { id: 'link-text-ambiguous', name: 'The same link text going to different places', criterion: '2.4.4 Link Purpose (In Context)', level: 'A', kind: 'structural',
     about: 'The same link text going to different places is confusing when links are listed out of context.',
     fix: 'Give each link words that tell its destinations apart, or confirm the surrounding text makes the difference clear.' },
@@ -139,6 +141,9 @@ export const RULES: readonly RuleInfo[] = [
     fix: 'Choose the right language under More (…) → Document language, or apply the suggested fix.' },
   // Structural, not prose-gated: it must retract the moment a heading is added
   // (prose findings are carried across structural runs until blur).
+  { id: 'heading-unmarked', name: 'Lines that look like headings but aren’t', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
+    about: 'A short line in bold or large type that starts a section looks like a heading. Unless it is marked as one, screen reader users can’t jump to it, and the PDF has no outline to move through. Agenda section titles are the usual case.',
+    fix: 'If the line starts a section, choose Apply fix (or Heading 1 or Heading 2 in the toolbar) to make it a heading. If it’s only emphasis, dismiss the finding.' },
   { id: 'document-no-headings', name: 'No headings at all', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
     about: 'With no headings, screen reader users can only read from top to bottom; they can’t skim or jump to a section.',
     fix: 'Mark section titles as headings (H1, H2) instead of making them bold or bigger.' },
@@ -229,6 +234,8 @@ export interface BlockSummary {
   languageRuns: { from: number; to: number; lang: string; snippet: string; letters: number }[];
   /** Letters in the block's text, for the document-language share. */
   letters: number;
+  /** A paragraph set like a heading: short, all bold or large, no closing punctuation. */
+  looksLikeHeading: boolean;
 }
 
 /** One summarized block plus where it lives. Assembled by check.ts's walk. */
@@ -236,6 +243,8 @@ export interface BlockEntry {
   pos: number;
   contentSize: number;
   summary: BlockSummary;
+  /** Inside a list item or table cell, where a bold line is a label, not a section. */
+  nested?: boolean;
 }
 
 /** Blocks the engine summarizes: textblocks and figures (the only atom block). */
@@ -497,7 +506,7 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
         }
       }
     }
-    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, blanks: [], findings, languageRuns: [], letters: 0 };
+    return { text: '', headingLevel: null, links: [], figure: { id, alt, label }, blanks: [], findings, languageRuns: [], letters: 0, looksLikeHeading: false };
   }
 
   const { text, offsets } = blockChars(node);
@@ -605,7 +614,27 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
   return {
     text, headingLevel, links, figure: null, blanks: formBlanks(node, text, offsets), findings,
     languageRuns: languages, letters: letterTotal(text),
+    looksLikeHeading: node.type === PARAGRAPH && !links.length && looksLikeHeading(node, text),
   };
+}
+
+/**
+ * Set like a section title: up to 12 words, no closing punctuation but a
+ * colon, and every character bold or at least heading size (18.72px, h3).
+ * shortcut: emphasis only; a line that is just capitals or underlined isn't
+ * counted. Widen if real agendas show headings set that way.
+ */
+function looksLikeHeading(node: PMNode, text: string): boolean {
+  if (!text || text.split(' ').length > 12 || /[.!?,;]$/.test(text)) return false;
+  let bold = true;
+  let large = true;
+  node.forEach((child) => {
+    if (!child.isText || !child.text!.trim()) return;
+    if (!STRONG.isInSet(child.marks)) bold = false;
+    const size = FONT_SIZE.isInSet(child.marks);
+    if (!size || Number(size.attrs.size) < HEADING_PX[3]!) large = false;
+  });
+  return bold || large;
 }
 
 const letterTotal = (s: string): number => s.match(/\p{L}/gu)?.length ?? 0;
@@ -775,6 +804,27 @@ export function crossBlockFindings(entries: readonly BlockEntry[], pageLang = 'e
     previous = level;
   }
 
+  // heading-unmarked: a person decides (1.3.1 fails only if it really is a
+  // heading). The editor has two levels: h1 when no heading comes before it,
+  // otherwise h2, so applying them in order builds a title and its sections.
+  let headingBefore = false;
+  for (const e of entries) {
+    if (e.summary.headingLevel !== null) { headingBefore = true; continue; }
+    if (!e.summary.looksLikeHeading || e.nested) continue;
+    out.push({
+      ruleId: 'heading-unmarked',
+      severity: 'manual',
+      criterion: crit('heading-unmarked'),
+      title: 'This line looks like a heading',
+      explanation: 'It’s short and set in bold or large type, like a section title, but it isn’t marked as a heading, so screen reader users can’t jump to it. If it starts a section, make it a heading. If it’s only emphasis, dismiss this.',
+      snippet: e.summary.text,
+      original: 'plain text',
+      hint: 'Make it a heading?',
+      fix: { kind: 'headingLevel', level: headingBefore ? 2 : 1 },
+      anchor: { kind: 'docRange', from: e.pos + 1, to: e.pos + 1 + e.contentSize },
+    });
+  }
+
   // document-no-h1 (and the counts document-no-headings reads)
   let headings = 0;
   let hasH1 = false;
@@ -806,8 +856,8 @@ export function crossBlockFindings(entries: readonly BlockEntry[], pageLang = 'e
   // visual headings are not marked up; requiring headings is 2.4.10, AAA), so
   // a person decides whether the document has sections.
   // ponytail: "several blocks" is a fixed count of non-empty text blocks.
-  // Upgrade trigger: false positives on real letters — weigh length in words,
-  // or pair it with detecting bold lines that act as headings.
+  // Upgrade trigger: false positives on real letters — weigh length in words.
+  // Bold lines that act as headings are heading-unmarked's to ask about.
   const NO_HEADINGS_MIN_BLOCKS = 5;
   if (headings === 0 && textBlocks >= NO_HEADINGS_MIN_BLOCKS) {
     out.push({

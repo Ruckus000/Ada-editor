@@ -25,7 +25,7 @@ const WHAT_IT_MEANS: Record<(typeof OPEN_SEVERITIES)[number], string> = {
 const GROUPS: [string, string, string[]][] = [
   ['images', 'Images', ['img-alt-missing', 'img-alt-suspicious', 'img-long-description']],
   ['links', 'Links', ['link-text-generic', 'link-text-raw-url', 'link-text-ambiguous']],
-  ['structure', 'Headings and structure', ['document-no-headings', 'document-no-h1', 'heading-skip', 'heading-empty']],
+  ['structure', 'Headings and structure', ['document-no-headings', 'heading-unmarked', 'document-no-h1', 'heading-skip', 'heading-empty']],
   ['language', 'Language and reading', ['document-language', 'language-of-parts', 'reading-level', 'long-sentence']],
   ['colour', 'Colour and contrast', ['contrast-minimum', 'colour-only-reference']],
   ['tables', 'Tables and forms', ['table-no-header', 'table-merged-cells', 'form-blank']],
@@ -78,7 +78,7 @@ export default function Page() {
                 </div>
               ))}
             </dl>
-            <p>No findings doesn’t mean a document is accessible. Automated checks cover roughly a third of WCAG; whether alt text is accurate, or headings match the real structure, still needs a person.</p>
+            <p>No findings doesn’t mean a document is accessible. Automated checks cover only part of WCAG; whether alt text is accurate, or headings match the real structure, still needs a person. More in our guide to <Link href="/guides/ada-compliant-pdf">what “ADA compliant PDF” can and can’t mean</Link>.</p>
           </section>
 
           <section id="checks" aria-labelledby="checks-title">
