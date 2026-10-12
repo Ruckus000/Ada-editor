@@ -22,3 +22,22 @@ file re-saved instead. Before committing a regenerated fixture, check that
 
 Hostile inputs (zip bombs, DTDs, forged sizes, Strict OOXML) are built inside
 `scripts/verify-rules.mjs`, not stored here.
+
+## `benchmark/`: the engine benchmark's planted files
+
+The answer key for [the engine benchmark](../../docs/audit/engine-benchmark-2026-10.md):
+
+| File | What it holds |
+|---|---|
+| `benchmark-bad.docx` | All 29 rows except 7 and 30, each planted once |
+| `benchmark-good.docx` | The same text, every row fixed |
+| `benchmark-row07-title.docx` | Row 7: no heading, Title property "Document1" |
+| `benchmark-row30-language.docx` | Row 30: a Spanish document set to English (US) |
+
+Word made every one of them: Word for Mac 16.113.4 (26100421) ran
+`build-packs.bas` on October 12, 2026, with the pictures in `images/`.
+To rebuild, import the macro into Word's Visual Basic Editor and run `BuildAll`.
+Word strips the author on save, but check `docProps/` before committing anyway.
+
+Don't run Ada Editor on these files until Word's checker has run on them and
+its results are recorded. The brief registered that order.
