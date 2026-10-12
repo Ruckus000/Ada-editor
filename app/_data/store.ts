@@ -547,7 +547,8 @@ export function excerptOf(doc: PMNode): string {
   const parts: string[] = [];
   doc.forEach((block, _, i) => {
     if (i === 0 && block.type.name === 'heading') return;
-    const text = block.textContent.trim();
+    // Spaces at cell and line-break boundaries: textContent runs them together.
+    const text = block.textBetween(0, block.content.size, ' ', ' ').trim();
     // Blocks become sentences: a subtitle with no full stop shouldn't run into the next line.
     if (text) parts.push(/[.!?:;…]$/.test(text) ? text : `${text}.`);
   });
