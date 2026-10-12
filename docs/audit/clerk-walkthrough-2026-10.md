@@ -17,7 +17,7 @@
 
 **The path works, and the PDF it produces is valid PDF/UA-1. But an agenda's most important structure, its section headings, never gets flagged, and fixing a "click here" link the obvious way deletes the link.** A clerk who does everything Ada asks still posts an agenda that a screen reader user can't navigate by section.
 
-*Both were fixed on 12 October 2026, the day of the walkthrough: findings 1 and 2 say how.*
+*Both were fixed on 12 October 2026, the day of the walkthrough, and so were findings 3 to 5: each says how.*
 
 ## What worked
 
@@ -58,17 +58,23 @@ The officials' names were laid out in a table. The checker said "Blocks access: 
 
 **What to do:** when a table has no headers, offer a second way out: "This table is only for layout", which turns it into paragraphs. The help page's "how to fix it" should say the same.
 
+**Fixed (#91).** The finding now offers **Turn into text** beside Apply fix. It replaces the table with its caption, then each cell's text in reading order, and drops empty cells. One-row tables, which had no fix before, get it too. The finding and Help say which to choose.
+
 ### 4. The document preview on the desk runs words together (should fix)
 
 The desk shows "1:05 PMPolice Department…" and "MayorCommissioner, District 1Commissioner…". `excerptOf` (`app/_data/store.ts`) takes each block's `textContent`, which joins table cells and line breaks with nothing between them.
 
 **What to do:** join the text with a space at cell and line-break boundaries. Add a case to the excerpt self-check in `scripts/verify-rules.mjs`.
 
+**Fixed (#92), as described.** Documents already saved show it straight away, because the preview is computed when the desk loads.
+
 ### 5. On a phone, the findings are below the whole document (should fix)
 
 At 375 px the findings list starts about 3,000 px down the page, after the agenda. The top bar shows the counts, but nothing takes you to the list.
 
 **What to do:** a "Findings" link or button in the top bar on small screens that moves to the list. Clerks will mostly work on a desktop, so this comes after 1–4.
+
+**Fixed (#93).** Below 64rem the top bar shows the count, such as "11 findings". It moves focus to the findings heading, and it's hidden where the findings sit beside the page.
 
 ### 6. Smaller things
 
