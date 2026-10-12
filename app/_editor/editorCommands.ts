@@ -2,9 +2,10 @@ import { baseKeymap, chainCommands, setBlockType, toggleMark } from 'prosemirror
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { liftListItem, sinkListItem, splitListItem, wrapInList } from 'prosemirror-schema-list';
-import type { MarkType, NodeType } from 'prosemirror-model';
-import { Plugin, TextSelection } from 'prosemirror-state';
+import type { Mark, MarkType, NodeType } from 'prosemirror-model';
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { Command, EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import {
   TableMap,
   addColumnAfter,
@@ -322,6 +323,70 @@ function tableKeys(): Plugin {
   });
 }
 
+/* ---------- retyping a link ---------- */
+
+type Retyping = { link: Mark; end: number } | null;
+const retypeKey = new PluginKey<Retyping>('retypeLink');
+
+/** The one link on every character from `from` to `to`, or null. */
+function wholeLink(doc: PMNode, from: number, to: number): Mark | null {
+  let link: Mark | null | undefined;
+  doc.nodesBetween(from, to, (node) => {
+    if (!node.isInline || link === null) return;
+    const mark = node.isText ? M.link!.isInSet(node.marks) ?? null : null;
+    link = mark && (link === undefined || link.eq(mark)) ? mark : null;
+  });
+  return link ?? null;
+}
+
+/**
+ * Typing over a link's words keeps the link, and so does the typing that
+ * follows, until the cursor moves: links aren't inclusive (editorSchema.ts),
+ * so ProseMirror would otherwise type plain text there and the address would
+ * be lost. Typing after a link the cursor arrived at still isn't linked.
+ * shortcut: typed input only; a paste over a link, or IME/Android composition,
+ * still drops it. Upgrade to an appendTransaction if pilot users lose links so.
+ */
+export function retypeLinkTr(state: EditorState, from: number, to: number, text: string) {
+  const retyping = retypeKey.getState(state);
+  const link = from < to ? wholeLink(state.doc, from, to) : retyping && from === retyping.end ? retyping.link : null;
+  if (!link) return null;
+  const end = from + text.length;
+  return state.tr.insertText(text, from, to).addMark(from, end, link).setMeta(retypeKey, { link, end });
+}
+
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'AltGraph']);
+const stopRetyping = (view: EditorView) => { if (retypeKey.getState(view.state)) view.dispatch(view.state.tr.setMeta(retypeKey, null)); };
+
+function retypeLink(): Plugin<Retyping> {
+  return new Plugin<Retyping>({
+    key: retypeKey,
+    state: {
+      init: () => null,
+      apply: (tr, value) => {
+        const meta = tr.getMeta(retypeKey) as Retyping | undefined;
+        if (meta !== undefined) return meta;
+        return tr.docChanged || tr.selectionSet ? null : value;
+      },
+    },
+    props: {
+      handleTextInput(view, from, to, text) {
+        const tr = retypeLinkTr(view.state, from, to, text);
+        if (!tr) return false;
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      },
+      // Moving off and back can leave the selection where it was, so no
+      // transaction says so: any key that isn't a character, or a click, ends it.
+      handleKeyDown(view, event) {
+        if (event.key.length > 1 && !MODIFIER_KEYS.has(event.key)) stopRetyping(view);
+        return false;
+      },
+      handleDOMEvents: { mousedown: (view) => { stopRetyping(view); return false; } },
+    },
+  });
+}
+
 /* ---------- plugins ---------- */
 
 export function editingPlugins(): Plugin[] {
@@ -330,6 +395,7 @@ export function editingPlugins(): Plugin[] {
     tableKeys(),
     tableEditing(),
     history(),
+    retypeLink(),
     keymap({
       'Mod-z': undo,
       'Shift-Mod-z': redo,

@@ -231,6 +231,41 @@ check('link runs merge across inner formatting (§9.9)', () => {
   eq(blockFindings(two, 'link-text-generic').length, 2, 'two hrefs stay two runs');
 });
 
+check('typing over a link keeps its address (retypeLinkTr)', () => {
+  // Go to text selects a "click here" link; the clerk types better words.
+  // Links aren't inclusive, so without retypeLinkTr the words land unlinked.
+  const { EditorState, TextSelection } = mod.pmState;
+  const { editingPlugins, retypeLinkTr } = mod.editorCommands;
+  const start = (d) => EditorState.create({ doc: d, plugins: editingPlugins() });
+  const links = (d) => { const out = []; d.descendants((n) => { const m = n.isText && M.link.isInSet(n.marks); if (m) out.push(`${n.text}>${m.attrs.href}`); }); return out; };
+  const type = (state, from, to, ch) => { const tr = retypeLinkTr(state, from, to, ch); return tr ? state.apply(tr) : null; };
+  // "For shelters, click here." — the link is 15..25.
+  let state = start(doc(para('For shelters, ', text('click here', link('https://x.org/s')), '.')));
+  state = type(state, 15, 25, 't');
+  state = type(state, 16, 16, 'h');
+  state = type(state, 17, 17, 'e');
+  deepEq(links(state.doc), ['the>https://x.org/s'], 'each typed character stays in the link');
+  eq(state.doc.textContent, 'For shelters, the.', 'the old words are gone');
+  // Arrow off and straight back, too fast for a selection change to land:
+  // the key itself ends the retyping. Shift alone doesn't.
+  const plugin = state.plugins.find((p) => p.props.handleTextInput);
+  const view = { get state() { return state; }, dispatch: (tr) => { state = state.apply(tr); } };
+  plugin.props.handleKeyDown(view, { key: 'Shift' });
+  assert(retypeLinkTr(state, 18, 18, 's'), 'Shift alone keeps retyping');
+  plugin.props.handleKeyDown(view, { key: 'ArrowRight' });
+  plugin.props.handleKeyDown(view, { key: 'ArrowLeft' });
+  eq(retypeLinkTr(state, 18, 18, 'x'), null, 'after an arrow key, typing at the link\'s end is not linked');
+  // The cursor moves away and back: typing after the link is plain again.
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+  state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 18)));
+  eq(retypeLinkTr(state, 18, 18, 'x'), null, 'typing after a link the cursor arrived at is not linked');
+  // Only a selection that is all one link.
+  const mixed = start(doc(para('See ', text('here', link('https://x.org/a')), ' now.')));
+  eq(retypeLinkTr(mixed, 5, 13, 'x'), null, 'a link and plain text: ordinary typing');
+  const two = start(doc(para(text('one', link('https://x.org/a')), text('two', link('https://x.org/b')))));
+  eq(retypeLinkTr(two, 1, 7, 'x'), null, 'two different links: ordinary typing');
+});
+
 check('link-text-generic fires only on generic labels', () => {
   const generic = doc(para(text('For locations, '), text('click here', link('https://x.org/loc')), text('.')));
   const found = blockFindings(generic, 'link-text-generic');
