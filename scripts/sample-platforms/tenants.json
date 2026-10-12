@@ -1,0 +1,962 @@
+{
+  "note": "Which Florida towns use which agenda platform: public information (vendors publish their customers). Candidates from `npm run sample-platforms -- discover --write`, reviewed by hand; \"exclude\" keeps a tenant out of sampling. Nothing about how any town performed is recorded here.",
+  "tenants": [
+    {
+      "platform": "civicclerk",
+      "tenant": "alachuafl",
+      "municipality": "Alachua",
+      "county": "Alachua",
+      "population": 10574,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "apopkafl",
+      "municipality": "Apopka",
+      "county": "Orange",
+      "population": 54873,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "bartowfl",
+      "municipality": "Bartow",
+      "county": "Polk",
+      "population": 19309,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "bayharborislandsfl",
+      "municipality": "Bay Harbor Islands",
+      "county": "Miami-Dade",
+      "population": 5922,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "casselberryfl",
+      "municipality": "Casselberry",
+      "county": "Seminole",
+      "population": 28794,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "clermontfl",
+      "municipality": "Clermont",
+      "county": "Lake",
+      "population": 43021,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "cocoabeachfl",
+      "municipality": "Cocoa Beach",
+      "county": "Brevard",
+      "population": 11354,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "cocoafl",
+      "municipality": "Cocoa",
+      "county": "Brevard",
+      "population": 19041,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "crestviewfl",
+      "municipality": "Crestview",
+      "county": "Okaloosa",
+      "population": 27134,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "daniabeachfl",
+      "municipality": "Dania Beach",
+      "county": "Broward",
+      "population": 31723,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "daytonabeachshoresfl",
+      "municipality": "Daytona Beach Shores",
+      "county": "Volusia",
+      "population": 5179,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "deerfieldbeachfl",
+      "municipality": "Deerfield Beach",
+      "county": "Broward",
+      "population": 86859,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "defuniakspringsfl",
+      "municipality": "DeFuniak Springs",
+      "county": "Walton",
+      "population": 5919,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "delandfl",
+      "municipality": "DeLand",
+      "county": "Volusia",
+      "population": 37351,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "destinfl",
+      "municipality": "Destin",
+      "county": "Okaloosa",
+      "population": 13931,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "fernandinabeachfl",
+      "municipality": "Fernandina Beach",
+      "county": "Nassau",
+      "population": 13052,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "flaglerbeachfl",
+      "municipality": "Flagler Beach",
+      "county": "Flagler",
+      "population": 5160,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "fortmyersbeachfl",
+      "municipality": "Fort Myers Beach",
+      "county": "Lee",
+      "population": 5582,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "greenacresfl",
+      "municipality": "Greenacres",
+      "county": "Palm Beach",
+      "population": 43990,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "grovelandfl",
+      "municipality": "Groveland",
+      "county": "Lake",
+      "population": 18505,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "hillsborobeachfl",
+      "municipality": "Hillsboro Beach",
+      "county": "Broward",
+      "population": 1987,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "hollyhillfl",
+      "municipality": "Holly Hill",
+      "county": "Volusia",
+      "population": 12958,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "indianharbourbeachfl",
+      "municipality": "Indian Harbour Beach",
+      "county": "Brevard",
+      "population": 9019,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "invernessfl",
+      "municipality": "Inverness",
+      "county": "Citrus",
+      "population": 7543,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "islamoradafl",
+      "municipality": "Islamorada",
+      "county": "Monroe",
+      "population": 7107,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "jacksonvillebeachfl",
+      "municipality": "Jacksonville Beach",
+      "county": "Duval",
+      "population": 23830,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "junobeachfl",
+      "municipality": "Juno Beach",
+      "county": "Palm Beach",
+      "population": 3858,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "jupiterfl",
+      "municipality": "Jupiter",
+      "county": "Palm Beach",
+      "population": 61047,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "jupiterislandfl",
+      "municipality": "Jupiter Island",
+      "county": "Martin",
+      "population": 804,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "kissimmeefl",
+      "municipality": "Kissimmee",
+      "county": "Osceola",
+      "population": 79226,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "ladylakefl",
+      "municipality": "Lady Lake",
+      "county": "Lake",
+      "population": 15970,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "lakemaryfl",
+      "municipality": "Lake Mary",
+      "county": "Seminole",
+      "population": 16798,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "lauderdalebytheseafl",
+      "municipality": "Lauderdale-by-the-Sea",
+      "county": "Broward",
+      "population": 6198,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "leesburgfl",
+      "municipality": "Leesburg",
+      "county": "Lake",
+      "population": 27000,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "longwoodfl",
+      "municipality": "Longwood",
+      "county": "Seminole",
+      "population": 15087,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "loxahatcheegrovesfl",
+      "municipality": "Loxahatchee Groves",
+      "county": "Palm Beach",
+      "population": 3355,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "lynnhavenfl",
+      "municipality": "Lynn Haven",
+      "county": "Bay",
+      "population": 18695,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "maitlandfl",
+      "municipality": "Maitland",
+      "county": "Orange",
+      "population": 19543,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "maryestherfl",
+      "municipality": "Mary Esther",
+      "county": "Okaloosa",
+      "population": 3982,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "melbournefl",
+      "municipality": "Melbourne",
+      "county": "Brevard",
+      "population": 84678,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "miamispringsfl",
+      "municipality": "Miami Springs",
+      "county": "Miami-Dade",
+      "population": 13859,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "miltonfl",
+      "municipality": "Milton",
+      "county": "Santa Rosa",
+      "population": 10197,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "minneolafl",
+      "municipality": "Minneola",
+      "county": "Lake",
+      "population": 13843,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "mountdorafl",
+      "municipality": "Mount Dora",
+      "county": "Lake",
+      "population": 16341,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "neptunebeachfl",
+      "municipality": "Neptune Beach",
+      "county": "Duval",
+      "population": 7217,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "oceanridgefl",
+      "municipality": "Ocean Ridge",
+      "county": "Palm Beach",
+      "population": 1830,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "opalockafl",
+      "municipality": "Opa-locka",
+      "county": "Miami-Dade",
+      "population": 16463,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "ormondbeachfl",
+      "municipality": "Ormond Beach",
+      "county": "Volusia",
+      "population": 43475,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "palatkafl",
+      "municipality": "Palatka",
+      "county": "Putnam",
+      "population": 10446,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "palmbeachfl",
+      "municipality": "Palm Beach",
+      "county": "Palm Beach",
+      "population": 9245,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "palmspringsfl",
+      "municipality": "Palm Springs",
+      "county": "Palm Beach",
+      "population": 26890,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "parklandfl",
+      "municipality": "Parkland",
+      "county": "Broward",
+      "population": 34670,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "pembrokeparkfl",
+      "municipality": "Pembroke Park",
+      "county": "Broward",
+      "population": 6260,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "pensacolafl",
+      "municipality": "Pensacola",
+      "county": "Escambia",
+      "population": 54312,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "portorangefl",
+      "municipality": "Port Orange",
+      "county": "Volusia",
+      "population": 62596,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "staugustinefl",
+      "municipality": "St. Augustine",
+      "county": "St. Johns",
+      "population": 14329,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "stcloudfl",
+      "municipality": "St. Cloud",
+      "county": "Osceola",
+      "population": 58964,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "stpetebeachfl",
+      "municipality": "St. Pete Beach",
+      "county": "Pinellas",
+      "population": 8879,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "stuartfl",
+      "municipality": "Stuart",
+      "county": "Martin",
+      "population": 17425,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "tarponspringsfl",
+      "municipality": "Tarpon Springs",
+      "county": "Pinellas",
+      "population": 25117,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "tavaresfl",
+      "municipality": "Tavares",
+      "county": "Lake",
+      "population": 19003,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "templeterracefl",
+      "municipality": "Temple Terrace",
+      "county": "Hillsborough",
+      "population": 26690,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "titusvillefl",
+      "municipality": "Titusville",
+      "county": "Brevard",
+      "population": 48789,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "wildwoodfl",
+      "municipality": "Wildwood",
+      "county": "Sumter",
+      "population": 15730,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "wiltonmanorsfl",
+      "municipality": "Wilton Manors",
+      "county": "Broward",
+      "population": 11426,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "wintergardenfl",
+      "municipality": "Winter Garden",
+      "county": "Orange",
+      "population": 46964,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "winterparkfl",
+      "municipality": "Winter Park",
+      "county": "Orange",
+      "population": 29795,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicclerk",
+      "tenant": "zephyrhillsfl",
+      "municipality": "Zephyrhills",
+      "county": "Pasco",
+      "population": 17194,
+      "match": "name + FL suffix",
+      "source": "Wayback CDX",
+      "note": "reviewed 2026-10-12: FL suffix and a Florida municipality name"
+    },
+    {
+      "platform": "civicweb",
+      "tenant": "dadecityfl",
+      "municipality": "Dade City",
+      "county": "Pasco",
+      "population": 7275,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "exclude": "robots.txt disallows all crawlers but named search engines (2026-10-12)"
+    },
+    {
+      "platform": "civicweb",
+      "tenant": "myoldsmar",
+      "municipality": "Oldsmar",
+      "county": "Pinellas",
+      "population": 14898,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "exclude": "robots.txt disallows all crawlers but named search engines (2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "cityofaventura",
+      "municipality": "Aventura",
+      "county": "Miami-Dade",
+      "population": 40242,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "cityofnorthport",
+      "municipality": "North Port",
+      "county": "Sarasota",
+      "population": 74793,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "clearwater",
+      "municipality": "Clearwater",
+      "county": "Pinellas",
+      "population": 117292,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "coconutcreek",
+      "municipality": "Coconut Creek",
+      "county": "Broward",
+      "population": 57833,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "coralgables",
+      "municipality": "Coral Gables",
+      "county": "Miami-Dade",
+      "population": 49248,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "cutlerbay",
+      "municipality": "Cutler Bay",
+      "county": "Miami-Dade",
+      "population": 45425,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "delraybeach",
+      "municipality": "Delray Beach",
+      "county": "Palm Beach",
+      "population": 66846,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "deltona",
+      "municipality": "Deltona",
+      "county": "Volusia",
+      "population": 93692,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "doral",
+      "municipality": "Doral",
+      "county": "Miami-Dade",
+      "population": 75874,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "fortlauderdale",
+      "municipality": "Fort Lauderdale",
+      "county": "Broward",
+      "population": 182760,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "gainesville",
+      "municipality": "Gainesville",
+      "county": "Alachua",
+      "population": 141085,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "hallandalebeach",
+      "municipality": "Hallandale Beach",
+      "county": "Broward",
+      "population": 41217,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "keywest",
+      "municipality": "Key West",
+      "county": "Monroe",
+      "population": 26444,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "miramar",
+      "municipality": "Miramar",
+      "county": "Broward",
+      "population": 134721,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "ocala",
+      "municipality": "Ocala",
+      "county": "Marion",
+      "population": 63591,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "palmsprings",
+      "municipality": "Palm Springs",
+      "county": "Palm Beach",
+      "population": 26890,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "exclude": "ambiguous: no events, and Palm Springs, California is also a Legistar client (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "parkland",
+      "municipality": "Parkland",
+      "county": "Broward",
+      "population": 34670,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "pensacola",
+      "municipality": "Pensacola",
+      "county": "Escambia",
+      "population": 54312,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "pinellaspark",
+      "municipality": "Pinellas Park",
+      "county": "Pinellas",
+      "population": 53093,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "plantcity",
+      "municipality": "Plant City",
+      "county": "Hillsborough",
+      "population": 39764,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "venice",
+      "municipality": "Venice",
+      "county": "Sarasota",
+      "population": 25463,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "legistar",
+      "tenant": "wellington",
+      "municipality": "Wellington",
+      "county": "Palm Beach",
+      "population": 61637,
+      "match": "Web API client",
+      "source": "Legistar Web API",
+      "note": "state confirmed from event locations or a Florida-only name (reviewed 2026-10-12)"
+    },
+    {
+      "platform": "municode",
+      "tenant": "dundee-fl",
+      "municipality": "Dundee",
+      "county": "Polk",
+      "population": 5235,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "exclude": "the platform drops connections from the research User-Agent (2026-10-12)"
+    },
+    {
+      "platform": "municode",
+      "tenant": "eatonville-fl",
+      "municipality": "Eatonville",
+      "county": "Orange",
+      "population": 2349,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "exclude": "the platform drops connections from the research User-Agent (2026-10-12)"
+    },
+    {
+      "platform": "municode",
+      "tenant": "loxahatcheegroves-fl",
+      "municipality": "Loxahatchee Groves",
+      "county": "Palm Beach",
+      "population": 3355,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "exclude": "the platform drops connections from the research User-Agent (2026-10-12)"
+    },
+    {
+      "platform": "primegov",
+      "tenant": "cityofoviedo",
+      "municipality": "Oviedo",
+      "county": "Seminole",
+      "population": 40059,
+      "match": "inspected in the October 2026 research",
+      "source": "research notes",
+      "exclude": "robots.txt disallows all crawlers (2026-10-12)"
+    }
+  ]
+}

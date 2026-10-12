@@ -1,5 +1,5 @@
 **About this draft (not part of the page):**
-- **Status:** draft, October 9, 2026. Do not send until the one-hour legal review is done; it covers notice, public records and outreach rules ([decision record](../agenda-platforms-2026-10.md), "Ground rules").
+- **Status:** on hold since October 12, 2026. Platform testing is now done from public files (decision 6 in the [decision record](../agenda-platforms-2026-10.md)), so clerks aren't asked to post anything for it. Reuse this for a clerk who wants to try Ada Editor on a real document. Drafted October 9, 2026. Do not send until the one-hour legal review is done; it covers notice, public records and outreach rules ([decision record](../agenda-platforms-2026-10.md), "Ground rules").
 - **Placeholders** are in square brackets.
 - **How to send it:** write it in Ada Editor and send it as Ada's tagged PDF, so it shows what it describes.
 - **Rules it follows:** it never says "compliant", names no vendor, and says nothing about any town's existing documents. Keep it that way in edits.

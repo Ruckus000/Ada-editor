@@ -29,3 +29,4 @@ next-env.d.ts
 # be re-included later with a `!.claude/skills/<name>` line.
 .claude/skills/*
 skills-lock.json
+scripts/sample-platforms/out/

@@ -16,8 +16,11 @@ import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { comparePdfs, inspectPdf } from './posted-pdf.mjs';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
+import { createFetcher } from './sample-platforms/fetch.mjs';
 
-const MAX_BYTES = 100 * 1024 * 1024;
+// One file the person asked for, so no robots.txt or spacing: the same as
+// opening the link in a browser. The sampler uses the same fetcher, politely.
+const fetcher = createFetcher({ userAgent: 'Ada Editor posted-PDF checker (+https://www.adaedit.com/help#posting)', minIntervalMs: 0, maxFileBytes: 100 * 1024 * 1024, respectRobots: false });
 const args = process.argv.slice(2);
 const arg = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
 const JSON_OUT = args.includes('--json');
@@ -40,26 +43,12 @@ async function load(source, label) {
     const bytes = new Uint8Array(readFileSync(source));
     return { bytes, path: resolve(source) };
   }
-  let response;
-  try {
-    response = await fetch(source, { redirect: 'follow', headers: { 'User-Agent': 'Ada Editor posted-PDF checker (+https://www.adaedit.com/help#posting)', Accept: 'application/pdf,*/*' } });
-  } catch (error) {
-    fail(`${label}: could not download ${source}: ${error.cause?.message ?? error.message}`);
+  const r = await fetcher.getPdf(source);
+  if (!r.ok) {
+    fail(`${label}: ${r.reason}.${r.blocked || /not a PDF/.test(r.reason) ? ' Download it in a browser and pass the file.' : ''}`);
   }
-  if ([401, 403, 429, 503].includes(response.status)) fail(`${label}: blocked (HTTP ${response.status}). Download it in a browser and pass the file.`);
-  if (!response.ok) fail(`${label}: HTTP ${response.status} for ${source}`);
-  if (Number(response.headers.get('content-length')) > MAX_BYTES) fail(`${label}: larger than ${MAX_BYTES / 1024 / 1024} MB`);
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of response.body) {
-    size += chunk.length;
-    if (size > MAX_BYTES) fail(`${label}: larger than ${MAX_BYTES / 1024 / 1024} MB`);
-    chunks.push(chunk);
-  }
-  const bytes = new Uint8Array(Buffer.concat(chunks));
-  if (!Buffer.from(bytes.subarray(0, 1024)).toString('latin1').includes('%PDF-')) {
-    fail(`${label}: the link returned ${response.headers.get('content-type') || 'something'} that isn't a PDF (often a browser check page). Download it in a browser and pass the file.`);
-  }
+  const { bytes } = r;
+  const response = { url: r.finalUrl };
   const path = join(DIR, `${label}-${basename(new URL(response.url).pathname).replace(/[^\w.-]/g, '_').slice(0, 60) || 'download'}${/\.pdf$/i.test(response.url) ? '' : '.pdf'}`);
   writeFileSync(path, bytes);
   return { bytes, path };

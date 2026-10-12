@@ -1,0 +1,2471 @@
+{
+ "source": "Wikipedia, \"List of municipalities in Florida\" (population: 2020 census), retrieved 2026-10-12",
+ "municipalities": [
+  {
+   "name": "Alachua",
+   "county": "Alachua",
+   "population": 10574,
+   "type": "City"
+  },
+  {
+   "name": "Alford",
+   "county": "Jackson",
+   "population": 484,
+   "type": "Town"
+  },
+  {
+   "name": "Altamonte Springs",
+   "county": "Seminole",
+   "population": 46231,
+   "type": "City"
+  },
+  {
+   "name": "Altha",
+   "county": "Calhoun",
+   "population": 496,
+   "type": "Town"
+  },
+  {
+   "name": "Anna Maria",
+   "county": "Manatee",
+   "population": 968,
+   "type": "City"
+  },
+  {
+   "name": "Apalachicola",
+   "county": "Franklin",
+   "population": 2341,
+   "type": "City"
+  },
+  {
+   "name": "Apopka",
+   "county": "Orange",
+   "population": 54873,
+   "type": "City"
+  },
+  {
+   "name": "Arcadia",
+   "county": "DeSoto",
+   "population": 7420,
+   "type": "City"
+  },
+  {
+   "name": "Archer",
+   "county": "Alachua",
+   "population": 1140,
+   "type": "City"
+  },
+  {
+   "name": "Astatula",
+   "county": "Lake",
+   "population": 1889,
+   "type": "Town"
+  },
+  {
+   "name": "Atlantic Beach",
+   "county": "Duval",
+   "population": 13513,
+   "type": "City"
+  },
+  {
+   "name": "Atlantis",
+   "county": "Palm Beach",
+   "population": 2142,
+   "type": "City"
+  },
+  {
+   "name": "Auburndale",
+   "county": "Polk",
+   "population": 15616,
+   "type": "City"
+  },
+  {
+   "name": "Aventura",
+   "county": "Miami-Dade",
+   "population": 40242,
+   "type": "City"
+  },
+  {
+   "name": "Avon Park",
+   "county": "Highlands",
+   "population": 9658,
+   "type": "City"
+  },
+  {
+   "name": "Bal Harbour",
+   "county": "Miami-Dade",
+   "population": 3093,
+   "type": "Village"
+  },
+  {
+   "name": "Baldwin",
+   "county": "Duval",
+   "population": 1396,
+   "type": "Town"
+  },
+  {
+   "name": "Bartow",
+   "county": "Polk",
+   "population": 19309,
+   "type": "City"
+  },
+  {
+   "name": "Bascom",
+   "county": "Jackson",
+   "population": 87,
+   "type": "Town"
+  },
+  {
+   "name": "Bay Harbor Islands",
+   "county": "Miami-Dade",
+   "population": 5922,
+   "type": "Town"
+  },
+  {
+   "name": "Bay Lake",
+   "county": "Orange",
+   "population": 29,
+   "type": "City"
+  },
+  {
+   "name": "Bell",
+   "county": "Gilchrist",
+   "population": 518,
+   "type": "Town"
+  },
+  {
+   "name": "Belle Glade",
+   "county": "Palm Beach",
+   "population": 16698,
+   "type": "City"
+  },
+  {
+   "name": "Belle Isle",
+   "county": "Orange",
+   "population": 7032,
+   "type": "City"
+  },
+  {
+   "name": "Belleair",
+   "county": "Pinellas",
+   "population": 4273,
+   "type": "Town"
+  },
+  {
+   "name": "Belleair Beach",
+   "county": "Pinellas",
+   "population": 1633,
+   "type": "City"
+  },
+  {
+   "name": "Belleair Bluffs",
+   "county": "Pinellas",
+   "population": 2311,
+   "type": "City"
+  },
+  {
+   "name": "Belleair Shore",
+   "county": "Pinellas",
+   "population": 73,
+   "type": "Town"
+  },
+  {
+   "name": "Belleview",
+   "county": "Marion",
+   "population": 5413,
+   "type": "City"
+  },
+  {
+   "name": "Beverly Beach",
+   "county": "Flagler",
+   "population": 474,
+   "type": "Town"
+  },
+  {
+   "name": "Biscayne Park",
+   "county": "Miami-Dade",
+   "population": 3117,
+   "type": "Village"
+  },
+  {
+   "name": "Blountstown",
+   "county": "Calhoun",
+   "population": 2266,
+   "type": "City"
+  },
+  {
+   "name": "Boca Raton",
+   "county": "Palm Beach",
+   "population": 97422,
+   "type": "City"
+  },
+  {
+   "name": "Bonifay",
+   "county": "Holmes",
+   "population": 2759,
+   "type": "City"
+  },
+  {
+   "name": "Bonita Springs",
+   "county": "Lee",
+   "population": 53644,
+   "type": "City"
+  },
+  {
+   "name": "Bowling Green",
+   "county": "Hardee",
+   "population": 2405,
+   "type": "City"
+  },
+  {
+   "name": "Boynton Beach",
+   "county": "Palm Beach",
+   "population": 80380,
+   "type": "City"
+  },
+  {
+   "name": "Bradenton",
+   "county": "Manatee",
+   "population": 55698,
+   "type": "City"
+  },
+  {
+   "name": "Bradenton Beach",
+   "county": "Manatee",
+   "population": 908,
+   "type": "City"
+  },
+  {
+   "name": "Branford",
+   "county": "Suwannee",
+   "population": 711,
+   "type": "Town"
+  },
+  {
+   "name": "Briny Breezes",
+   "county": "Palm Beach",
+   "population": 502,
+   "type": "Town"
+  },
+  {
+   "name": "Bristol",
+   "county": "Liberty",
+   "population": 918,
+   "type": "City"
+  },
+  {
+   "name": "Bronson",
+   "county": "Levy",
+   "population": 1140,
+   "type": "Town"
+  },
+  {
+   "name": "Brooker",
+   "county": "Bradford",
+   "population": 322,
+   "type": "Town"
+  },
+  {
+   "name": "Brooksville",
+   "county": "Hernando",
+   "population": 8890,
+   "type": "City"
+  },
+  {
+   "name": "Bunnell",
+   "county": "Flagler",
+   "population": 3276,
+   "type": "City"
+  },
+  {
+   "name": "Bushnell",
+   "county": "Sumter",
+   "population": 3047,
+   "type": "City"
+  },
+  {
+   "name": "Callahan",
+   "county": "Nassau",
+   "population": 1526,
+   "type": "Town"
+  },
+  {
+   "name": "Callaway",
+   "county": "Bay",
+   "population": 13045,
+   "type": "City"
+  },
+  {
+   "name": "Campbellton",
+   "county": "Jackson",
+   "population": 191,
+   "type": "Town"
+  },
+  {
+   "name": "Cape Canaveral",
+   "county": "Brevard",
+   "population": 9972,
+   "type": "City"
+  },
+  {
+   "name": "Cape Coral",
+   "county": "Lee",
+   "population": 194016,
+   "type": "City"
+  },
+  {
+   "name": "Carrabelle",
+   "county": "Franklin",
+   "population": 2606,
+   "type": "City"
+  },
+  {
+   "name": "Caryville",
+   "county": "Washington",
+   "population": 301,
+   "type": "Town"
+  },
+  {
+   "name": "Casselberry",
+   "county": "Seminole",
+   "population": 28794,
+   "type": "City"
+  },
+  {
+   "name": "Cedar Key",
+   "county": "Levy",
+   "population": 687,
+   "type": "City"
+  },
+  {
+   "name": "Center Hill",
+   "county": "Sumter",
+   "population": 846,
+   "type": "City"
+  },
+  {
+   "name": "Century",
+   "county": "Escambia",
+   "population": 1713,
+   "type": "Town"
+  },
+  {
+   "name": "Chattahoochee",
+   "county": "Gadsden",
+   "population": 2955,
+   "type": "City"
+  },
+  {
+   "name": "Chiefland",
+   "county": "Levy",
+   "population": 2316,
+   "type": "City"
+  },
+  {
+   "name": "Chipley",
+   "county": "Washington",
+   "population": 3660,
+   "type": "City"
+  },
+  {
+   "name": "Cinco Bayou",
+   "county": "Okaloosa",
+   "population": 457,
+   "type": "Town"
+  },
+  {
+   "name": "Clearwater",
+   "county": "Pinellas",
+   "population": 117292,
+   "type": "City"
+  },
+  {
+   "name": "Clermont",
+   "county": "Lake",
+   "population": 43021,
+   "type": "City"
+  },
+  {
+   "name": "Clewiston",
+   "county": "Hendry",
+   "population": 7327,
+   "type": "City"
+  },
+  {
+   "name": "Cloud Lake",
+   "county": "Palm Beach",
+   "population": 134,
+   "type": "Town"
+  },
+  {
+   "name": "Cocoa",
+   "county": "Brevard",
+   "population": 19041,
+   "type": "City"
+  },
+  {
+   "name": "Cocoa Beach",
+   "county": "Brevard",
+   "population": 11354,
+   "type": "City"
+  },
+  {
+   "name": "Coconut Creek",
+   "county": "Broward",
+   "population": 57833,
+   "type": "City"
+  },
+  {
+   "name": "Coleman",
+   "county": "Sumter",
+   "population": 642,
+   "type": "City"
+  },
+  {
+   "name": "Cooper City",
+   "county": "Broward",
+   "population": 34401,
+   "type": "City"
+  },
+  {
+   "name": "Coral Gables",
+   "county": "Miami-Dade",
+   "population": 49248,
+   "type": "City"
+  },
+  {
+   "name": "Coral Springs",
+   "county": "Broward",
+   "population": 134394,
+   "type": "City"
+  },
+  {
+   "name": "Cottondale",
+   "county": "Jackson",
+   "population": 848,
+   "type": "Town"
+  },
+  {
+   "name": "Crescent City",
+   "county": "Putnam",
+   "population": 1654,
+   "type": "City"
+  },
+  {
+   "name": "Crestview",
+   "county": "Okaloosa",
+   "population": 27134,
+   "type": "City"
+  },
+  {
+   "name": "Cross City",
+   "county": "Dixie",
+   "population": 1689,
+   "type": "Town"
+  },
+  {
+   "name": "Crystal River",
+   "county": "Citrus",
+   "population": 3396,
+   "type": "City"
+  },
+  {
+   "name": "Cutler Bay",
+   "county": "Miami-Dade",
+   "population": 45425,
+   "type": "Town"
+  },
+  {
+   "name": "Dade City",
+   "county": "Pasco",
+   "population": 7275,
+   "type": "City"
+  },
+  {
+   "name": "Dania Beach",
+   "county": "Broward",
+   "population": 31723,
+   "type": "City"
+  },
+  {
+   "name": "Davenport",
+   "county": "Polk",
+   "population": 9043,
+   "type": "City"
+  },
+  {
+   "name": "Davie",
+   "county": "Broward",
+   "population": 105691,
+   "type": "Town"
+  },
+  {
+   "name": "Daytona Beach",
+   "county": "Volusia",
+   "population": 72647,
+   "type": "City"
+  },
+  {
+   "name": "Daytona Beach Shores",
+   "county": "Volusia",
+   "population": 5179,
+   "type": "City"
+  },
+  {
+   "name": "DeBary",
+   "county": "Volusia",
+   "population": 22260,
+   "type": "City"
+  },
+  {
+   "name": "DeFuniak Springs",
+   "county": "Walton",
+   "population": 5919,
+   "type": "City"
+  },
+  {
+   "name": "DeLand",
+   "county": "Volusia",
+   "population": 37351,
+   "type": "City"
+  },
+  {
+   "name": "Deerfield Beach",
+   "county": "Broward",
+   "population": 86859,
+   "type": "City"
+  },
+  {
+   "name": "Delray Beach",
+   "county": "Palm Beach",
+   "population": 66846,
+   "type": "City"
+  },
+  {
+   "name": "Deltona",
+   "county": "Volusia",
+   "population": 93692,
+   "type": "City"
+  },
+  {
+   "name": "Destin",
+   "county": "Okaloosa",
+   "population": 13931,
+   "type": "City"
+  },
+  {
+   "name": "Doral",
+   "county": "Miami-Dade",
+   "population": 75874,
+   "type": "City"
+  },
+  {
+   "name": "Dundee",
+   "county": "Polk",
+   "population": 5235,
+   "type": "Town"
+  },
+  {
+   "name": "Dunedin",
+   "county": "Pinellas",
+   "population": 36068,
+   "type": "City"
+  },
+  {
+   "name": "Dunnellon",
+   "county": "Marion",
+   "population": 1928,
+   "type": "City"
+  },
+  {
+   "name": "Eagle Lake",
+   "county": "Polk",
+   "population": 3008,
+   "type": "City"
+  },
+  {
+   "name": "Eatonville",
+   "county": "Orange",
+   "population": 2349,
+   "type": "Town"
+  },
+  {
+   "name": "Ebro",
+   "county": "Washington",
+   "population": 237,
+   "type": "Town"
+  },
+  {
+   "name": "Edgewater",
+   "county": "Volusia",
+   "population": 23097,
+   "type": "City"
+  },
+  {
+   "name": "Edgewood",
+   "county": "Orange",
+   "population": 2685,
+   "type": "City"
+  },
+  {
+   "name": "El Portal",
+   "county": "Miami-Dade",
+   "population": 1986,
+   "type": "Village"
+  },
+  {
+   "name": "Estero",
+   "county": "Lee",
+   "population": 36939,
+   "type": "Village"
+  },
+  {
+   "name": "Esto",
+   "county": "Holmes",
+   "population": 341,
+   "type": "Town"
+  },
+  {
+   "name": "Eustis",
+   "county": "Lake",
+   "population": 23189,
+   "type": "City"
+  },
+  {
+   "name": "Everglades City",
+   "county": "Collier",
+   "population": 352,
+   "type": "City"
+  },
+  {
+   "name": "Fanning Springs",
+   "county": "Levy",
+   "population": 1182,
+   "type": "City"
+  },
+  {
+   "name": "Fellsmere",
+   "county": "Indian River",
+   "population": 4834,
+   "type": "City"
+  },
+  {
+   "name": "Fernandina Beach",
+   "county": "Nassau",
+   "population": 13052,
+   "type": "City"
+  },
+  {
+   "name": "Flagler Beach",
+   "county": "Flagler",
+   "population": 5160,
+   "type": "City"
+  },
+  {
+   "name": "Florida City",
+   "county": "Miami-Dade",
+   "population": 13085,
+   "type": "City"
+  },
+  {
+   "name": "Fort Lauderdale",
+   "county": "Broward",
+   "population": 182760,
+   "type": "City"
+  },
+  {
+   "name": "Fort Meade",
+   "county": "Polk",
+   "population": 5100,
+   "type": "City"
+  },
+  {
+   "name": "Fort Myers",
+   "county": "Lee",
+   "population": 86395,
+   "type": "City"
+  },
+  {
+   "name": "Fort Myers Beach",
+   "county": "Lee",
+   "population": 5582,
+   "type": "Town"
+  },
+  {
+   "name": "Fort Pierce",
+   "county": "St. Lucie",
+   "population": 47297,
+   "type": "City"
+  },
+  {
+   "name": "Fort Walton Beach",
+   "county": "Okaloosa",
+   "population": 20922,
+   "type": "City"
+  },
+  {
+   "name": "Fort White",
+   "county": "Columbia",
+   "population": 618,
+   "type": "Town"
+  },
+  {
+   "name": "Freeport",
+   "county": "Walton",
+   "population": 5861,
+   "type": "City"
+  },
+  {
+   "name": "Frostproof",
+   "county": "Polk",
+   "population": 3273,
+   "type": "City"
+  },
+  {
+   "name": "Fruitland Park",
+   "county": "Lake",
+   "population": 8325,
+   "type": "City"
+  },
+  {
+   "name": "Gainesville",
+   "county": "Alachua",
+   "population": 141085,
+   "type": "City"
+  },
+  {
+   "name": "Glen Ridge",
+   "county": "Palm Beach",
+   "population": 217,
+   "type": "Town"
+  },
+  {
+   "name": "Glen St. Mary",
+   "county": "Baker",
+   "population": 463,
+   "type": "Town"
+  },
+  {
+   "name": "Golden Beach",
+   "county": "Miami-Dade",
+   "population": 961,
+   "type": "Town"
+  },
+  {
+   "name": "Golf",
+   "county": "Palm Beach",
+   "population": 255,
+   "type": "Village"
+  },
+  {
+   "name": "Graceville",
+   "county": "Jackson",
+   "population": 2153,
+   "type": "City"
+  },
+  {
+   "name": "Grand Ridge",
+   "county": "Jackson",
+   "population": 882,
+   "type": "Town"
+  },
+  {
+   "name": "Grant-Valkaria",
+   "county": "Brevard",
+   "population": 4509,
+   "type": "Town"
+  },
+  {
+   "name": "Green Cove Springs",
+   "county": "Clay",
+   "population": 9786,
+   "type": "City"
+  },
+  {
+   "name": "Greenacres",
+   "county": "Palm Beach",
+   "population": 43990,
+   "type": "City"
+  },
+  {
+   "name": "Greensboro",
+   "county": "Gadsden",
+   "population": 461,
+   "type": "Town"
+  },
+  {
+   "name": "Greenville",
+   "county": "Madison",
+   "population": 746,
+   "type": "Town"
+  },
+  {
+   "name": "Greenwood",
+   "county": "Jackson",
+   "population": 539,
+   "type": "Town"
+  },
+  {
+   "name": "Gretna",
+   "county": "Gadsden",
+   "population": 1357,
+   "type": "City"
+  },
+  {
+   "name": "Groveland",
+   "county": "Lake",
+   "population": 18505,
+   "type": "City"
+  },
+  {
+   "name": "Gulf Breeze",
+   "county": "Santa Rosa",
+   "population": 6302,
+   "type": "City"
+  },
+  {
+   "name": "Gulf Stream",
+   "county": "Palm Beach",
+   "population": 880,
+   "type": "Town"
+  },
+  {
+   "name": "Gulfport",
+   "county": "Pinellas",
+   "population": 11783,
+   "type": "City"
+  },
+  {
+   "name": "Haines City",
+   "county": "Polk",
+   "population": 26669,
+   "type": "City"
+  },
+  {
+   "name": "Hallandale Beach",
+   "county": "Broward",
+   "population": 41217,
+   "type": "City"
+  },
+  {
+   "name": "Hampton",
+   "county": "Bradford",
+   "population": 432,
+   "type": "City"
+  },
+  {
+   "name": "Havana",
+   "county": "Gadsden",
+   "population": 1707,
+   "type": "Town"
+  },
+  {
+   "name": "Haverhill",
+   "county": "Palm Beach",
+   "population": 2187,
+   "type": "Town"
+  },
+  {
+   "name": "Hawthorne",
+   "county": "Alachua",
+   "population": 1478,
+   "type": "City"
+  },
+  {
+   "name": "Hialeah",
+   "county": "Miami-Dade",
+   "population": 223109,
+   "type": "City"
+  },
+  {
+   "name": "Hialeah Gardens",
+   "county": "Miami-Dade",
+   "population": 23068,
+   "type": "City"
+  },
+  {
+   "name": "High Springs",
+   "county": "Alachua",
+   "population": 6215,
+   "type": "City"
+  },
+  {
+   "name": "Highland Beach",
+   "county": "Palm Beach",
+   "population": 4295,
+   "type": "Town"
+  },
+  {
+   "name": "Highland Park",
+   "county": "Polk",
+   "population": 264,
+   "type": "Village"
+  },
+  {
+   "name": "Hillcrest Heights",
+   "county": "Polk",
+   "population": 243,
+   "type": "Town"
+  },
+  {
+   "name": "Hilliard",
+   "county": "Nassau",
+   "population": 2967,
+   "type": "Town"
+  },
+  {
+   "name": "Hillsboro Beach",
+   "county": "Broward",
+   "population": 1987,
+   "type": "Town"
+  },
+  {
+   "name": "Holly Hill",
+   "county": "Volusia",
+   "population": 12958,
+   "type": "City"
+  },
+  {
+   "name": "Hollywood",
+   "county": "Broward",
+   "population": 153067,
+   "type": "City"
+  },
+  {
+   "name": "Holmes Beach",
+   "county": "Manatee",
+   "population": 3010,
+   "type": "City"
+  },
+  {
+   "name": "Homestead",
+   "county": "Miami-Dade",
+   "population": 80737,
+   "type": "City"
+  },
+  {
+   "name": "Horseshoe Beach",
+   "county": "Dixie",
+   "population": 165,
+   "type": "Town"
+  },
+  {
+   "name": "Howey-in-the-Hills",
+   "county": "Lake",
+   "population": 1643,
+   "type": "Town"
+  },
+  {
+   "name": "Hypoluxo",
+   "county": "Palm Beach",
+   "population": 2687,
+   "type": "Town"
+  },
+  {
+   "name": "Indialantic",
+   "county": "Brevard",
+   "population": 3010,
+   "type": "Town"
+  },
+  {
+   "name": "Indian Creek",
+   "county": "Miami-Dade",
+   "population": 84,
+   "type": "Village"
+  },
+  {
+   "name": "Indian Harbour Beach",
+   "county": "Brevard",
+   "population": 9019,
+   "type": "City"
+  },
+  {
+   "name": "Indian River Shores",
+   "county": "Indian River",
+   "population": 4241,
+   "type": "Town"
+  },
+  {
+   "name": "Indian Rocks Beach",
+   "county": "Pinellas",
+   "population": 4286,
+   "type": "City"
+  },
+  {
+   "name": "Indian Shores",
+   "county": "Pinellas",
+   "population": 1190,
+   "type": "Town"
+  },
+  {
+   "name": "Indiantown",
+   "county": "Martin",
+   "population": 6560,
+   "type": "Village"
+  },
+  {
+   "name": "Inglis",
+   "county": "Levy",
+   "population": 1476,
+   "type": "Town"
+  },
+  {
+   "name": "Interlachen",
+   "county": "Putnam",
+   "population": 1441,
+   "type": "Town"
+  },
+  {
+   "name": "Inverness",
+   "county": "Citrus",
+   "population": 7543,
+   "type": "City"
+  },
+  {
+   "name": "Islamorada",
+   "county": "Monroe",
+   "population": 7107,
+   "type": "Village"
+  },
+  {
+   "name": "Jacksonville",
+   "county": "Duval",
+   "population": 949611,
+   "type": "City"
+  },
+  {
+   "name": "Jacksonville Beach",
+   "county": "Duval",
+   "population": 23830,
+   "type": "City"
+  },
+  {
+   "name": "Jacob City",
+   "county": "Jackson",
+   "population": 217,
+   "type": "City"
+  },
+  {
+   "name": "Jasper",
+   "county": "Hamilton",
+   "population": 3621,
+   "type": "City"
+  },
+  {
+   "name": "Jay",
+   "county": "Santa Rosa",
+   "population": 524,
+   "type": "Town"
+  },
+  {
+   "name": "Jennings",
+   "county": "Hamilton",
+   "population": 749,
+   "type": "Town"
+  },
+  {
+   "name": "Juno Beach",
+   "county": "Palm Beach",
+   "population": 3858,
+   "type": "Town"
+  },
+  {
+   "name": "Jupiter",
+   "county": "Palm Beach",
+   "population": 61047,
+   "type": "Town"
+  },
+  {
+   "name": "Jupiter Inlet Colony",
+   "county": "Palm Beach",
+   "population": 405,
+   "type": "Town"
+  },
+  {
+   "name": "Jupiter Island",
+   "county": "Martin",
+   "population": 804,
+   "type": "Town"
+  },
+  {
+   "name": "Kenneth City",
+   "county": "Pinellas",
+   "population": 5047,
+   "type": "Town"
+  },
+  {
+   "name": "Key Biscayne",
+   "county": "Miami-Dade",
+   "population": 14809,
+   "type": "Village"
+  },
+  {
+   "name": "Key Colony Beach",
+   "county": "Monroe",
+   "population": 790,
+   "type": "City"
+  },
+  {
+   "name": "Key West",
+   "county": "Monroe",
+   "population": 26444,
+   "type": "City"
+  },
+  {
+   "name": "Keystone Heights",
+   "county": "Clay",
+   "population": 1446,
+   "type": "City"
+  },
+  {
+   "name": "Kissimmee",
+   "county": "Osceola",
+   "population": 79226,
+   "type": "City"
+  },
+  {
+   "name": "LaBelle",
+   "county": "Hendry",
+   "population": 4966,
+   "type": "City"
+  },
+  {
+   "name": "LaCrosse",
+   "county": "Alachua",
+   "population": 316,
+   "type": "Town"
+  },
+  {
+   "name": "Lady Lake",
+   "county": "Lake",
+   "population": 15970,
+   "type": "Town"
+  },
+  {
+   "name": "Lake Alfred",
+   "county": "Polk",
+   "population": 6374,
+   "type": "City"
+  },
+  {
+   "name": "Lake Buena Vista",
+   "county": "Orange",
+   "population": 24,
+   "type": "City"
+  },
+  {
+   "name": "Lake Butler",
+   "county": "Union",
+   "population": 1986,
+   "type": "City"
+  },
+  {
+   "name": "Lake City",
+   "county": "Columbia",
+   "population": 12329,
+   "type": "City"
+  },
+  {
+   "name": "Lake Clarke Shores",
+   "county": "Palm Beach",
+   "population": 3564,
+   "type": "Town"
+  },
+  {
+   "name": "Lake Hamilton",
+   "county": "Polk",
+   "population": 1537,
+   "type": "Town"
+  },
+  {
+   "name": "Lake Helen",
+   "county": "Volusia",
+   "population": 2842,
+   "type": "City"
+  },
+  {
+   "name": "Lake Mary",
+   "county": "Seminole",
+   "population": 16798,
+   "type": "City"
+  },
+  {
+   "name": "Lake Park",
+   "county": "Palm Beach",
+   "population": 9047,
+   "type": "Town"
+  },
+  {
+   "name": "Lake Placid",
+   "county": "Highlands",
+   "population": 2360,
+   "type": "Town"
+  },
+  {
+   "name": "Lake Wales",
+   "county": "Polk",
+   "population": 16361,
+   "type": "City"
+  },
+  {
+   "name": "Lake Worth Beach",
+   "county": "Palm Beach",
+   "population": 42219,
+   "type": "City"
+  },
+  {
+   "name": "Lakeland",
+   "county": "Polk",
+   "population": 112641,
+   "type": "City"
+  },
+  {
+   "name": "Lantana",
+   "county": "Palm Beach",
+   "population": 11504,
+   "type": "Town"
+  },
+  {
+   "name": "Largo",
+   "county": "Pinellas",
+   "population": 82485,
+   "type": "City"
+  },
+  {
+   "name": "Lauderdale Lakes",
+   "county": "Broward",
+   "population": 35954,
+   "type": "City"
+  },
+  {
+   "name": "Lauderdale-by-the-Sea",
+   "county": "Broward",
+   "population": 6198,
+   "type": "Town"
+  },
+  {
+   "name": "Lauderhill",
+   "county": "Broward",
+   "population": 74482,
+   "type": "City"
+  },
+  {
+   "name": "Laurel Hill",
+   "county": "Okaloosa",
+   "population": 584,
+   "type": "City"
+  },
+  {
+   "name": "Lawtey",
+   "county": "Bradford",
+   "population": 636,
+   "type": "City"
+  },
+  {
+   "name": "Layton",
+   "county": "Monroe",
+   "population": 210,
+   "type": "City"
+  },
+  {
+   "name": "Lazy Lake",
+   "county": "Broward",
+   "population": 33,
+   "type": "Village"
+  },
+  {
+   "name": "Lee",
+   "county": "Madison",
+   "population": 375,
+   "type": "Town"
+  },
+  {
+   "name": "Leesburg",
+   "county": "Lake",
+   "population": 27000,
+   "type": "City"
+  },
+  {
+   "name": "Lighthouse Point",
+   "county": "Broward",
+   "population": 10486,
+   "type": "City"
+  },
+  {
+   "name": "Live Oak",
+   "county": "Suwannee",
+   "population": 6735,
+   "type": "City"
+  },
+  {
+   "name": "Longboat Key",
+   "county": "Manatee",
+   "population": 7505,
+   "type": "Town"
+  },
+  {
+   "name": "Longwood",
+   "county": "Seminole",
+   "population": 15087,
+   "type": "City"
+  },
+  {
+   "name": "Loxahatchee Groves",
+   "county": "Palm Beach",
+   "population": 3355,
+   "type": "Town"
+  },
+  {
+   "name": "Lynn Haven",
+   "county": "Bay",
+   "population": 18695,
+   "type": "City"
+  },
+  {
+   "name": "Macclenny",
+   "county": "Baker",
+   "population": 7304,
+   "type": "City"
+  },
+  {
+   "name": "Madeira Beach",
+   "county": "Pinellas",
+   "population": 3895,
+   "type": "City"
+  },
+  {
+   "name": "Madison",
+   "county": "Madison",
+   "population": 2912,
+   "type": "City"
+  },
+  {
+   "name": "Maitland",
+   "county": "Orange",
+   "population": 19543,
+   "type": "City"
+  },
+  {
+   "name": "Malabar",
+   "county": "Brevard",
+   "population": 2949,
+   "type": "Town"
+  },
+  {
+   "name": "Malone",
+   "county": "Jackson",
+   "population": 1959,
+   "type": "Town"
+  },
+  {
+   "name": "Manalapan",
+   "county": "Palm Beach",
+   "population": 419,
+   "type": "Town"
+  },
+  {
+   "name": "Mangonia Park",
+   "county": "Palm Beach",
+   "population": 2142,
+   "type": "Town"
+  },
+  {
+   "name": "Marathon",
+   "county": "Monroe",
+   "population": 9689,
+   "type": "City"
+  },
+  {
+   "name": "Marco Island",
+   "county": "Collier",
+   "population": 15760,
+   "type": "City"
+  },
+  {
+   "name": "Margate",
+   "county": "Broward",
+   "population": 58712,
+   "type": "City"
+  },
+  {
+   "name": "Marianna",
+   "county": "Jackson",
+   "population": 6245,
+   "type": "City"
+  },
+  {
+   "name": "Marineland",
+   "county": "Flagler",
+   "population": 15,
+   "type": "Town"
+  },
+  {
+   "name": "Mary Esther",
+   "county": "Okaloosa",
+   "population": 3982,
+   "type": "City"
+  },
+  {
+   "name": "Mascotte",
+   "county": "Lake",
+   "population": 6609,
+   "type": "City"
+  },
+  {
+   "name": "Mayo",
+   "county": "Lafayette",
+   "population": 1055,
+   "type": "Town"
+  },
+  {
+   "name": "McIntosh",
+   "county": "Marion",
+   "population": 463,
+   "type": "Town"
+  },
+  {
+   "name": "Medley",
+   "county": "Miami-Dade",
+   "population": 1056,
+   "type": "Town"
+  },
+  {
+   "name": "Melbourne",
+   "county": "Brevard",
+   "population": 84678,
+   "type": "City"
+  },
+  {
+   "name": "Melbourne Beach",
+   "county": "Brevard",
+   "population": 3231,
+   "type": "Town"
+  },
+  {
+   "name": "Melbourne Village",
+   "county": "Brevard",
+   "population": 681,
+   "type": "Town"
+  },
+  {
+   "name": "Mexico Beach",
+   "county": "Bay",
+   "population": 916,
+   "type": "City"
+  },
+  {
+   "name": "Miami",
+   "county": "Miami-Dade",
+   "population": 442241,
+   "type": "City"
+  },
+  {
+   "name": "Miami Beach",
+   "county": "Miami-Dade",
+   "population": 82890,
+   "type": "City"
+  },
+  {
+   "name": "Miami Gardens",
+   "county": "Miami-Dade",
+   "population": 111640,
+   "type": "City"
+  },
+  {
+   "name": "Miami Lakes",
+   "county": "Miami-Dade",
+   "population": 30467,
+   "type": "Town"
+  },
+  {
+   "name": "Miami Shores",
+   "county": "Miami-Dade",
+   "population": 11567,
+   "type": "Village"
+  },
+  {
+   "name": "Miami Springs",
+   "county": "Miami-Dade",
+   "population": 13859,
+   "type": "City"
+  },
+  {
+   "name": "Micanopy",
+   "county": "Alachua",
+   "population": 648,
+   "type": "Town"
+  },
+  {
+   "name": "Midway",
+   "county": "Gadsden",
+   "population": 3537,
+   "type": "City"
+  },
+  {
+   "name": "Milton",
+   "county": "Santa Rosa",
+   "population": 10197,
+   "type": "City"
+  },
+  {
+   "name": "Minneola",
+   "county": "Lake",
+   "population": 13843,
+   "type": "City"
+  },
+  {
+   "name": "Miramar",
+   "county": "Broward",
+   "population": 134721,
+   "type": "City"
+  },
+  {
+   "name": "Monticello",
+   "county": "Jefferson",
+   "population": 2589,
+   "type": "City"
+  },
+  {
+   "name": "Montverde",
+   "county": "Lake",
+   "population": 1655,
+   "type": "Town"
+  },
+  {
+   "name": "Moore Haven",
+   "county": "Glades",
+   "population": 1566,
+   "type": "City"
+  },
+  {
+   "name": "Mount Dora",
+   "county": "Lake",
+   "population": 16341,
+   "type": "City"
+  },
+  {
+   "name": "Mulberry",
+   "county": "Polk",
+   "population": 3952,
+   "type": "City"
+  },
+  {
+   "name": "Naples",
+   "county": "Collier",
+   "population": 19115,
+   "type": "City"
+  },
+  {
+   "name": "Neptune Beach",
+   "county": "Duval",
+   "population": 7217,
+   "type": "City"
+  },
+  {
+   "name": "New Port Richey",
+   "county": "Pasco",
+   "population": 16728,
+   "type": "City"
+  },
+  {
+   "name": "New Smyrna Beach",
+   "county": "Volusia",
+   "population": 30142,
+   "type": "City"
+  },
+  {
+   "name": "Newberry",
+   "county": "Alachua",
+   "population": 7342,
+   "type": "City"
+  },
+  {
+   "name": "Niceville",
+   "county": "Okaloosa",
+   "population": 15772,
+   "type": "City"
+  },
+  {
+   "name": "Noma",
+   "county": "Holmes",
+   "population": 208,
+   "type": "Town"
+  },
+  {
+   "name": "North Bay Village",
+   "county": "Miami-Dade",
+   "population": 8159,
+   "type": "City"
+  },
+  {
+   "name": "North Lauderdale",
+   "county": "Broward",
+   "population": 44794,
+   "type": "City"
+  },
+  {
+   "name": "North Miami",
+   "county": "Miami-Dade",
+   "population": 60191,
+   "type": "City"
+  },
+  {
+   "name": "North Miami Beach",
+   "county": "Miami-Dade",
+   "population": 43676,
+   "type": "City"
+  },
+  {
+   "name": "North Palm Beach",
+   "county": "Palm Beach",
+   "population": 13162,
+   "type": "Village"
+  },
+  {
+   "name": "North Port",
+   "county": "Sarasota",
+   "population": 74793,
+   "type": "City"
+  },
+  {
+   "name": "North Redington Beach",
+   "county": "Pinellas",
+   "population": 1495,
+   "type": "Town"
+  },
+  {
+   "name": "Oak Hill",
+   "county": "Volusia",
+   "population": 1986,
+   "type": "City"
+  },
+  {
+   "name": "Oakland",
+   "county": "Orange",
+   "population": 3516,
+   "type": "Town"
+  },
+  {
+   "name": "Oakland Park",
+   "county": "Broward",
+   "population": 44229,
+   "type": "City"
+  },
+  {
+   "name": "Ocala",
+   "county": "Marion",
+   "population": 63591,
+   "type": "City"
+  },
+  {
+   "name": "Ocean Breeze",
+   "county": "Martin",
+   "population": 301,
+   "type": "Town"
+  },
+  {
+   "name": "Ocean Ridge",
+   "county": "Palm Beach",
+   "population": 1830,
+   "type": "Town"
+  },
+  {
+   "name": "Ocoee",
+   "county": "Orange",
+   "population": 47295,
+   "type": "City"
+  },
+  {
+   "name": "Okeechobee",
+   "county": "Okeechobee",
+   "population": 5254,
+   "type": "City"
+  },
+  {
+   "name": "Oldsmar",
+   "county": "Pinellas",
+   "population": 14898,
+   "type": "City"
+  },
+  {
+   "name": "Opa-locka",
+   "county": "Miami-Dade",
+   "population": 16463,
+   "type": "City"
+  },
+  {
+   "name": "Orange City",
+   "county": "Volusia",
+   "population": 12632,
+   "type": "City"
+  },
+  {
+   "name": "Orange Park",
+   "county": "Clay",
+   "population": 9089,
+   "type": "Town"
+  },
+  {
+   "name": "Orchid",
+   "county": "Indian River",
+   "population": 516,
+   "type": "Town"
+  },
+  {
+   "name": "Orlando",
+   "county": "Orange",
+   "population": 307573,
+   "type": "City"
+  },
+  {
+   "name": "Ormond Beach",
+   "county": "Volusia",
+   "population": 43475,
+   "type": "City"
+  },
+  {
+   "name": "Otter Creek",
+   "county": "Levy",
+   "population": 108,
+   "type": "Town"
+  },
+  {
+   "name": "Oviedo",
+   "county": "Seminole",
+   "population": 40059,
+   "type": "City"
+  },
+  {
+   "name": "Pahokee",
+   "county": "Palm Beach",
+   "population": 5524,
+   "type": "City"
+  },
+  {
+   "name": "Palatka",
+   "county": "Putnam",
+   "population": 10446,
+   "type": "City"
+  },
+  {
+   "name": "Palm Bay",
+   "county": "Brevard",
+   "population": 119760,
+   "type": "City"
+  },
+  {
+   "name": "Palm Beach",
+   "county": "Palm Beach",
+   "population": 9245,
+   "type": "Town"
+  },
+  {
+   "name": "Palm Beach Gardens",
+   "county": "Palm Beach",
+   "population": 59182,
+   "type": "City"
+  },
+  {
+   "name": "Palm Beach Shores",
+   "county": "Palm Beach",
+   "population": 1330,
+   "type": "Town"
+  },
+  {
+   "name": "Palm Coast",
+   "county": "Flagler",
+   "population": 89258,
+   "type": "City"
+  },
+  {
+   "name": "Palm Shores",
+   "county": "Brevard",
+   "population": 1200,
+   "type": "Town"
+  },
+  {
+   "name": "Palm Springs",
+   "county": "Palm Beach",
+   "population": 26890,
+   "type": "Village"
+  },
+  {
+   "name": "Palmetto",
+   "county": "Manatee",
+   "population": 13323,
+   "type": "City"
+  },
+  {
+   "name": "Palmetto Bay",
+   "county": "Miami-Dade",
+   "population": 24439,
+   "type": "Village"
+  },
+  {
+   "name": "Panama City",
+   "county": "Bay",
+   "population": 32939,
+   "type": "City"
+  },
+  {
+   "name": "Panama City Beach",
+   "county": "Bay",
+   "population": 18094,
+   "type": "City"
+  },
+  {
+   "name": "Parker",
+   "county": "Bay",
+   "population": 4010,
+   "type": "City"
+  },
+  {
+   "name": "Parkland",
+   "county": "Broward",
+   "population": 34670,
+   "type": "City"
+  },
+  {
+   "name": "Paxton",
+   "county": "Walton",
+   "population": 556,
+   "type": "Town"
+  },
+  {
+   "name": "Pembroke Park",
+   "county": "Broward",
+   "population": 6260,
+   "type": "Town"
+  },
+  {
+   "name": "Pembroke Pines",
+   "county": "Broward",
+   "population": 171178,
+   "type": "City"
+  },
+  {
+   "name": "Penney Farms",
+   "county": "Clay",
+   "population": 821,
+   "type": "Town"
+  },
+  {
+   "name": "Pensacola",
+   "county": "Escambia",
+   "population": 54312,
+   "type": "City"
+  },
+  {
+   "name": "Perry",
+   "county": "Taylor",
+   "population": 6898,
+   "type": "City"
+  },
+  {
+   "name": "Pierson",
+   "county": "Volusia",
+   "population": 1542,
+   "type": "Town"
+  },
+  {
+   "name": "Pinecrest",
+   "county": "Miami-Dade",
+   "population": 18388,
+   "type": "Village"
+  },
+  {
+   "name": "Pinellas Park",
+   "county": "Pinellas",
+   "population": 53093,
+   "type": "City"
+  },
+  {
+   "name": "Plant City",
+   "county": "Hillsborough",
+   "population": 39764,
+   "type": "City"
+  },
+  {
+   "name": "Plantation",
+   "county": "Broward",
+   "population": 91750,
+   "type": "City"
+  },
+  {
+   "name": "Polk City",
+   "county": "Polk",
+   "population": 2713,
+   "type": "City"
+  },
+  {
+   "name": "Pomona Park",
+   "county": "Putnam",
+   "population": 784,
+   "type": "Town"
+  },
+  {
+   "name": "Pompano Beach",
+   "county": "Broward",
+   "population": 112046,
+   "type": "City"
+  },
+  {
+   "name": "Ponce Inlet",
+   "county": "Volusia",
+   "population": 3364,
+   "type": "Town"
+  },
+  {
+   "name": "Ponce de Leon",
+   "county": "Holmes",
+   "population": 504,
+   "type": "Town"
+  },
+  {
+   "name": "Port Orange",
+   "county": "Volusia",
+   "population": 62596,
+   "type": "City"
+  },
+  {
+   "name": "Port Richey",
+   "county": "Pasco",
+   "population": 3052,
+   "type": "City"
+  },
+  {
+   "name": "Port St. Joe",
+   "county": "Gulf",
+   "population": 3357,
+   "type": "City"
+  },
+  {
+   "name": "Port St. Lucie",
+   "county": "St. Lucie",
+   "population": 204851,
+   "type": "City"
+  },
+  {
+   "name": "Punta Gorda",
+   "county": "Charlotte",
+   "population": 19471,
+   "type": "City"
+  },
+  {
+   "name": "Quincy",
+   "county": "Gadsden",
+   "population": 7970,
+   "type": "City"
+  },
+  {
+   "name": "Raiford",
+   "county": "Union",
+   "population": 224,
+   "type": "Town"
+  },
+  {
+   "name": "Reddick",
+   "county": "Marion",
+   "population": 449,
+   "type": "Town"
+  },
+  {
+   "name": "Redington Beach",
+   "county": "Pinellas",
+   "population": 1376,
+   "type": "Town"
+  },
+  {
+   "name": "Redington Shores",
+   "county": "Pinellas",
+   "population": 2176,
+   "type": "Town"
+  },
+  {
+   "name": "Riviera Beach",
+   "county": "Palm Beach",
+   "population": 37604,
+   "type": "City"
+  },
+  {
+   "name": "Rockledge",
+   "county": "Brevard",
+   "population": 27678,
+   "type": "City"
+  },
+  {
+   "name": "Royal Palm Beach",
+   "county": "Palm Beach",
+   "population": 38932,
+   "type": "Village"
+  },
+  {
+   "name": "Safety Harbor",
+   "county": "Pinellas",
+   "population": 17072,
+   "type": "City"
+  },
+  {
+   "name": "San Antonio",
+   "county": "Pasco",
+   "population": 1297,
+   "type": "City"
+  },
+  {
+   "name": "Sanford",
+   "county": "Seminole",
+   "population": 61051,
+   "type": "City"
+  },
+  {
+   "name": "Sanibel",
+   "county": "Lee",
+   "population": 6382,
+   "type": "City"
+  },
+  {
+   "name": "Sarasota",
+   "county": "Sarasota",
+   "population": 54842,
+   "type": "City"
+  },
+  {
+   "name": "Satellite Beach",
+   "county": "Brevard",
+   "population": 11226,
+   "type": "City"
+  },
+  {
+   "name": "Sea Ranch Lakes",
+   "county": "Broward",
+   "population": 540,
+   "type": "Village"
+  },
+  {
+   "name": "Sebastian",
+   "county": "Indian River",
+   "population": 25054,
+   "type": "City"
+  },
+  {
+   "name": "Sebring",
+   "county": "Highlands",
+   "population": 10729,
+   "type": "City"
+  },
+  {
+   "name": "Seminole",
+   "county": "Pinellas",
+   "population": 19364,
+   "type": "City"
+  },
+  {
+   "name": "Sewall's Point",
+   "county": "Martin",
+   "population": 1991,
+   "type": "Town"
+  },
+  {
+   "name": "Shalimar",
+   "county": "Okaloosa",
+   "population": 737,
+   "type": "Town"
+  },
+  {
+   "name": "Sneads",
+   "county": "Jackson",
+   "population": 1699,
+   "type": "Town"
+  },
+  {
+   "name": "Sopchoppy",
+   "county": "Wakulla",
+   "population": 426,
+   "type": "City"
+  },
+  {
+   "name": "South Bay",
+   "county": "Palm Beach",
+   "population": 4860,
+   "type": "City"
+  },
+  {
+   "name": "South Daytona",
+   "county": "Volusia",
+   "population": 12865,
+   "type": "City"
+  },
+  {
+   "name": "South Miami",
+   "county": "Miami-Dade",
+   "population": 12026,
+   "type": "City"
+  },
+  {
+   "name": "South Palm Beach",
+   "county": "Palm Beach",
+   "population": 1471,
+   "type": "Town"
+  },
+  {
+   "name": "South Pasadena",
+   "county": "Pinellas",
+   "population": 5353,
+   "type": "City"
+  },
+  {
+   "name": "Southwest Ranches",
+   "county": "Broward",
+   "population": 7607,
+   "type": "Town"
+  },
+  {
+   "name": "Springfield",
+   "county": "Bay",
+   "population": 8075,
+   "type": "City"
+  },
+  {
+   "name": "St. Augustine",
+   "county": "St. Johns",
+   "population": 14329,
+   "type": "City"
+  },
+  {
+   "name": "St. Augustine Beach",
+   "county": "St. Johns",
+   "population": 6803,
+   "type": "City"
+  },
+  {
+   "name": "St. Cloud",
+   "county": "Osceola",
+   "population": 58964,
+   "type": "City"
+  },
+  {
+   "name": "St. Leo",
+   "county": "Pasco",
+   "population": 2362,
+   "type": "Town"
+  },
+  {
+   "name": "St. Lucie Village",
+   "county": "St. Lucie",
+   "population": 613,
+   "type": "Town"
+  },
+  {
+   "name": "St. Marks",
+   "county": "Wakulla",
+   "population": 274,
+   "type": "City"
+  },
+  {
+   "name": "St. Pete Beach",
+   "county": "Pinellas",
+   "population": 8879,
+   "type": "City"
+  },
+  {
+   "name": "St. Petersburg",
+   "county": "Pinellas",
+   "population": 258308,
+   "type": "City"
+  },
+  {
+   "name": "Starke",
+   "county": "Bradford",
+   "population": 5796,
+   "type": "City"
+  },
+  {
+   "name": "Stuart",
+   "county": "Martin",
+   "population": 17425,
+   "type": "City"
+  },
+  {
+   "name": "Sunny Isles Beach",
+   "county": "Miami-Dade",
+   "population": 22342,
+   "type": "City"
+  },
+  {
+   "name": "Sunrise",
+   "county": "Broward",
+   "population": 97335,
+   "type": "City"
+  },
+  {
+   "name": "Surfside",
+   "county": "Miami-Dade",
+   "population": 5689,
+   "type": "Town"
+  },
+  {
+   "name": "Sweetwater",
+   "county": "Miami-Dade",
+   "population": 19363,
+   "type": "City"
+  },
+  {
+   "name": "Tallahassee",
+   "county": "Leon",
+   "population": 196169,
+   "type": "City"
+  },
+  {
+   "name": "Tamarac",
+   "county": "Broward",
+   "population": 71897,
+   "type": "City"
+  },
+  {
+   "name": "Tampa",
+   "county": "Hillsborough",
+   "population": 384959,
+   "type": "City"
+  },
+  {
+   "name": "Tarpon Springs",
+   "county": "Pinellas",
+   "population": 25117,
+   "type": "City"
+  },
+  {
+   "name": "Tavares",
+   "county": "Lake",
+   "population": 19003,
+   "type": "City"
+  },
+  {
+   "name": "Temple Terrace",
+   "county": "Hillsborough",
+   "population": 26690,
+   "type": "City"
+  },
+  {
+   "name": "Tequesta",
+   "county": "Palm Beach",
+   "population": 6158,
+   "type": "Village"
+  },
+  {
+   "name": "Titusville",
+   "county": "Brevard",
+   "population": 48789,
+   "type": "City"
+  },
+  {
+   "name": "Treasure Island",
+   "county": "Pinellas",
+   "population": 6584,
+   "type": "City"
+  },
+  {
+   "name": "Trenton",
+   "county": "Gilchrist",
+   "population": 2015,
+   "type": "City"
+  },
+  {
+   "name": "Umatilla",
+   "county": "Lake",
+   "population": 3685,
+   "type": "City"
+  },
+  {
+   "name": "Valparaiso",
+   "county": "Okaloosa",
+   "population": 4752,
+   "type": "City"
+  },
+  {
+   "name": "Venice",
+   "county": "Sarasota",
+   "population": 25463,
+   "type": "City"
+  },
+  {
+   "name": "Vernon",
+   "county": "Washington",
+   "population": 732,
+   "type": "City"
+  },
+  {
+   "name": "Vero Beach",
+   "county": "Indian River",
+   "population": 16354,
+   "type": "City"
+  },
+  {
+   "name": "Virginia Gardens",
+   "county": "Miami-Dade",
+   "population": 2364,
+   "type": "Village"
+  },
+  {
+   "name": "Waldo",
+   "county": "Alachua",
+   "population": 846,
+   "type": "City"
+  },
+  {
+   "name": "Wauchula",
+   "county": "Hardee",
+   "population": 4900,
+   "type": "City"
+  },
+  {
+   "name": "Wausau",
+   "county": "Washington",
+   "population": 371,
+   "type": "Town"
+  },
+  {
+   "name": "Webster",
+   "county": "Sumter",
+   "population": 778,
+   "type": "City"
+  },
+  {
+   "name": "Welaka",
+   "county": "Putnam",
+   "population": 714,
+   "type": "Town"
+  },
+  {
+   "name": "Wellington",
+   "county": "Palm Beach",
+   "population": 61637,
+   "type": "Village"
+  },
+  {
+   "name": "West Melbourne",
+   "county": "Brevard",
+   "population": null,
+   "type": "City"
+  },
+  {
+   "name": "West Miami",
+   "county": "Miami-Dade",
+   "population": null,
+   "type": "City"
+  },
+  {
+   "name": "West Palm Beach",
+   "county": "Palm Beach",
+   "population": null,
+   "type": "City"
+  },
+  {
+   "name": "West Park",
+   "county": "Broward",
+   "population": null,
+   "type": "City"
+  },
+  {
+   "name": "Westlake",
+   "county": "Palm Beach",
+   "population": 906,
+   "type": "City"
+  },
+  {
+   "name": "Weston",
+   "county": "Broward",
+   "population": 68107,
+   "type": "City"
+  },
+  {
+   "name": "Westville",
+   "county": "Holmes",
+   "population": 261,
+   "type": "Town"
+  },
+  {
+   "name": "Wewahitchka",
+   "county": "Gulf",
+   "population": 2074,
+   "type": "City"
+  },
+  {
+   "name": "White Springs",
+   "county": "Hamilton",
+   "population": 740,
+   "type": "Town"
+  },
+  {
+   "name": "Wildwood",
+   "county": "Sumter",
+   "population": 15730,
+   "type": "City"
+  },
+  {
+   "name": "Williston",
+   "county": "Levy",
+   "population": 2976,
+   "type": "City"
+  },
+  {
+   "name": "Wilton Manors",
+   "county": "Broward",
+   "population": 11426,
+   "type": "City"
+  },
+  {
+   "name": "Windermere",
+   "county": "Orange",
+   "population": 3030,
+   "type": "Town"
+  },
+  {
+   "name": "Winter Garden",
+   "county": "Orange",
+   "population": 46964,
+   "type": "City"
+  },
+  {
+   "name": "Winter Haven",
+   "county": "Polk",
+   "population": 49219,
+   "type": "City"
+  },
+  {
+   "name": "Winter Park",
+   "county": "Orange",
+   "population": 29795,
+   "type": "City"
+  },
+  {
+   "name": "Winter Springs",
+   "county": "Seminole",
+   "population": 38342,
+   "type": "City"
+  },
+  {
+   "name": "Worthington Springs",
+   "county": "Union",
+   "population": 378,
+   "type": "Town"
+  },
+  {
+   "name": "Yankeetown",
+   "county": "Levy",
+   "population": 588,
+   "type": "Town"
+  },
+  {
+   "name": "Zephyrhills",
+   "county": "Pasco",
+   "population": 17194,
+   "type": "City"
+  },
+  {
+   "name": "Zolfo Springs",
+   "county": "Hardee",
+   "population": 1737,
+   "type": "Town"
+  }
+ ]
+}

@@ -14,8 +14,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef } from 'pdf-lib';
 import { loadPdfHarness } from './harness/pdf-harness.mjs';
+import { VARIANTS } from './harness/pdf-variants.mjs';
 import { comparePdfs, inspectPdf } from './posted-pdf.mjs';
 import { ensureVeraPdf, validatePdfUa } from './verapdf.mjs';
 
@@ -43,56 +43,7 @@ const ORIGINAL = exported.bytes;
 
 /* ---------- what platforms do, done with pdf-lib ---------- */
 
-const load = (bytes) => PDFDocument.load(bytes, { updateMetadata: false });
-const save = async (doc) => new Uint8Array(await doc.save({ useObjectStreams: true }));
-const N = (key) => PDFName.of(key);
-/** Every structure element in the tree, as dictionaries. */
-const elementsOf = (doc) => {
-  const out = [];
-  const visit = (value) => {
-    const node = value instanceof PDFRef ? doc.context.lookup(value) : value;
-    if (node instanceof PDFArray) node.asArray().forEach(visit);
-    else if (node instanceof PDFDict && node.get(N('S'))) { out.push(node); visit(node.get(N('K'))); }
-  };
-  visit(doc.catalog.lookup(N('StructTreeRoot'), PDFDict).get(N('K')));
-  return out;
-};
-
-const variants = {
-  resaved: async () => save(await load(ORIGINAL)),
-  stripped: async () => {
-    const doc = await load(ORIGINAL);
-    doc.catalog.delete(N('StructTreeRoot'));
-    doc.catalog.delete(N('MarkInfo'));
-    return save(doc);
-  },
-  languageDropped: async () => {
-    const doc = await load(ORIGINAL);
-    doc.catalog.delete(N('Lang'));
-    elementsOf(doc)[0].delete(N('Lang'));
-    return save(doc);
-  },
-  titleReplaced: async () => {
-    const doc = await load(ORIGINAL);
-    doc.setTitle('File 26-123 - Exhibit A');
-    return save(doc);
-  },
-  packet: async () => {
-    const source = await load(ORIGINAL);
-    const packet = await PDFDocument.create();
-    for (const page of await packet.copyPages(source, source.getPageIndices())) packet.addPage(page);
-    packet.addPage();
-    packet.addPage();
-    return save(packet);
-  },
-  flattened: async () => {
-    const doc = await load(ORIGINAL);
-    for (const element of elementsOf(doc)) {
-      if (element.get(N('S'))?.decodeText() !== 'Document') element.set(N('S'), N('P'));
-    }
-    return save(doc);
-  },
-};
+const variants = Object.fromEntries(Object.entries(VARIANTS).map(([label, make]) => [label, () => make(ORIGINAL)]));
 
 console.log('Posted-PDF checker — verdicts');
 
