@@ -85,9 +85,26 @@ At 375 px the findings list starts about 3,000 px down the page, after the agend
 
   **Fixed (#106).** The title now follows the document's main heading (its first H1), which the clerk sees and edits. Import takes the H1 before Word's Title property, and editing the H1 retitles the document, its tab and its exports. It turned out to matter for our own templates: their Title property is a placeholder, so every PDF made from one would have been titled "[Board or council name] agenda, [meeting date]". There's no Rename: the heading is the title, as the New document dialog already said.
 
+## Export HTML, checked afterwards
+
+*12 October 2026, at 0177203, after the fixes above.* The agenda was rebuilt as its header comment says, imported into the app in local mode, and every finding resolved the way a clerk would:
+- Make it a heading on all 11 section titles;
+- Turn into text on the officials table;
+- Use default colours on the small print;
+- "City seal" as the seal's alt text;
+- "use the city's YouTube channel" typed over "click here".
+
+The editor then reported no open findings, and Export HTML produced [`agenda-export.html`](clerk-walkthrough-2026-10/agenda-export.html), captured from the page byte for byte. Opened in headless Chrome:
+- **axe 4.13.0, with the same WCAG 2.0–2.2 A and AA tags as the app gate, found no violations.**
+- **The outline is the editor's:** one H1 and 11 H2s, one per section title.
+- **What was fixed in the editor arrived in the page.** No table is left. The link kept its address. The seal has its alt text. No text is grey.
+- **The page has `lang="en-US"`** (from the Word file) and **its `<title>` is "Agenda"**, the H1.
+
+That H1 is a visible line, not a hidden property. pandoc writes `agenda.html`'s `<title>` as a paragraph in Word's Title style, which the importer makes the H1. So finding 1's "made from the file's title property" was wrong about where the heading came from. A clerk sees "Agenda" at the top and can retitle the page by editing it.
+
 ## What I didn't check
 
 - A real Word file from a clerk, and a real agenda portal. The pilot covers both.
-- Screen readers. CI runs NVDA, VoiceOver and Orca against the app, not against this agenda.
-- Export HTML, and a second device picking up the same document.
+- Screen readers. CI runs NVDA, VoiceOver and Orca against the app, not against this agenda or its export.
+- A second device picking up the same document.
 - The sign-up email's wording. The owner received it; I didn't see it.
