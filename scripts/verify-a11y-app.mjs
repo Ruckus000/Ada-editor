@@ -1587,6 +1587,7 @@ try {
   await staticPage('/about', 'About · Ada Editor');
   await staticPage('/research/agenda-platforms', 'Do agenda platforms keep accessible PDFs accessible? · Ada Editor');
   await staticPage('/guides/title-ii-meeting-documents', 'ADA Title II and meeting documents: the dates, the exceptions · Ada Editor');
+  await staticPage('/guides/ada-compliant-pdf', 'What “ADA compliant PDF” can and can’t mean · Ada Editor');
   await signIn('/sign-in', 'Sign in · Ada Editor', '/sign-up');
   await signIn('/sign-up', 'Create an account · Ada Editor', '/sign-in');
   await home();

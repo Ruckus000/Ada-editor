@@ -1,1 +1,1 @@
-Ada Editor: write documents that meet WCAG 2.1 AA and Section 508.
+Ada Editor: write documents checked against WCAG 2.1 AA.

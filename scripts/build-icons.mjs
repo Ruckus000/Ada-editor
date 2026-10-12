@@ -86,9 +86,9 @@ const baselineOf = (font, size, lineTop, lineHeight) =>
 
 const W = 1200, H = 630, PAD_X = 80, PAD_Y = 72, COLUMN = 1040;
 const INK = '#161C24', BLUE = '#1A4FBF', SECONDARY = '#4E5B6E', FOOTER = '#3A4553', RULE = '#C2CCDA', GROUND = '#F7F9FC';
-const HEADLINE = ['Write documents that meet', 'WCAG 2.1 AA and Section 508.'];
+const HEADLINE = ['Write documents checked', 'against WCAG 2.1 AA.'];
 const SUBLINE = ['Checks as you write, and is honest about the limits', 'of what a checker can know.'];
-const ALT = 'Ada Editor: write documents that meet WCAG 2.1 AA and Section 508.';
+const ALT = 'Ada Editor: write documents checked against WCAG 2.1 AA.';
 
 function card() {
   const paths = [];

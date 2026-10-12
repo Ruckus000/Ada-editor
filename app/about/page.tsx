@@ -56,7 +56,8 @@ export default function Page() {
             <ul>
               <li>
                 <strong>No compliance claims.</strong> Automated checks cover only part of WCAG, so Ada Editor never
-                calls a document compliant. What needs a person is marked “Needs your call”.
+                calls a document compliant. What needs a person is marked “Needs your call”. Our guide explains{' '}
+                <Link href="/guides/ada-compliant-pdf">what “ADA compliant PDF” can and can’t mean</Link>.
               </li>
               <li>
                 <strong>Your Word files stay with you.</strong> They are read in your browser; the file itself is never
