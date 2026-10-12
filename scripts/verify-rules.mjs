@@ -523,7 +523,7 @@ check('img-alt-suspicious: redundant prefix gets a figureAlt fix, terse/filename
   eq(empty.length, 0, 'empty alt belongs to img-alt-missing only');
 });
 
-check('img-long-description asks about charts, maps and diagrams, one alt question at a time', () => {
+check('img-long-description asks about charts, maps, diagrams, plans and drawings, one alt question at a time', () => {
   const ask = (alt) => blockFindings(doc(figure('img-1', alt, 'site map')), 'img-long-description');
   for (const alt of [
     'Bar chart of shelter beds by month', 'Traffic graph', 'Wiring diagram for the pump house',
@@ -539,6 +539,21 @@ check('img-long-description asks about charts, maps and diagrams, one alt questi
   for (const alt of [
     'A graphic of the shelter logo', 'Photograph of the library entrance', 'The 2026 roadmap cover page',
     'Mapping volunteers at the fair', '',
+  ]) eq(ask(alt).length, 0, `quiet on "${alt}"`);
+  // Planning packets: the named kinds of drawing, never the everyday words.
+  for (const alt of [
+    'Site plan for 14 Elm Street', 'Floor plans of the new library', 'Plat of the Brookside subdivision',
+    'North elevation of the proposed fire station', 'Engineering drawings for the culvert',
+    'Siteplan for lot 4', 'Site-plan, sheet C-1', 'Site  plan for 14 Elm Street', 'Plats of the two lots',
+    'Rear and side elevations of the addition', 'Architectural drawings of the addition',
+    'Construction drawing, sheet 4', 'Technical drawings for the pump station',
+    'engineering-drawings of the culvert', 'Elevation drawings for the porch',
+  ]) eq(ask(alt).length, 1, `fires on "${alt}"`);
+  for (const alt of [
+    'Students presenting their lesson plan', "Children's drawings from the reading program",
+    'Volunteers packing food parcels', 'Residents who plan to attend the hearing',
+    'Base flood elevation marker on the side of town hall', "Hikers at the trail's highest elevation",
+    'The open floor plan of the renovated community center', 'Open-floor-plan offices on the second floor',
   ]) eq(ask(alt).length, 0, `quiet on "${alt}"`);
   // One alt-text question per image: fix the alt first, then decide on detail.
   eq(ask('map').length, 0, 'terse alt asks "does this describe it?" first');
