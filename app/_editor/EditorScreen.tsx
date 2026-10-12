@@ -54,7 +54,7 @@ import {
   toggleUnderline,
 } from './editorCommands';
 import type { FormatState, NewTable } from './editorCommands';
-import { documentLanguage, figureAlign, figureSize, withoutPageLanguage } from './editorSchema';
+import { documentLanguage, documentTitle, figureAlign, figureSize, withoutPageLanguage } from './editorSchema';
 import type { FigureAlign, FigureSize } from './editorSchema';
 import { docFromJSON, saveDoc } from '../_data/store';
 import type { DocJSON, StoredDoc } from '../_data/store';
@@ -145,6 +145,11 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   /* ---------- refs shared with ProseMirror ---------- */
   const mountRef = useRef<HTMLDivElement>(null);
+  // The title follows the main heading whenever the heading changes; until it
+  // does, a title that differs (a conflict copy's "(edits from this device)") stays.
+  const [title, setTitle] = useState(doc.title);
+  const titleRef = useRef(doc.title);
+  const lastHeading = useRef(documentTitle(initial));
   const viewRef = useRef<EditorView | null>(null);
   const findingsRef = useRef(findings);
   // The array the findings list currently renders. reconcile preserves array
@@ -516,7 +521,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const saveNow = useCallback(() => {
     const view = viewRef.current;
     if (!view) return;
+    const heading = documentTitle(view.state.doc);
+    const retitled = heading && heading !== lastHeading.current ? heading : null;
+    lastHeading.current = heading;
+    if (retitled) { titleRef.current = retitled; setTitle(retitled); }
     saveDoc(doc.id, {
+      ...(retitled ? { title: retitled } : {}),
       content: view.state.doc.toJSON() as DocJSON,
       header: sectionsRef.current.header.text,
       footer: sectionsRef.current.footer.text,
@@ -583,11 +593,12 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const onExport = async () => {
     const view = viewRef.current;
     if (!view) return;
+    flushSave(); // a heading edited a moment ago is the title
     const content = view.state.doc;
     const s = sectionsRef.current;
     try {
       const { images, missing } = await resolveForHtml(bandAndDocKeys(content));
-      const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, document.implementation.createHTMLDocument(''), images);
+      const html = exportHtml(content, { title: titleRef.current, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, document.implementation.createHTMLDocument(''), images);
       const file = `${doc.id}.html`;
       download(new Blob([html], { type: 'text/html' }), file);
       count('HTML exported');
@@ -603,7 +614,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // so a deleted document can't return. A save that fires after the delete
   // finds no document and writes nothing.
   const onDelete = async () => {
-    if (deleting.current || !window.confirm(`Delete “${doc.title}”? This can’t be undone.`)) return;
+    if (deleting.current || !window.confirm(`Delete “${title}”? This can’t be undone.`)) return;
     deleting.current = true;
     clearTimeout(saveTimer.current);
     saveTimer.current = undefined;
@@ -612,13 +623,14 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     deleting.current = false;
     if (!done) { setDeleteError(true); return; }
     router.push(DESK);
-    announce(`Deleted ${doc.title}.`);
+    announce(`Deleted ${title}.`);
   };
 
   const onExportPdf = async () => {
     const view = viewRef.current;
     if (!view || pdfBusy.current) return;
     pdfBusy.current = true;
+    flushSave(); // a heading edited a moment ago is the title
     // The document as it was when the button was pressed.
     const content = view.state.doc;
     const s = sectionsRef.current;
@@ -632,7 +644,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         return [face, new Uint8Array(await res.arrayBuffer())] as const;
       }));
       const { images, missing } = await resolveForPdf(bandAndDocKeys(content));
-      const result = await exportPdf(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>, images);
+      const result = await exportPdf(content, { title: titleRef.current, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, Object.fromEntries(faces) as Record<keyof typeof PDF_FONT_FILES, Uint8Array>, images);
       if (!result.ok) {
         setPdfMissing(result.missing);
         announce(`PDF not exported: its font has no characters for ${result.missing.length === 1 ? 'one character' : `${result.missing.length} characters`} in this document. The findings panel lists them.`);
@@ -1025,6 +1037,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
 
   return (
     <div className={`${styles.palette} ${styles.root}`}>
+      <title>{`${title} · Ada Editor`}</title>
       {/* One quiet bar: back to the desk, what this is, and what you can do with it. */}
       <header className={styles.topbar}>
         <Link href={DESK} className={styles.back} aria-label="Back to all documents">
@@ -1033,7 +1046,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         </Link>
         <span className={styles.crumbSep} aria-hidden="true" />
         <div className={styles.docHeaderText}>
-          <h1 className={styles.docTitle}>{doc.title}</h1>
+          <h1 className={styles.docTitle}>{title}</h1>
           {doc.targets.length ? <p className={styles.targets}>{`Checked against ${doc.targets.join(' and ')}`}</p> : null}
         </div>
         <div className={styles.topbarEnd}>

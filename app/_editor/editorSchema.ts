@@ -223,6 +223,15 @@ export function documentLanguage(doc: PMNode): string {
   return typeof lang === 'string' && isUsableLangTag(lang) ? lang : 'en';
 }
 
+/** The document's title: its first top-level H1, or '' when it has none. */
+export function documentTitle(doc: PMNode): string {
+  for (let i = 0; i < doc.childCount; i++) {
+    const block = doc.child(i);
+    if (block.type.name === 'heading' && block.attrs.level === 1) return block.textContent.replace(/\s+/g, ' ').trim().slice(0, 200);
+  }
+  return '';
+}
+
 /** A text node without a language mark for the document's own language
  *  (`pageLang`) or a tag that isn't one: see the lang mark's parse rule. */
 export function withoutPageLanguage(node: PMNode, pageLang: string): PMNode {

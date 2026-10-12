@@ -310,7 +310,7 @@ export function loadDoc(id: string): StoredDoc | null {
   return parseStoredDoc(stored.content) ? stored : null;
 }
 
-export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'content' | 'header' | 'footer' | 'headerImage' | 'footerImage' | 'lastChecked' | 'dismissed' | 'importNotes'>>): void {
+export function saveDoc(id: string, patch: Partial<Pick<StoredDoc, 'title' | 'content' | 'header' | 'footer' | 'headerImage' | 'footerImage' | 'lastChecked' | 'dismissed' | 'importNotes'>>): void {
   const all = readAll();
   const existing = all.get(id);
   if (!existing) return;
