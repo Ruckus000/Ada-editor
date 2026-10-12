@@ -583,12 +583,18 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     if (!view) return;
     const content = view.state.doc;
     const s = sectionsRef.current;
-    const { images, missing } = await resolveForHtml(bandAndDocKeys(content));
-    const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, document.implementation.createHTMLDocument(''), images);
-    const file = `${doc.id}.html`;
-    download(new Blob([html], { type: 'text/html' }), file);
-    count('HTML exported');
-    announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
+    try {
+      const { images, missing } = await resolveForHtml(bandAndDocKeys(content));
+      const html = exportHtml(content, { title: doc.title, header: s.header.text, footer: s.footer.text, headerImage: s.header.image, footerImage: s.footer.image }, document.implementation.createHTMLDocument(''), images);
+      const file = `${doc.id}.html`;
+      download(new Blob([html], { type: 'text/html' }), file);
+      count('HTML exported');
+      announce(`Exported ${file}. ${summaryLine(findingsRef.current)}.${unavailable(missing)}`);
+    } catch (error) {
+      // Without this the click fails silently: nothing is shown or announced.
+      report(error);
+      announce('The web page could not be built. Try again, or use Export PDF.');
+    }
   };
 
   // Needs a connection in cloud mode (sync.ts removeDoc): nothing is queued,
