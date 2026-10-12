@@ -4,6 +4,7 @@ import '../design-system/tokens.css';
 import '../design-system/primitives/primitives.css';
 import { Providers } from './Providers';
 import { PREPAINT } from './_data/display';
+import { Counting } from './_site/Counting';
 import { SITE_URL } from './_site/pages';
 
 // No default title: a server <title> outranks the one a client screen renders
@@ -35,6 +36,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         {/* One live region for the whole app; every screen announces through it. */}
         <Providers>{children}</Providers>
+        {/* Counting (no cookies) on production only: local runs, CI and
+            preview deployments send nothing. */}
+        {process.env.VERCEL_ENV === 'production' ? <Counting /> : null}
       </body>
     </html>
   );

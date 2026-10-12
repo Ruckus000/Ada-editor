@@ -170,15 +170,21 @@ robots.txt allows everything and names the sitemap. Vercel's "AI bots" rule set 
 
 **Why:** the evidence in the table. Nobody's search engine reads these things.
 
-### 7. Cookieless counting, and a privacy page that says so (next PR)
+### 7. Cookieless counting, and a privacy page that says so
 
-The owner chose to measure more than planned. The next step is Vercel Web Analytics and Speed Insights, both already enabled on the project, with:
-- no cookies;
-- no document addresses: editor URLs are recorded as `/editor/[id]`;
-- events for sign-up, a document created, a Word import and each export;
+The owner chose to measure more than planned. Vercel Web Analytics and Speed Insights (`app/_site/Counting.tsx`) run on production deployments only, with:
+- no cookies and nothing stored in the browser; Vercel tells visits apart with a hash of the request that it discards after 24 hours;
+- no document addresses: editor URLs are sent as `/editor/[docId]`, and fragments never go;
+- five events, never with properties: Sign up, Document created, Word imported, PDF exported, HTML exported;
 - nothing sent when Global Privacy Control is on.
 
-The privacy page will be rewritten to say exactly that and to name YourLaunchPad LLC. An About page will name the maker.
+`scrub()` in `app/_site/analytics.ts` does the rewriting, and `npm run analytics` holds it to the list above. The e2e and app accessibility gates check that each step is counted once and that local builds load no analytics.
+
+"Sign up" counts a sign-in through the sign-up door by an account created within the past hour, the code's lifetime. Both times are the auth server's, and neither depends on when the project confirms addresses. An existing account coming in through the sign-up door is older, so it isn't counted again; one that does so within its first hour is counted twice, which is rare enough to accept. Supabase's `auth.users` stays the true count; the event is what ties a sign-up to the site that sent the visitor.
+
+The privacy page says all of this, and names YourLaunchPad LLC. A new `/about` page names the maker and how to reach a person.
+
+**What would change it:** a need for per-person journeys (cohorts, retention). That needs an identifier and consent, so it is a new decision, not a setting.
 
 ### 8. Publish the agenda-platform research, with names
 
@@ -211,7 +217,7 @@ Bing Webmaster Tools, a sitemap there, and IndexNow come before anything else ai
    - structured data;
    - the Display dialog;
    - the search gate in CI.
-2. **Next PR: counting visits without cookies.** Analytics, events, the privacy page and an About page (decision 7).
+2. **Second PR: counting visits without cookies.** Analytics, events, the privacy page and an About page (decision 7).
 3. **Owner setup, week 1:**
    - Search Console (a DNS record on Vercel DNS) and Bing Webmaster Tools, with the sitemap;
    - GitHub's description ("A document editor that checks your writing against WCAG 2.1 AA as you type, and exports tagged PDF/UA-1 and HTML"), its homepage and its topics;
