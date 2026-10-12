@@ -12,10 +12,10 @@ const HEADLINE = 'How to describe maps, site plans and charts in a meeting packe
 /* The method is W3C WAI's (Complex Images tutorial, alt decision tree). The
  * examples are ours, with bracketed placeholders and no real place. Claims
  * about Ada Editor match app/_engine/rules.ts and textHelpers.ts as they are:
- * it doesn't ask about site plans, and it can't mark an image decorative, so
- * this page says neither. Evidence about real packets comes from
- * docs/audit/agenda-platforms-2026-10/. A change to what this page says is a
- * new `updated` date in app/_site/pages.ts and a line under Corrections. */
+ * it can't mark an image decorative, so this page doesn't say it can.
+ * Evidence about real packets comes from docs/audit/agenda-platforms-2026-10/.
+ * A change to what this page says is a new `updated` date in
+ * app/_site/pages.ts and a line under Corrections. */
 
 export default function Page() {
   return (
@@ -142,7 +142,9 @@ export default function Page() {
               it also flags alt text that is a single short word or starts “Image of” or similar, and, when the alt
               text calls the image a chart, graph, map or diagram, or a site plan, floor plan, plat, elevation or
               engineering drawing, asks whether it needs a long description.
-              Our <Link href="/help#checks">list of the checks Ada Editor runs</Link> gives the wording of each.
+              Our <Link href="/help#checks">list of the checks Ada Editor runs</Link> gives the wording of each, and
+              our <Link href="/research/wcag-meeting-documents">sorting of WCAG 2.1 AA</Link> shows which criteria
+              software can decide in a meeting document.
             </p>
           </section>
 

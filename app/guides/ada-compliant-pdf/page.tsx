@@ -86,6 +86,8 @@ export default function Page() {
               the file, and its presence doesn’t show the file meets the standard. In our <Link href="/research/agenda-platforms">research on agenda platforms</Link>,
               a 199-page meeting package one platform built, with no headings, tables, lists or image descriptions, and a converted Word
               file holding nothing but paragraphs, both declared PDF/UA-1.
+              Our <Link href="/research/wcag-meeting-documents">criterion-by-criterion sorting of WCAG 2.1 AA</Link> shows
+              which WCAG criteria software can decide in a meeting document.
             </p>
           </section>
 
