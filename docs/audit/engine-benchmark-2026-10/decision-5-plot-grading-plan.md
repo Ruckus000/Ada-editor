@@ -93,3 +93,13 @@ the cost is real. Nothing changes until then.
 The same gap explains both findings. The key can't measure long
 descriptions, so neither this rule nor any change to it can earn its place
 in the benchmark as it stands.
+
+*Ruled 2026-10-13, after the six ran: **kept, unchanged.***
+- *It fired 0 times on [the six clean documents](results-six.md), so the
+  cost the six were meant to show isn't there. What's left is one question
+  on the good twin.*
+- *Its benefit sits outside the key, which leaves out F67, so the benchmark
+  can't weigh it either way. An accessibility aid isn't cut without a case
+  showing it does harm.*
+- *It comes back here if a real document shows it asking where no long
+  description is needed.*
