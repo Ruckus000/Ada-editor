@@ -194,6 +194,36 @@ export const PROSE_RULE_IDS: ReadonlySet<string> = new Set(
   RULES.filter((r) => r.kind === 'prose').map((r) => r.id),
 );
 
+/**
+ * AAA writing advice asks once per document, not once per passage: on the
+ * engine benchmark's six clean documents these two raised 27 of Ada's 32
+ * questions (#122), and whether to simplify the writing is one decision, as
+ * how a form is filled in is for form-blank. Decision 5, 2026-10-13.
+ */
+export const PER_DOCUMENT_RULE_IDS: ReadonlySet<string> = new Set(['reading-level', 'long-sentence']);
+
+/** One finding for every passage a per-document rule flagged, anchored at the
+ *  first. `items` hold each block-relative finding and its block's position. */
+export function perDocumentFinding(ruleId: string, items: readonly { finding: RawFinding; pos: number }[]): RawFinding {
+  const first = items[0]!;
+  const n = items.length;
+  const many = n > 1;
+  const reading = ruleId === 'reading-level';
+  const at = first.finding.anchor.kind === 'blockRange' ? first.finding.anchor : { from: 0, to: 0 };
+  return {
+    ruleId,
+    severity: first.finding.severity,
+    criterion: first.finding.criterion,
+    title: reading
+      ? (many ? `${n} passages read above grade 12` : 'A passage reads above grade 12')
+      : (many ? `${n} sentences run over 35 words` : 'A sentence runs over 35 words'),
+    explanation: `${first.finding.title}${many ? `, the first of ${n}` : ''}. ${first.finding.explanation}${many ? ' Go to text shows the first; the rest are like it.' : ''}`,
+    snippet: '',
+    hint: reading ? (many ? 'Simplify the passages' : 'Simplify the passage') : (many ? 'Shorten the sentences' : 'Shorten the sentence'),
+    anchor: { kind: 'docRange', from: first.pos + 1 + at.from, to: first.pos + 1 + at.to },
+  };
+}
+
 const CRITERION: Readonly<Record<string, string>> = Object.fromEntries(
   RULES.map((r) => [r.id, r.criterion]),
 );
