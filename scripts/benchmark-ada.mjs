@@ -44,7 +44,7 @@ for (const path of args) {
     for (const x of headings) if (x.pos <= pos) h = x.text; else break;
     return h;
   };
-  const findings = mod.check.checkDocument(doc, { prose: true }).map((f) => {
+  const findings = mod.check.checkDocument(doc, { prose: true, title: r.title }).map((f) => {
     const pos = f.anchor?.kind === 'figure' && figures[f.anchor.figureId] ? figures[f.anchor.figureId].pos : f.from;
     return { id: f.id, severity: f.severity, title: f.title, excerpt: f.excerpt ?? '', under: typeof pos === 'number' ? under(pos) : '(document)' };
   });

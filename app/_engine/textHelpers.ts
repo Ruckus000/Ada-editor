@@ -29,7 +29,16 @@ export const COLOUR_WORDS = /\b(red|green|blue|yellow|orange|purple|pink|grey|gr
 /** Only a problem when the colour is doing the pointing. */
 export const COLOUR_REFERENCE = /\b(the|in|marked|shown|highlighted|coloured|colored|see)\s+\w{0,12}\s*(red|green|blue|yellow|orange|purple|pink)\b/i;
 
-export const REDUNDANT_ALT_PREFIX = /^\s*(image|picture|photo|graphic|icon|screenshot)\s+(of|showing)\s+/i;
+/** A title an authoring tool gave the file, not one that says what it is: W3C's
+ *  F25 names "Untitled Document", "No Title" and "New Page 1". Word calls a new
+ *  file "Document1", LibreOffice "Untitled 1". The whole title must be the
+ *  default, so "Document review schedule" and "Untitled land parcels" pass.
+ *  ponytail: defaults only. File names (F25's "report.html") and template
+ *  placeholders ("[meeting date]") need judgement; add them when a real file
+ *  carries one past this check. */
+export const DEFAULT_TITLE = /^(document\s*\d*|untitled(\s+(document|page))?(\s*\d+)?|no\s+title|new\s+(document|page)(\s*\d+)?)$/i;
+
+export const REDUNDANT_ALT_PREFIX =/^\s*(image|picture|photo|graphic|icon|screenshot)\s+(of|showing)\s+/i;
 /** Alt text naming an image whose details rarely fit in alt text (WCAG G74).
  *  Whole words only: "graphic", "photograph" and "roadmap" are not charts.
  *  Planning packets add site and floor plans, plats, elevations and technical

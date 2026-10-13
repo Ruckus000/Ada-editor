@@ -19,8 +19,8 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { Anchor, EditorFinding } from '../_editor/findings';
 import { dismissKeyOf } from '../_editor/findings';
 import type { BlockEntry, BlockSummary, RawFinding } from './rules';
-import { documentLanguage, schema } from '../_editor/editorSchema';
-import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock, summarizeTable } from './rules';
+import { documentLanguage, documentTitle, schema } from '../_editor/editorSchema';
+import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock, summarizeTable, titleFindings } from './rules';
 import { languageName, primaryTag } from './textHelpers';
 
 /** Cached per-block rule results, keyed by node identity (§9.1), one cache
@@ -92,8 +92,11 @@ const excerptOf = (snippet: string): string =>
  * because they cannot false-positive on partial input. `prose: true` adds the
  * prose-heuristic rules and is reserved for blur and the explicit Recheck
  * action, so they never flag a sentence still being typed (§8.1).
+ *
+ * `title` is the stored title. With it, the title an export would write (the
+ * main heading's, else this) is checked; without it, only a main heading is.
  */
-export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFinding[] {
+export function checkDocument(doc: PMNode, opts: { prose: boolean; title?: string }): EditorFinding[] {
   const pageLang = documentLanguage(doc);
   const key = primaryTag(pageLang);
   let memo = blockMemo.get(key);
@@ -132,6 +135,8 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean }): EditorFind
     if (!opts.prose && PROSE_RULE_IDS.has(f.ruleId)) continue;
     raw.push({ finding: f, blockPos: -1 });
   }
+  const title = documentTitle(doc) || opts.title;
+  if (title !== undefined) for (const f of titleFindings(title)) raw.push({ finding: f, blockPos: -1 });
 
   const seen = new Map<string, number>();
   const mapped: EditorFinding[] = [];

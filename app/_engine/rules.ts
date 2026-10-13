@@ -31,6 +31,10 @@
  * than the one it declares (silent on the corpus, which is English);
  * `heading-unmarked` asks about short lines set like headings, and the parity
  * gate pins its eleven corpus firings (nine real section titles, two names).
+ * `document-title` (the engine benchmark's row 7, through its decision 5 on
+ * 2026-10-13) judges the title an export would write, so it runs only when the
+ * caller passes the stored title (`checkDocument`'s `title`) or the document
+ * has a main heading; the corpus has no stored titles and fires it nowhere.
  *
  * Four severities depart from the spike: `document-no-h1` is Advisory, not
  * violation, because its criterion (2.4.10) is AAA; `heading-skip`,
@@ -57,6 +61,7 @@ import {
   COLOUR_REFERENCE,
   COLOUR_WORDS,
   COMPLEX_IMAGE,
+  DEFAULT_TITLE,
   OPEN_FLOOR_PLAN,
   DESCRIPTION_POINTER,
   GENERIC_LINK_TEXT,
@@ -131,6 +136,11 @@ export const RULES: readonly RuleInfo[] = [
   { id: 'document-no-h1', name: 'No top-level heading', criterion: '2.4.10 Section Headings', level: 'AAA', kind: 'structural',
     about: 'A top-level heading (H1) is the document’s title in its structure, the first thing a screen reader user can jump to.',
     fix: 'Make the title the one H1, and use H2 and below for sections.' },
+  // Engine-only. Fails: W3C's F25 names an authoring tool's default title as a
+  // failure of 2.4.2, and the check only matches those defaults.
+  { id: 'document-title', name: 'Titles that don’t say what the document is', criterion: '2.4.2 Page Titled', level: 'A', kind: 'structural',
+    about: 'The title is what a PDF viewer, a browser tab and a screen reader announce first, before anything in the document. A default like “Document1” or “Untitled” doesn’t say what the document is.',
+    fix: 'Make the main heading (H1) say what the document is, such as the board and the meeting date, or add one at the top. The title follows it.' },
   { id: 'colour-only-reference', name: 'Instructions that rely on colour', criterion: '1.4.1 Use of Color', level: 'A', kind: 'prose',
     about: '“The items in red” leaves out everyone who can’t see the colour, including many people with colour blindness and anyone who prints in black and white.',
     fix: 'Say it in words as well: name the items, or mark them with a symbol or label as well as a colour.' },
@@ -811,6 +821,28 @@ export function summarizeTable(node: PMNode): RawFinding[] {
     });
   }
   return out;
+}
+
+/**
+ * The title an export would write: the main heading's text if there is one
+ * (documentTitle), otherwise the stored title, from Word's Title property or
+ * the file name. Blank becomes "Untitled document" on export, which is itself
+ * a default (F25: "Empty text").
+ */
+export function titleFindings(title: string): RawFinding[] {
+  const t = collapseSpaces(title).trim();
+  if (t && !DEFAULT_TITLE.test(t)) return [];
+  return [{
+    ruleId: 'document-title',
+    // Fails AA: F25 makes a default title a failure of 2.4.2 (Level A).
+    severity: 'violation',
+    criterion: crit('document-title'),
+    title: t ? `The document’s title is “${t}”` : 'The document has no title',
+    explanation: `${t ? `“${t}” is the kind of title an authoring tool gives a new file, not one that says what this document is` : 'Exported, it would be titled “Untitled document”'}. The title is what a PDF viewer or a screen reader announces first. Make the main heading (H1) say what the document is, or add one at the top; the title follows it.`,
+    snippet: '',
+    hint: 'Name the document in its main heading',
+    anchor: { kind: 'document' },
+  }];
 }
 
 export function crossBlockFindings(entries: readonly BlockEntry[], pageLang = 'en'): RawFinding[] {

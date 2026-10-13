@@ -108,7 +108,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   // the findings this user already dismissed, which persist with the document.
   const initialFindings = useMemo(() => {
     const dismissed = new Set(stored.dismissed);
-    return [...checkDocument(initial, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f))), ...sectionFindings(stored, stored.dismissed)];
+    return [...checkDocument(initial, { prose: true, title: stored.title }).filter((f) => !dismissed.has(dismissKeyOf(f))), ...sectionFindings(stored, stored.dismissed)];
   }, [initial, stored]);
 
   /* ---------- state ---------- */
@@ -455,7 +455,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           // either) changes what every language finding means: that edit runs
           // the full check, so no finding about the old language is carried.
           const languageChanged = documentLanguage(view.state.doc) !== documentLanguage(next.doc);
-          const fresh = checkDocument(next.doc, { prose: languageChanged });
+          const fresh = checkDocument(next.doc, { prose: languageChanged, title: titleRef.current });
           findingsRef.current = reconcile(findingsRef.current, fresh, dismissedRef.current, { keepProse: !languageChanged });
           setWordCount(wordsIn(next));
         }
@@ -505,7 +505,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const runFullCheck = useCallback(() => {
     const view = viewRef.current;
     if (!view) return;
-    const next = reconcile(findingsRef.current, checkDocument(view.state.doc, { prose: true }), dismissedRef.current);
+    const next = reconcile(findingsRef.current, checkDocument(view.state.doc, { prose: true, title: titleRef.current }), dismissedRef.current);
     if (next !== findingsRef.current) setFindings(next);
     saveDoc(doc.id, { lastChecked: Date.now() });
   }, [setFindings, doc.id]);

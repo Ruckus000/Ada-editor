@@ -67,7 +67,7 @@ const CRITERIA: [sc: string, name: string, level: 'A' | 'AA', when: When, decide
   ['2.2.2', 'Pause, Stop, Hide', 'A', 'interactive', 'person', 'Whether moving or updating content can be paused is checked by trying.'],
   ['2.3.1', 'Three Flashes or Below Threshold', 'A', 'media', 'software', 'Flash-analysis tools check video frame by frame.'],
   ['2.4.1', 'Bypass Blocks', 'A', 'set', 'person', 'Whether readers can skip what repeats from document to document takes a person.'],
-  ['2.4.2', 'Page Titled', 'A', 'always', 'partly', 'Software can tell a file has no title. Whether the title identifies the document takes a person.'],
+  ['2.4.2', 'Page Titled', 'A', 'always', 'partly', 'Software can tell a file has no title, or only the default an authoring tool gave it, such as “Document1”. Whether a real title identifies the document takes a person.'],
   ['2.4.3', 'Focus Order', 'A', 'always', 'person', 'Whether moving through the links with the Tab key follows a sensible order takes a person.'],
   ['2.4.4', 'Link Purpose (In Context)', 'A', 'always', 'partly', 'Software can find a link with no words at all, and point to “click here” and bare web addresses. Whether a link’s words, with their sentence, say where it goes takes a person.'],
   ['2.4.5', 'Multiple Ways', 'AA', 'set', 'person', 'Whether there’s more than one way to find a document in the set takes a person.'],
@@ -140,7 +140,7 @@ export default function Page() {
           <dl className="site-facts">
             <div><dt>By</dt><dd><Link href="/about">YourLaunchPad LLC</Link></dd></div>
             <div><dt>Published</dt><dd><time dateTime="2026-10-12">12 October 2026</time></dd></div>
-            <div><dt>Last reviewed</dt><dd><time dateTime="2026-10-12">12 October 2026</time></dd></div>
+            <div><dt>Last reviewed</dt><dd><time dateTime="2026-10-13">13 October 2026</time></dd></div>
           </dl>
         </div>
       </section>
