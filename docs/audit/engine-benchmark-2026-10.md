@@ -327,3 +327,14 @@ takes its place, and merging it is the owner's approval of it.
     hashes are in it.
 - **No output from either checker exists on the six rebuilt documents** as
   of this commit.
+
+## Addition, 2026-10-13: the six have run
+
+[The results for the six real documents](engine-benchmark-2026-10/results-six.md)
+are in, scored by the adjudication standard. Word ran first, then Ada at
+7b2ce34, with main as its own column; the two Ada columns are identical.
+- **Word:** no assertions and no questions on any of the six.
+- **Ada:** one wrong claim, `table-no-header` on D4's form grid, and 32
+  questions, 27 of them reading level or sentence length.
+- **P5 was wrong** for Ada (1 document, not 2 or more) and held for Word.
+  **P6 held.** All seven predictions are now scored.
