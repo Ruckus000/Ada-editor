@@ -152,6 +152,10 @@ nothing is planted, so every finding there counts as a cost, not a catch.
   access. A change goes through decision 5's two tables. *Later the same
   day: it went through, and passed:
   [decision 5, layout tables](decision-5-table-layout.md).*
+- **Plot and grading plans** went through decision 5 next and didn't ship:
+  they move no row. That record also lists `img-long-description` as a
+  provisional candidate for deletion:
+  [decision 5, plot and grading plans](decision-5-plot-grading-plan.md).
 - **Row 7 (P7)** was caught by neither checker, as predicted. The title
   check is still the next change for decision 5, as the brief planned.
 - **Word's checker changed under the brief.** This build's assistant pane
