@@ -9,6 +9,7 @@ wait for the owner to confirm each one is clean. No checker has opened them.
 *Correction, 2026-10-13: a published [adjudication standard](adjudication-standard.md)
 now decides what's clean, in place of the owner's confirmation. The six were
 rebuilt under it, and the owner had seen Word's status on one earlier copy.*
+*Later the same day: [the six have run](results-six.md).*
 
 ## The one-line verdict
 
