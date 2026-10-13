@@ -290,3 +290,40 @@ documents.
 `.docx` files come from 8 publishers, counted by URL host, not "about 12".
 The selection rule doesn't change. Taking the first file from each new
 publisher in id order still gives r01, r21, n34, n35, n43 and n47.
+
+## Addition, 2026-10-13: a published standard replaces the owner's confirmation
+
+Decision 3 had the owner confirm that each of the six fixed documents is
+clean. The owner declined: a personal call would put weak bias into the
+proof. [The adjudication standard](engine-benchmark-2026-10/adjudication-standard.md)
+takes its place, and merging it is the owner's approval of it.
+
+- **What decides "clean":**
+  - W3C's failure techniques (the 31 rows) decide what fails.
+  - The Access Board's ICT Testing Baseline for Electronic Documents decides
+    how to test it in Word.
+  - The federal Word 365 guide fills the gaps.
+  - Two blind testers apply the judgment calls spot by spot.
+  - What none of these settles is contested.
+- **Contested is narrow.** It covers 64 listed spots in the six documents and
+  never touches the 31 planted rows, the published pack results or decision
+  5's gate.
+- **P5 and P6 keep their wording and thresholds.**
+  - P5 excludes an assertion only when both its spot and its criterion match a
+    contested entry.
+  - P6 counts every question, with the contested subset shown beside it.
+  - The standard sets out the matching rule.
+- **The pins don't change.** The registered run is Ada at 7b2ce34, and main
+  gets its own column. Word runs first.
+- **What I knew when I wrote this:**
+  - the pack results for both checkers;
+  - the engine changes since registration (#111, #114, #117 and #120);
+  - every line of the six documents, which corrects "I have not read any of
+    their text": I read them all to make the first fixes on 2026-10-12. That
+    is why spot-level judgments now go to blind testers, not to me.
+  - The owner opened the earlier fixed copy of one document in Word on
+    2026-10-13 and read Word's accessibility status. That copy was replaced:
+    all six were rebuilt from the originals under the standard, and their
+    hashes are in it.
+- **No output from either checker exists on the six rebuilt documents** as
+  of this commit.

@@ -6,6 +6,9 @@ down before Ada produced any output on these files.
 
 **Not yet run:** P5 and P6, the six real documents. They're fixed, and they
 wait for the owner to confirm each one is clean. No checker has opened them.
+*Correction, 2026-10-13: a published [adjudication standard](adjudication-standard.md)
+now decides what's clean, in place of the owner's confirmation. The six were
+rebuilt under it, and the owner had seen Word's status on one earlier copy.*
 
 ## The one-line verdict
 

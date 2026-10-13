@@ -89,7 +89,9 @@ Unlike the layout-table change, this one adds assertions, so the second
 test can't rest on "it only asks". It rests on what a clean document is:
 - **The six were fixed against every row, row 7 included,** and the owner
   confirms each one is clean. A confirmed-clean document has no default
-  title.
+  title. *Correction, 2026-10-13: the [adjudication standard](adjudication-standard.md)
+  now decides what's clean. Its B16 and B17 rule an empty or default title a
+  mechanical failure, and none of the rebuilt six has one.*
 - **The rule asserts only titles that F25 names as failures,** matched in
   full.
 
