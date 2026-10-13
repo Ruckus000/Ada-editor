@@ -805,12 +805,15 @@ export function summarizeTable(node: PMNode): RawFinding[] {
       criterion: crit('table-layout'),
       title: headed ? 'Table may only lay text out, but has header cells' : 'Table may only lay text out',
       explanation: (form ? 'Its labels sit beside empty cells, like a form. ' : 'Every cell holds a sentence or a long phrase. ') + (headed
-        ? 'If the table only lays text out, its header cells are wrong: a screen reader announces them with every cell below. Turn it into text. If it holds data, dismiss this.'
+        ? `If the table only lays text out, its header cells are wrong: a screen reader announces them with every cell below. ${form ? 'Turn off Header row' : 'Turn it into text'}. If it holds data, dismiss this.`
         : form
           ? 'A screen reader reads a table row by row, left to right: check each label comes just before its field in that order. If it holds data, turn on Header row.'
           : 'A screen reader reads a table row by row, left to right: check the text makes sense in that order, or turn it into text. If it holds data, turn on Header row.'),
       snippet,
-      hint: headed ? 'Turn into text, or dismiss if it holds data' : 'Check the reading order, or turn it into text',
+      // Turn into text drops empty cells, so a form's blanks would go: its hints don't offer it.
+      hint: headed
+        ? (form ? 'Turn off the header row, or dismiss if it holds data' : 'Turn into text, or dismiss if it holds data')
+        : (form ? 'Check each label comes before its field' : 'Check the reading order, or turn it into text'),
       anchor: { kind: 'table' },
     });
   }

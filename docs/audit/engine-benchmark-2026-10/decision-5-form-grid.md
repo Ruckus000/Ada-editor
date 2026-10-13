@@ -43,13 +43,18 @@ A table **looks like a form grid** when:
 
 Columns are counted with prosemirror-tables' `TableMap`, so a merged cell
 counts against every column it covers.
+A cell holding a picture isn't empty, so a column of photos beside names
+isn't a form. That case came from review, before merge.
 
 A form grid goes to `table-layout` ("Needs your call"), as layout tables of
 sentences already do. The owner ruled in #117 that a layout table is asked
 about, not ignored.
 - **The question it asks:** a screen reader reads a table row by row, so
   check that each label comes just before its field.
-- **With header cells,** the F46 version asks whether they belong there.
+- **With header cells,** the F46 version asks whether they belong there, and
+  suggests turning off Header row.
+- **Its hints don't offer Turn into text.** That would drop the empty
+  cells, which on a printed form are the blanks.
 - **`table-no-header`'s text** is unchanged.
 
 **What stays a blocker, by test:**

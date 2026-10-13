@@ -1469,6 +1469,10 @@ check('table-layout: a table of sentences asks instead of blocking, and header c
   const [grid] = checkDocument(doc(table(form)), { prose: false }).filter((f) => f.id.startsWith('table-'));
   deepEq(tables(doc(table(form))), ['table-layout:manual'], 'a form grid asks, and doesn’t block');
   assert(/like a form/.test(grid.explanation) && /label comes just before its field/.test(grid.explanation), 'it asks about label-then-field order');
+  eq(grid.hint, 'Check each label comes before its field', 'no Turn-into-text hint: it would drop the blanks');
+  // A picture is content: a column of photos beside names is not a blank column.
+  const photos = [1, 2, 3].map((n) => [{ td: [figure(`img-${n}`, `Portrait ${n}`)] }, `Member ${n}`]);
+  deepEq(tables(doc(table(photos))), ['table-no-header:blocker'], 'photos beside names: unchanged, not a form');
   deepEq(tables(doc(table([form[0].map((c) => (typeof c === 'string' ? { th: c } : { th: [N.paragraph.create()] })), ...form.slice(1)]))), ['table-layout:manual'], 'a form grid with a header row: asked about');
   deepEq(tables(doc(table(fill([['Day', ''], ['Monday', ''], ['', '']])))), ['table-no-header:blocker'], 'two rows with text: still the blocker (a table being typed)');
   deepEq(tables(doc(table(fill([['Mayor', 'Commissioner, District 1'], ['Vice Mayor', ''], ['Clerk', '']])))), ['table-no-header:blocker'], 'no column empty in every row: still the blocker');

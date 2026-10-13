@@ -77,7 +77,14 @@ export function looksLikeLayout(table: PMNode): boolean {
  */
 export function looksLikeFormGrid(table: PMNode): boolean {
   const map = TableMap.get(table);
-  const empty = (offset: number) => !table.nodeAt(offset)?.textContent.trim();
+  // A picture is content: a column of photos beside names isn't a blank to fill in.
+  const empty = (offset: number) => {
+    const cell = table.nodeAt(offset);
+    if (!cell || cell.textContent.trim()) return !cell;
+    let picture = false;
+    cell.descendants((n) => { if (n.type.name === 'figure') picture = true; return !picture; });
+    return !picture;
+  };
   let rowsWithText = 0;
   for (let r = 0; r < map.height; r++) {
     let any = false;
