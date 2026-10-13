@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 // The file, not the barrel: index.ts also exports client hooks, and this page renders on the server.
 import { SeverityBadge } from '../design-system/primitives/SeverityBadge';
+import { RULES } from './_engine/rules';
 import { HOME_DATA, JsonLd } from './_site/JsonLd';
 import { pageMetadata } from './_site/pages';
 import { START } from './_site/routes';
@@ -9,9 +10,9 @@ import { Site } from './_site/Site';
 
 export const metadata: Metadata = pageMetadata('/');
 
-/* Copy is held to what the code does: 20 rules (rules.ts, 3 of them AAA, so
- * never "20 AA rules"); prose rules run on blur, not on a pause; codes are 8
- * digits. Public, server-rendered, no client JS. */
+/* Copy is held to what the code does: the rule count is read from RULES (3 of
+ * them AAA, so never "AA rules"); prose rules run on blur, not on a pause;
+ * codes are 8 digits. Public, server-rendered, no client JS. */
 
 const FINDINGS = [
   { severity: 'blocker', title: 'Image has no alternative text', criterion: '1.1.1 Non-text Content' },
@@ -96,7 +97,7 @@ export default function Page() {
               <p>Live <span className="ada-underline" data-severity="blocker">structure</span> checks, prose checks <span className="ada-underline" data-severity="manual">when you click away</span>.</p>
             </div>
             <h3>A real checking engine</h3>
-            <p>Twenty WCAG rules check your document as you write, not a canned demo.</p>
+            <p>{RULES.length} WCAG rules check your document as you write, not a canned demo.</p>
           </li>
           <li className="site-card">
             <div className="site-card__art site-small" aria-hidden="true">
