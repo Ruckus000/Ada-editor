@@ -20,6 +20,7 @@ import { build } from 'esbuild';
 import { DOMParser as XmlParser, parseHTML } from 'linkedom';
 import { NS, P, R, docx, makeZip, rel, rels } from './harness/docx.mjs';
 import { JPEG_3X2, png, withOrientation } from './harness/images.mjs';
+import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -2227,42 +2228,48 @@ await acheck('import: tables keep merged cells, header rows only where Word mark
   deepEq(r.notes, [], 'nothing left out');
 });
 
-// The engine benchmark's planted packs, table rows only (decision 5, 2026-10-12;
-// docs/audit/engine-benchmark-2026-10/decision-5-table-layout.md). Each table's
-// findings are keyed by the heading above it.
-await acheck('benchmark packs: layout tables ask (rows 16, 17), the unmarked data table blocks (row 28), the good twin asserts nothing', async () => {
-  const byHeading = async (file) => {
-    const r = await importDocx(fixture(`benchmark/${file}`), file, parseXml);
-    const found = mod.check.checkDocument(r.content, { prose: false }).filter((f) => f.anchor.kind === 'table');
-    const out = {};
-    let heading = '';
-    r.content.forEach((node, pos) => {
-      if (node.type.name === 'heading') heading = node.textContent;
-      if (node.type.name !== 'table') return;
-      out[heading] = found.filter((f) => f.from === pos).map((f) => `${f.ruleId}:${f.severity}`);
-    });
-    return out;
+// Step 4 of the engine benchmark: every finding on the four planted files, from
+// the benchmark's own runner (scripts/benchmark-ada.mjs), keyed by the heading it
+// sits under. A rule change that moves one fails here until this list moves with
+// it, so decision 5's pack table shows in the PR; and the good twin never asserts
+// (decision 5, test 2). Row numbers are the brief's 31 rows.
+await acheck('benchmark packs: every finding pinned by heading; the good twin asserts nothing', async () => {
+  const files = ['benchmark-bad.docx', 'benchmark-good.docx', 'benchmark-row07-title.docx', 'benchmark-row30-language.docx'];
+  const run = spawnSync(process.execPath, [resolve(HERE, 'benchmark-ada.mjs'), ...files.map((f) => resolve(ROOT, 'corpus/docx/benchmark', f))], { encoding: 'utf8' });
+  assert(run.status === 0, `benchmark-ada.mjs failed: ${run.stderr}`);
+  const out = JSON.parse(run.stdout);
+  const byHeading = (file) => {
+    const o = {};
+    for (const f of out[file].findings) (o[f.under] ??= []).push(`${f.rule}:${f.severity}`);
+    return o;
   };
-  deepEq(await byHeading('benchmark-bad.docx'), {
-    Projects: [], // row 8's data table, header row marked
-    Contact: ['table-layout:manual'],
-    Directions: ['table-layout:manual'],
-    Fees: ['table-no-header:blocker'],
+  deepEq(byHeading('benchmark-bad.docx'), {
+    'Public comment': ['heading-unmarked:manual'], // row 2
+    'Park visits': ['img-alt-suspicious:manual'], // row 5, alt "Chart"
+    'New playground': ['img-alt-suspicious:manual'], // row 9, a file name
+    'Riverside Park cleanup': ['img-alt-missing:blocker'], // row 19
+    Announcements: ['img-alt-missing:blocker'], // row 13
+    Reports: ['img-alt-suspicious:manual'], // row 14, alt "line"
+    Contact: ['table-layout:manual'], // row 16
+    Directions: ['table-layout:manual'], // row 17
+    'Budget documents': ['link-text-generic:manual'], // row 18
+    Seating: ['form-blank:manual'], // row 22's plan; not a catch (results-packs.md)
+    Votes: ['colour-only-reference:manual'], // row 24
+    'Fall festival': ['contrast-minimum:violation'], // row 25
+    Partners: ['img-alt-missing:blocker'], // row 27
+    Fees: ['table-no-header:blocker'], // row 28
+    Parking: ['contrast-minimum:violation'], // row 29
+    'Language assistance': ['language-of-parts:manual'], // row 31
+    '(header)': ['img-alt-missing:blocker'], // row 4, the watermark
   }, 'bad pack');
-  deepEq(await byHeading('benchmark-good.docx'), { Schedule: [], Projects: [], Contact: ['table-layout:manual'], Fees: [] }, 'good twin: row 12 fixed as a real table');
-});
-
-// Row 7 (decision 5, 2026-10-13; decision-5-document-title.md): the title the
-// import stores, checked as the desk checks it.
-await acheck('benchmark packs: a default title fails (row 7), the packs’ own titles pass', async () => {
-  const titleFindings = async (file) => {
-    const r = await importDocx(fixture(`benchmark/${file}`), file, parseXml);
-    return [r.title, ...mod.check.checkDocument(r.content, { prose: true, title: r.title }).filter((f) => f.ruleId === 'document-title').map((f) => f.severity)];
-  };
-  deepEq(await titleFindings('benchmark-row07-title.docx'), ['Document1', 'violation'], 'row 7');
-  for (const file of ['benchmark-bad.docx', 'benchmark-good.docx', 'benchmark-row30-language.docx']) {
-    eq((await titleFindings(file)).length, 1, `${file}: its main heading is its title, and passes`);
-  }
+  deepEq(byHeading('benchmark-good.docx'), {
+    'Park visits': ['img-long-description:manual'],
+    Contact: ['table-layout:manual'],
+  }, 'good twin');
+  deepEq(out['benchmark-good.docx'].findings.filter((f) => f.severity === 'blocker' || f.severity === 'violation'), [], 'the good twin asserts nothing');
+  eq(out['benchmark-row07-title.docx'].title, 'Document1', 'row 7: the stored title is the default');
+  deepEq(byHeading('benchmark-row07-title.docx'), { '(before any heading)': ['document-title:violation'] }, 'row 7');
+  deepEq(Object.values(byHeading('benchmark-row30-language.docx')), [['document-language:manual']], 'row 30');
 });
 
 await acheck('import: a bold first row without Word’s header-row mark stays data, and is flagged', async () => {
