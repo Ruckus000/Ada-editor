@@ -647,6 +647,8 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
     for (const span of sentenceSpans(text)) {
       const sentence = text.slice(span.from, span.to);
       const words = sentence.split(/\s+/).filter(Boolean).length;
+      // 35 is the spike's; no source sets it (GOV.UK says 25). Kept by decision 5,
+      // 2026-10-13: docs/audit/engine-benchmark-2026-10/decision-5-long-sentence-threshold.md.
       if (words <= 35) continue;
       const from = offsets[span.from] ?? span.from;
       const lastOffset = offsets[span.to - 1];
