@@ -1,0 +1,14 @@
+
+== attack: attacker registers the address first
+1 attacker POST /signup with a password: 200 user 4f5441fc
+  attacker password sign-in before the owner confirms: 400 email_not_confirmed
+2 owner requests a code (POST /otp): 200 | code received
+3 owner enters the code (POST /verify): 200 signed in as 4f5441fc
+4 attacker password sign-in after the owner confirmed: 200 SESSION as 4f5441fc (the owner's account)
+
+== control: control, no attacker
+2 owner requests a code (POST /otp): 200 | code received
+3 owner enters the code (POST /verify): 200 signed in as fcfbfd44
+4 attacker password sign-in after the owner confirmed: 400 invalid_credentials
+
+RESULT: takeover REPRODUCED; control no password session, as expected

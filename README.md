@@ -163,6 +163,9 @@ documents in this browser's localStorage only, exactly as before accounts.
   is folklore), the metrics, the audit of the site, and the plan
 - **[Error reporting](docs/audit/error-reporting-2026-10.md)** — how crashes
   reach Sentry without what a document says, and what is and isn't reported
+- **[Account takeover through a pre-set password](docs/audit/auth-password-takeover-2026-10.md)**
+  — how a pre-registered password could open an account signed in by code, and
+  the trigger that stores no password at all
 - **[A clerk's path through Ada Editor](docs/audit/clerk-walkthrough-2026-10.md)**
   — sign-up to posted PDF on the live site with a real agenda's shape, and
   what to fix first
