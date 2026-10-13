@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { adoptDisplay } from './display';
-import { adoptTours } from './tour';
+import { adoptTours, forgetTours } from './tour';
 import { getClient } from './supabase';
 import { reportFailure } from '../_site/sentry';
 import { allDocs, applyPulled, clearStore, createDoc, deleteDoc, detachStore, dirtyDocs, isDirty, loadDoc, markPushed, onDocsDirty, rebaseDoc, replaceDoc, setStoreUser } from './store';
@@ -418,6 +418,7 @@ export async function signOut(confirmDiscard: () => boolean): Promise<boolean> {
   // store before clearStore could find the account's cache to delete.
   forget();
   clearStore();
+  forgetTours();
   if (uid) await clearImageScope(uid);
   // auth-js removes the local session even when the logout request fails
   // (offline), so a shared computer is signed out either way.
@@ -454,6 +455,7 @@ export async function deleteAccount(): Promise<boolean> {
   forget();
   setStoreUser(uid);
   clearStore();
+  forgetTours();
   await clearImageScope(uid);
   // The user is gone, so the server's logout answers 404/403; auth-js treats
   // those as signed out and removes the local session.

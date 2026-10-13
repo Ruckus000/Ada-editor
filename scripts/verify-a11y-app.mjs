@@ -379,12 +379,12 @@ async function home() {
     await key(send, 'Enter');
     await sleep(600);
     const focusAfter = await evaluate(send, `document.activeElement?.id ?? ''`);
-    if (focusAfter !== 'how-heading') fail(`EMPTY  focus fell to ${JSON.stringify(focusAfter)} instead of the empty desk's heading`);
+    if (focusAfter !== 'welcome-heading') fail(`EMPTY  focus fell to ${JSON.stringify(focusAfter)} instead of the empty desk's heading`);
     await send('Page.reload');
     await sleep(1200);
-    const empty = await evaluate(send, `({ how: !!document.querySelector('.home-how'), sheets: document.querySelectorAll('.home-sheet').length, buttons: [...document.querySelectorAll('.home-how__actions button')].map((b) => b.textContent.trim()), search: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Find a document')) })`);
-    if (!empty.how || empty.sheets !== 0 || empty.search || empty.buttons.join('|') !== 'Create a document|Import a Word file') fail(`EMPTY  the empty desk should teach, offer create and import, and hide search: ${JSON.stringify(empty)}`);
-    else note('deleting the last document leaves the how-it-works desk, which stays empty after a reload');
+    const empty = await evaluate(send, `({ how: !!document.querySelector('.home-first'), sheets: document.querySelectorAll('.home-sheet').length, buttons: [...document.querySelectorAll('.home-first button')].map((b) => (b.querySelector('.home-start__title') ?? b).textContent.trim()), drop: !!document.querySelector('.home-first input[type=file]'), search: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Find a document')) })`);
+    if (!empty.how || empty.sheets !== 0 || empty.search || !empty.drop || empty.buttons.join('|') !== 'Take the one-minute tour|Start on a blank page') fail(`EMPTY  the first-visit desk should welcome, offer the tour, import and a blank page, and hide search: ${JSON.stringify(empty)}`);
+    else note('deleting the last document leaves the first-visit desk, which stays empty after a reload');
     await runAxe(send, '');
     await checkTree(send);
     await checkTabOrder(send);
