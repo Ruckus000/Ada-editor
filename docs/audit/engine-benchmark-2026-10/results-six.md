@@ -111,6 +111,10 @@ now been scored. P1, P2, P4 and P5 were wrong; P3, P6 and P7 held.
   clean documents as candidates for deletion. `reading-level` and
   `long-sentence` meet that test, but the brief exempts AAA rules by
   design, so they stay. They're listed so the owner can see the cost.
+  *Later the same day: the owner chose to have each ask once per document,
+  which takes them from 27 questions to 9 on the six:
+  [decision 5, the AAA advice](decision-5-aaa-advice.md). P6 above stays as
+  scored.*
 - **`img-long-description`** didn't fire on the six. It stays a provisional
   candidate, as
   [its record](decision-5-plot-grading-plan.md#found-along-the-way-img-long-description-itself)

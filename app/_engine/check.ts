@@ -20,7 +20,7 @@ import type { Anchor, EditorFinding } from '../_editor/findings';
 import { dismissKeyOf } from '../_editor/findings';
 import type { BlockEntry, BlockSummary, RawFinding } from './rules';
 import { documentLanguage, documentTitle, schema } from '../_editor/editorSchema';
-import { PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, summarizeBlock, summarizeTable, titleFindings } from './rules';
+import { PER_DOCUMENT_RULE_IDS, PROSE_RULE_IDS, crossBlockFindings, isCheckableBlock, perDocumentFinding, summarizeBlock, summarizeTable, titleFindings } from './rules';
 import { languageName, primaryTag } from './textHelpers';
 
 /** Cached per-block rule results, keyed by node identity (§9.1), one cache
@@ -95,8 +95,12 @@ const excerptOf = (snippet: string): string =>
  *
  * `title` is the stored title. With it, the title an export would write (the
  * main heading's, else this) is checked; without it, only a main heading is.
+ *
+ * Reading level and long sentences ask once per document (PER_DOCUMENT_RULE_IDS).
+ * `perPassage` keeps one finding per passage instead: the parity gate uses it
+ * to check each passage against the spike.
  */
-export function checkDocument(doc: PMNode, opts: { prose: boolean; title?: string }): EditorFinding[] {
+export function checkDocument(doc: PMNode, opts: { prose: boolean; title?: string; perPassage?: boolean }): EditorFinding[] {
   const pageLang = documentLanguage(doc);
   const key = primaryTag(pageLang);
   let memo = blockMemo.get(key);
@@ -123,12 +127,20 @@ export function checkDocument(doc: PMNode, opts: { prose: boolean; title?: strin
   });
 
   const raw: { finding: RawFinding; blockPos: number; blockSize?: number }[] = [];
+  const perDocument = new Map<string, { finding: RawFinding; pos: number }[]>();
   for (const e of entries) {
     for (const f of e.summary.findings) {
       if (!opts.prose && PROSE_RULE_IDS.has(f.ruleId)) continue;
+      if (!opts.perPassage && PER_DOCUMENT_RULE_IDS.has(f.ruleId)) {
+        let items = perDocument.get(f.ruleId);
+        if (!items) perDocument.set(f.ruleId, (items = []));
+        items.push({ finding: f, pos: e.pos });
+        continue;
+      }
       raw.push({ finding: f, blockPos: e.pos });
     }
   }
+  for (const [ruleId, items] of perDocument) raw.push({ finding: perDocumentFinding(ruleId, items), blockPos: -1 });
   // Table rules are all structural.
   for (const t of tables) for (const f of t.findings) raw.push({ finding: f, blockPos: t.pos, blockSize: t.size });
   for (const f of crossBlockFindings(entries, pageLang)) {

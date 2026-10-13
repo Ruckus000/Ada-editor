@@ -133,7 +133,8 @@ const ruleOf = (finding) => {
 
 function engineFindings(source, name) {
   const doc = mdToPM(source, schema, { ext: extname(name) });
-  return checkDocument(doc, { prose: true }).map((f) => ({ rule: ruleOf(f), ...f }));
+  // Per passage: the gate checks each flagged passage against the spike's.
+  return checkDocument(doc, { prose: true, perPassage: true }).map((f) => ({ rule: ruleOf(f), ...f }));
 }
 
 /* ---------- measure ---------- */

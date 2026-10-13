@@ -703,7 +703,27 @@ check('prose gating: prose rules only run when asked (§8.1)', () => {
   eq(structural.length, 0, 'structural run is quiet on prose-only problems');
   const full = checkDocument(d, { prose: true });
   eq(full.length, 1, 'full run flags the dense passage');
-  assert(full[0].id.startsWith('reading-level:'), `reading-level fires, got ${full[0].id}`);
+  eq(full[0].ruleId, 'reading-level', 'reading-level fires');
+});
+
+check('reading level and long sentences ask once per document, at the first passage (decision 5, 2026-10-13)', () => {
+  const advice = (d, opts = {}) => checkDocument(d, { prose: true, ...opts }).filter((f) => f.ruleId === 'long-sentence');
+  const d = doc(heading(1, 'Title'), para(LONG), para('Short one.'), para(LONG + ' ' + LONG));
+  const [f, ...rest] = advice(d);
+  eq(rest.length, 0, 'one finding for three long sentences');
+  eq(f.ruleId, 'long-sentence', 'rule');
+  eq(f.severity, 'advisory', 'still advisory');
+  eq(f.title, '3 sentences run over 35 words', 'the count is in the title');
+  assert(f.explanation.startsWith('Sentence runs to 36 words, the first of 3.'), 'the first one is named');
+  eq(f.id, 'long-sentence', 'one stable id, so a dismissal covers the document');
+  const at = d.child(0).nodeSize + 1;
+  eq(f.from, at, 'anchored at the first sentence');
+  eq(f.to, at + LONG.length, 'and only the first');
+  eq(advice(d, { perPassage: true }).length, 3, 'perPassage (the parity gate) keeps one per sentence');
+  eq(advice(doc(heading(1, 'Title'), para(LONG)))[0].title, 'A sentence runs over 35 words', 'one: singular');
+  eq(advice(doc(heading(1, 'Title'), para(LONG)), { prose: false }).length, 0, 'still a prose rule: not on keystroke runs');
+  const dense = doc(heading(1, 'Title'), para(DENSE), para(DENSE + ' Further.'));
+  deepEq(checkDocument(dense, { prose: true }).filter((f) => f.ruleId === 'reading-level').map((f) => f.title), ['2 passages read above grade 12'], 'reading level: once, with the count');
 });
 
 check('stable ids are content-derived, not position-derived (§4/§9.3)', () => {
@@ -1182,7 +1202,8 @@ check('seed docs produce real engine findings across all four severities', () =>
   const expect = (id, counts) => eq(canon(byId[id]), canon(counts), id);
   // manual 4 includes the "click here" link and the h1-to-h3 skip, which ask
   // rather than fail (Understanding 2.4.4 and 1.3.1).
-  expect('hearing-notice', { blocker: 1, advisory: 3, manual: 4 });
+  // advisory 2: reading level and long sentences, each asked once per document.
+  expect('hearing-notice', { blocker: 1, advisory: 2, manual: 4 });
   // +1 manual: "Llame al 311 para ayuda" is Spanish, unmarked (3.1.2).
   // +1 manual: its "click here" link asks rather than fails.
   expect('shelter-faq', { blocker: 1, advisory: 1, manual: 2 });
