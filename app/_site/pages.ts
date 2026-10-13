@@ -38,7 +38,7 @@ export const PAGES = [
     title: 'Help · Ada Editor',
     description: 'How Ada Editor checks a document: every rule and the WCAG criterion it cites, what each severity means, shortcuts, exports and posting to agenda systems.',
     published: '2026-10-06',
-    updated: '2026-10-12',
+    updated: '2026-10-13',
   },
   {
     path: '/accessibility',
@@ -74,7 +74,7 @@ export const PAGES = [
     title: 'WCAG 2.1 AA for meeting documents: what a checker can decide · Ada Editor',
     description: 'All 50 WCAG 2.1 A and AA criteria for agendas, packets and minutes: which come up, which software can decide, and which need a person.',
     published: '2026-10-12',
-    updated: '2026-10-12',
+    updated: '2026-10-13',
     kind: 'article',
   },
   {

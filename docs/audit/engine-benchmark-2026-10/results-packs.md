@@ -158,6 +158,8 @@ nothing is planted, so every finding there counts as a cost, not a catch.
   [decision 5, plot and grading plans](decision-5-plot-grading-plan.md).
 - **Row 7 (P7)** was caught by neither checker, as predicted. The title
   check is still the next change for decision 5, as the brief planned.
+  *On 2026-10-13 it went through, and passed:
+  [decision 5, the title check](decision-5-document-title.md).*
 - **Word's checker changed under the brief.** This build's assistant pane
   is not the checker Microsoft's rules page describes. A comparison quoting
   Word has to name the build.

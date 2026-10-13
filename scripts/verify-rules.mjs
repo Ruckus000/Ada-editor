@@ -202,15 +202,15 @@ const ids = (list) => list.map((f) => f.ruleId);
 
 /* ---------- rules registry ---------- */
 
-check('RULES ports the 21 rules with the §8.1 structural/prose split', () => {
-  eq(RULES.length, 21, 'rule count');
+check('RULES ports the 22 rules with the §8.1 structural/prose split', () => {
+  eq(RULES.length, 22, 'rule count');
   deepEq([...PROSE_RULE_IDS].sort(), ['colour-only-reference', 'document-language', 'language-of-parts', 'long-sentence', 'reading-level'], 'prose rules');
   for (const r of RULES) {
     assert(r.criterion && r.criterion.length > 0, `${r.id} has no criterion`);
     assert(r.kind === 'structural' || r.kind === 'prose', `${r.id} has no kind`);
   }
   deepEq(RULES.map((r) => r.id).sort(), [
-    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'form-blank', 'heading-empty', 'heading-skip', 'heading-unmarked',
+    'colour-only-reference', 'contrast-minimum', 'document-language', 'document-no-h1', 'document-no-headings', 'document-title', 'form-blank', 'heading-empty', 'heading-skip', 'heading-unmarked',
     'img-alt-missing', 'img-alt-suspicious', 'img-long-description', 'language-of-parts', 'link-text-ambiguous', 'link-text-generic',
     'link-text-raw-url', 'long-sentence', 'reading-level', 'table-layout', 'table-merged-cells', 'table-no-header',
   ], 'rule ids');
@@ -372,6 +372,32 @@ check('document-no-h1 fires only when headings exist but none is h1', () => {
   deepEq(found[0].anchor, { kind: 'document' }, 'document-anchored (§6)');
   eq(crossFindings(doc(heading(1, 'T'), heading(2, 'S')), 'document-no-h1').length, 0, 'h1 present is quiet');
   eq(crossFindings(doc(para('no headings at all')), 'document-no-h1').length, 0, 'no headings is quiet');
+});
+
+check('document-title fails a default title (F25), judging the title an export would write', () => {
+  const titled = (d, title, prose = true) => mod.check.checkDocument(d, { prose, title }).filter((f) => f.ruleId === 'document-title');
+  const body = doc(para('The Parks Board will meet on November 3.'));
+  const [f] = titled(body, 'Document1');
+  assert(f, 'Word’s default title fails');
+  eq(f.severity, 'violation', 'F25 makes it a failure of 2.4.2, Level A');
+  eq(f.criterion, '2.4.2 Page Titled', 'criterion');
+  deepEq(f.anchor, { kind: 'document' }, 'document-anchored');
+  eq(f.title, 'The document’s title is “Document1”', 'names the title');
+  eq(f.id, 'document-title', 'one stable id, so a dismissal holds');
+  eq(titled(body, 'Document1', false).length, 1, 'structural: on every keystroke run');
+  for (const t of ['Document', 'document 2', 'Untitled', 'Untitled document', 'Untitled 1', 'Untitled Page', 'No Title', 'New Page 1', 'new document', '  Document1  ']) {
+    eq(titled(body, t).length, 1, `fails "${t}"`);
+  }
+  eq(titled(body, '')[0]?.title, 'The document has no title', 'blank: export would write “Untitled document”');
+  for (const t of ['Parks Board meeting, November 3, 2026', 'Document review schedule', 'Untitled land parcels', 'Documents for the hearing', 'New pages added to the code']) {
+    eq(titled(body, t).length, 0, `passes "${t}"`);
+  }
+  // The main heading is the title (#106): it overrides the stored one, and
+  // adding it retracts the finding on the live run.
+  eq(titled(doc(heading(1, 'Parks Board meeting'), para('x')), 'Document1').length, 0, 'an H1 is the title');
+  eq(titled(doc(heading(1, 'Untitled'), para('x')), 'Parks Board meeting').length, 1, 'an H1 that is itself a default fails');
+  eq(titled(doc(heading(2, 'Agenda'), para('x')), 'Document1').length, 1, 'only an H1 names the document');
+  eq(mod.check.checkDocument(body, { prose: true }).filter((f) => f.ruleId === 'document-title').length, 0, 'no stored title passed and no H1: nothing to judge');
 });
 
 check('document-no-headings asks about sections once a document has several blocks and no headings', () => {
@@ -2186,6 +2212,19 @@ await acheck('benchmark packs: layout tables ask (rows 16, 17), the unmarked dat
     Fees: ['table-no-header:blocker'],
   }, 'bad pack');
   deepEq(await byHeading('benchmark-good.docx'), { Schedule: [], Projects: [], Contact: ['table-layout:manual'], Fees: [] }, 'good twin: row 12 fixed as a real table');
+});
+
+// Row 7 (decision 5, 2026-10-13; decision-5-document-title.md): the title the
+// import stores, checked as the desk checks it.
+await acheck('benchmark packs: a default title fails (row 7), the packs’ own titles pass', async () => {
+  const titleFindings = async (file) => {
+    const r = await importDocx(fixture(`benchmark/${file}`), file, parseXml);
+    return [r.title, ...mod.check.checkDocument(r.content, { prose: true, title: r.title }).filter((f) => f.ruleId === 'document-title').map((f) => f.severity)];
+  };
+  deepEq(await titleFindings('benchmark-row07-title.docx'), ['Document1', 'violation'], 'row 7');
+  for (const file of ['benchmark-bad.docx', 'benchmark-good.docx', 'benchmark-row30-language.docx']) {
+    eq((await titleFindings(file)).length, 1, `${file}: its main heading is its title, and passes`);
+  }
 });
 
 await acheck('import: a bold first row without Word’s header-row mark stays data, and is flagged', async () => {

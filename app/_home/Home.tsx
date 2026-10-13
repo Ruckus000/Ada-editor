@@ -391,7 +391,7 @@ export function Home() {
     announce(`Importing ${file.name}…`);
     try {
       const imported = await importDocxFile(file);
-      const findings = checkDocument(imported.content, { prose: true });
+      const findings = checkDocument(imported.content, { prose: true, title: imported.title });
       // The pictures first, so a document is never saved (or synced) ahead of
       // them. Large photos are shrunk as they would be if inserted, and the
       // document then refers to the shrunk copy.

@@ -520,7 +520,7 @@ export function loadDashboardData(): DashboardData {
     const parsed = parseStoredDoc(d.content);
     if (!parsed) continue;
     const dismissed = new Set(d.dismissed);
-    const findings = [...checkDocument(parsed, { prose: true }).filter((f) => !dismissed.has(dismissKeyOf(f))), ...sectionFindings(d, d.dismissed)];
+    const findings = [...checkDocument(parsed, { prose: true, title: d.title }).filter((f) => !dismissed.has(dismissKeyOf(f))), ...sectionFindings(d, d.dismissed)];
     docs.push({
       id: d.id,
       title: d.title,
