@@ -129,14 +129,8 @@
   background: var(--ada-surface-raised);
   border: 1px solid var(--ada-border-default);
   border-radius: var(--ada-radius-lg);
-  /* The severity stripe repeats the badge. Redundant by design. */
-  border-inline-start-width: 4px;
+  /* No severity stripe: the badge carries severity in words, glyph and colour. */
 }
-
-.ada-card[data-severity='blocker']   { border-inline-start-color: var(--ada-severity-blocker-fg); }
-.ada-card[data-severity='violation'] { border-inline-start-color: var(--ada-severity-violation-fg); }
-.ada-card[data-severity='advisory']  { border-inline-start-color: var(--ada-severity-advisory-fg); }
-.ada-card[data-severity='manual']    { border-inline-start-color: var(--ada-severity-manual-fg); }
 
 .ada-card__title {
   margin: var(--ada-space-2) 0 var(--ada-space-1);

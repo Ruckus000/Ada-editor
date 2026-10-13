@@ -564,20 +564,15 @@
 
 .findingsCount { font-size: 0.875rem; font-weight: 400; color: var(--as-text-subtle); }
 
-/* The open finding: a tinted row with a rule in its severity's colour (the
- * label and glyph still carry the meaning). */
+/* The open finding: a tinted row with a hairline all round. The badge's
+ * label and glyph carry the severity; no coloured stripe. */
 .activeCard {
   margin-bottom: 8px;
   padding: 14px 16px;
   background: var(--as-canvas);
+  border: 1px solid var(--as-border-strong);
   border-radius: 8px;
-  box-shadow: inset 3px 0 0 var(--as-border-strong);
 }
-
-.activeCard[data-severity='blocker']   { box-shadow: inset 3px 0 0 var(--as-blocker); }
-.activeCard[data-severity='violation'] { box-shadow: inset 3px 0 0 var(--as-violation); }
-.activeCard[data-severity='advisory']  { box-shadow: inset 3px 0 0 var(--as-advisory); }
-.activeCard[data-severity='manual']    { box-shadow: inset 3px 0 0 var(--as-manual); }
 
 .activeCard:focus-visible { outline: 2px solid var(--as-focus); outline-offset: 2px; }
 
@@ -624,7 +619,7 @@
 .manualNote {
   margin: 14px 0;
   padding: 12px 14px;
-  border-left: 3px solid var(--as-manual-rule);
+  border: 1px solid var(--as-manual-rule);
   border-radius: 10px;
   background: var(--as-manual-bg);
   color: var(--as-manual);

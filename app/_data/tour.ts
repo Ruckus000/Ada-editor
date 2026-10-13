@@ -1,19 +1,23 @@
 import { getClient } from './supabase';
 
 /**
- * Which first-run tours this person has seen or turned down. Kept in this
- * browser and in the account's user metadata (like display settings), so a
- * tour declined on the iPad isn't offered again on the laptop.
+ * Which first-run tours this person has seen or turned down, and whether the
+ * practice document was put on their desk. Kept in this browser and in the
+ * account's user metadata (like display settings), so a tour declined on the
+ * iPad isn't offered again on the laptop, and a deleted practice document
+ * doesn't come back.
  */
 export type TourName = 'desk' | 'editor';
-type Seen = Partial<Record<TourName, boolean>>;
+export type FirstRun = TourName | 'practice';
+type Seen = Partial<Record<FirstRun, boolean>>;
+const NAMES: readonly FirstRun[] = ['desk', 'editor', 'practice'];
 const KEY = 'ada.tour';
 
 function read(): Seen {
   try {
     const v: unknown = JSON.parse(localStorage.getItem(KEY) ?? '{}');
     const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-    return { desk: o.desk === true, editor: o.editor === true };
+    return Object.fromEntries(NAMES.map((n) => [n, o[n] === true]));
   } catch { return {}; }
 }
 
@@ -30,18 +34,20 @@ async function saveToAccount(seen: Seen): Promise<void> {
   if (error) console.error('Could not save the tour to the account', error);
 }
 
-export const tourSeen = (name: TourName): boolean => read()[name] === true;
+export const tourSeen = (name: FirstRun): boolean => read()[name] === true;
 
-export function markTourSeen(name: TourName): void {
+export function markTourSeen(name: FirstRun): void {
   const seen = { ...read(), [name]: true };
   write(seen);
   void saveToAccount(seen);
 }
 
-/** "Take the tour" in Help: offer both again. */
+/** "Take the tour" in Help: offer both again (the practice document stays
+ *  given: replaying the tour doesn't put a second one on the desk). */
 export async function resetTours(): Promise<void> {
-  write({});
-  await saveToAccount({});
+  const kept: Seen = read().practice ? { practice: true } : {};
+  write(kept);
+  await saveToAccount(kept);
 }
 
 /** Signing in on this device: seen anywhere counts as seen here. */
@@ -49,5 +55,5 @@ export function adoptTours(fromAccount: unknown): void {
   if (!fromAccount || typeof fromAccount !== 'object') return;
   const o = fromAccount as Record<string, unknown>;
   const here = read();
-  write({ desk: here.desk === true || o.desk === true, editor: here.editor === true || o.editor === true });
+  write(Object.fromEntries(NAMES.map((n) => [n, here[n] === true || o[n] === true])));
 }

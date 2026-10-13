@@ -16,8 +16,13 @@ export type TourStep = { target: string; title: string; body: string };
  * into the steps; each step outlines its control and scrolls it into view.
  * Steps whose control isn't on screen are skipped. Escape, Skip or Done end
  * it, and it isn't offered again on any of the person's devices.
+ *
+ * A page that offers the tour itself (the first-visit desk's "Take the
+ * one-minute tour") passes offer={false} and bumps startKey to begin it.
  */
-export function Tour({ name, steps, ready }: { name: TourName; steps: TourStep[]; ready: boolean }) {
+export function Tour({ name, steps, ready, offer = true, startKey = 0 }: {
+  name: TourName; steps: TourStep[]; ready: boolean; offer?: boolean; startKey?: number;
+}) {
   const announce = useAnnounce();
   const [phase, setPhase] = useState<'hidden' | 'offer' | 'touring'>('hidden');
   const [shown, setShown] = useState<TourStep[]>([]);
@@ -28,8 +33,9 @@ export function Tour({ name, steps, ready }: { name: TourName; steps: TourStep[]
   // matters more at this moment ("Deleted …", "Imported …"), and the offer
   // would replace it. It is a labelled region with a heading, so it can be found.
   useEffect(() => {
-    if (ready && !tourSeen(name)) setPhase('offer');
-  }, [ready, name]);
+    if (ready && offer && !tourSeen(name)) setPhase('offer');
+    if (!offer) setPhase((p) => (p === 'offer' ? 'hidden' : p));
+  }, [ready, name, offer]);
 
   // The current step: outline its control, bring it into view, and put focus on the step.
   useEffect(() => {
@@ -57,6 +63,10 @@ export function Tour({ name, steps, ready }: { name: TourName; steps: TourStep[]
     setAt(0);
     setPhase('touring');
   };
+
+  useEffect(() => {
+    if (startKey > 0) start();
+  }, [startKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (phase === 'hidden') return null;
   if (phase === 'offer') {

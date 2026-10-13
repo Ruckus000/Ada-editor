@@ -1,6 +1,6 @@
 /* Sign in and create account. Ada tokens only; class prefix `signin-`
  * (conventions reserve `ada-*` for the design system). Sign-in is one sheet
- * on the desk; create account puts what you get beside the form, so the two
+ * on the desk; create account puts the pitch, on the action blue, beside the form, so the two
  * doors are told apart at a glance. 44px targets throughout. */
 
 .signin {
@@ -83,47 +83,193 @@
 .signin__notice {
   margin: 0;
   padding: var(--ada-space-3) var(--ada-space-4);
-  border-left: 4px solid var(--ada-focus-ring);
+  border: 1px solid var(--ada-border-default);
+  border-radius: var(--ada-radius-md);
   background: var(--ada-surface-sunken);
 }
 
 .signin__foot { display: flex; justify-content: center; gap: var(--ada-space-5); padding: 1.5rem 1.25rem 2rem; font-size: var(--ada-type-size-sm); }
 .signin__foot a { font-weight: 400; color: var(--ada-text-secondary); }
 
-/* ---------- create account: the pitch beside the form ---------- */
+/* ---------- create account: the brand panel beside the form ---------- */
 
-.signin__pitch { order: -1; max-inline-size: 26rem; padding-top: 2.5rem; }
-
-.signin__pitch h2 {
-  margin: 0;
-  font-size: 2.75rem;
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.025em;
+/* Two columns, full height: the action blue as a surface on the left (brand,
+ * pitch, the badges), the form on the right. In the DOM the form comes first;
+ * the grid puts the pitch beside it. White on the action blue is 7.2:1 (light)
+ * and 11.2:1 (dark), the same pair the primary button uses. */
+.signin[data-mode='sign-up'] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'top   switch'
+    'pitch main'
+    'pitch foot';
+  background: var(--ada-surface-canvas);
 }
 
-.signin__pitch ul { margin: 2rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--ada-space-4); }
+.signin[data-mode='sign-up'] .signin__top {
+  grid-area: top;
+  padding: 1.5rem 3.5rem 0 3rem;
+  background: var(--ada-action-primary-bg);
+}
 
-.signin__pitch li {
-  padding-left: var(--ada-space-4);
-  border-left: 3px solid var(--ada-action-primary-bg);
-  font-size: 1.0625rem;
+.signin[data-mode='sign-up'] .signin__top .ada-brand { color: var(--ada-action-primary-fg); }
+.signin[data-mode='sign-up'] .signin__top .ada-brand__mark { background: var(--ada-action-primary-fg); color: var(--ada-action-primary-bg); }
+
+.signin[data-mode='sign-up'] > .signin__switch {
+  grid-area: switch;
+  justify-self: end;
+  margin: 0;
+  line-height: 1.625rem;
+  padding: 1.5rem 3.5rem 0;
+  border: 0;
+}
+
+.signin[data-mode='sign-up'] > .signin__switch a { color: var(--ada-action-primary-bg); font-weight: 700; }
+
+.signin[data-mode='sign-up'] .signin__main {
+  grid-area: main;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 2.5rem;
+  padding: 2rem 3.5rem 0;
+}
+
+.signin[data-mode='sign-up'] .signin__sheet {
+  flex: 1;
+  justify-content: center;
+  max-inline-size: 25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.signin[data-mode='sign-up'] .signin__title { font-size: 2.25rem; line-height: 1.1; }
+
+.signin__next {
+  margin: 0;
+  padding: var(--ada-space-5) 0 0;
+  border-top: 1px solid var(--ada-border-subtle);
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ada-space-4);
+}
+
+.signin__next li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ada-space-2);
+  font-size: var(--ada-type-size-sm);
   color: var(--ada-text-secondary);
 }
 
+.signin__next strong { color: var(--ada-text-primary); }
+
+.signin__step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 1px solid var(--ada-border-default);
+  border-radius: 50%;
+  background: var(--ada-surface-raised);
+  color: var(--ada-text-primary);
+  font-weight: 700;
+}
+
+.signin[data-mode='sign-up'] .signin__foot {
+  grid-area: foot;
+  justify-content: flex-start;
+  padding: var(--ada-space-5) 3.5rem 2rem;
+}
+
+.signin__pitch {
+  grid-area: pitch;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem 3.5rem 3rem 3rem;
+  background: var(--ada-action-primary-bg);
+  color: var(--ada-action-primary-fg);
+}
+
+.signin__pitch h2 {
+  margin: auto 0 0;
+  font-family: var(--ada-type-family-doc);
+  font-size: 4.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+/* The logo's caret. Blinks four times, then holds still (SC 2.2.2: nothing
+ * blinks for more than five seconds). */
+.signin__caret {
+  display: inline-block;
+  inline-size: 0.07em;
+  block-size: 0.82em;
+  margin-inline-start: 0.06em;
+  vertical-align: -0.04em;
+  background: currentColor;
+  animation: signin-blink 1.1s linear 4;
+}
+
+@keyframes signin-blink { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .signin__caret { animation: none; }
+}
+
+.signin__for {
+  margin: 1.75rem 0 auto;
+  max-inline-size: 28rem;
+  font-size: var(--ada-type-size-xl);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.signin__badges p { margin: 0 0 var(--ada-space-3); font-size: var(--ada-type-size-sm); font-weight: 700; }
+.signin__badges ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: var(--ada-space-2); }
+
 @media (max-width: 52rem) {
   .signin__main { flex-direction: column; align-items: center; gap: 2.5rem; padding-top: 1.5rem; }
-  .signin__pitch { order: 0; padding-top: 0; }
-  .signin__pitch h2 { font-size: 2rem; }
+
+  /* One column, the form first: the blue panel follows it. */
+  .signin[data-mode='sign-up'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: 'top' 'switch' 'main' 'pitch' 'foot';
+  }
+  .signin[data-mode='sign-up'] .signin__top { padding: 1.25rem 1.25rem 0; background: none; }
+  .signin[data-mode='sign-up'] .signin__top .ada-brand { color: var(--ada-text-primary); }
+  .signin[data-mode='sign-up'] .signin__top .ada-brand__mark { background: var(--ada-text-primary); color: var(--ada-surface-canvas); }
+  .signin[data-mode='sign-up'] > .signin__switch { justify-self: start; padding: 1rem 1.25rem 0; }
+  .signin[data-mode='sign-up'] .signin__main { align-items: stretch; padding: 1.5rem 1.25rem 2.5rem; }
+  .signin[data-mode='sign-up'] .signin__sheet { max-inline-size: none; }
+  .signin__next { grid-template-columns: minmax(0, 1fr); }
+  .signin__next li { flex-direction: row; align-items: center; gap: var(--ada-space-3); }
+  .signin__pitch { justify-content: flex-start; padding: 2.5rem 1.25rem; }
+  .signin__pitch h2 { font-size: 2.5rem; }
+  .signin__for { margin-bottom: 0; }
+  .signin[data-mode='sign-up'] .signin__foot { padding: 1.5rem 1.25rem 2rem; }
 }
 
 @media (max-width: 39.99rem) {
   .signin__top { padding: 1.25rem; }
   .signin__sheet { padding: 1.75rem 1.25rem; }
   .signin__title { font-size: 1.75rem; }
+  .signin[data-mode='sign-up'] .signin__title { font-size: 1.75rem; }
 }
 
 @media (forced-colors: active) {
   .signin__sheet { border-color: CanvasText; }
-  .signin__pitch li { border-left-color: CanvasText; }
+  .signin__pitch { border: 1px solid CanvasText; }
+  .signin__step { border-color: CanvasText; }
 }

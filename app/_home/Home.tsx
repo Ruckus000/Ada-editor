@@ -10,6 +10,8 @@ import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
 import type { DashboardData } from '../_data/store';
+import { isPractice } from '../_data/practice';
+import { givePracticeDoc } from '../_data/practiceDoc';
 import { isCloud } from '../_data/supabase';
 import { removeDoc } from '../_data/sync';
 import { AccountMenu } from '../_auth/AccountMenu';
@@ -30,9 +32,9 @@ import { ImportError, importDocxFile } from '../_import/importDocx';
 import './home.css';
 
 /**
- * The desk (/desk), home after sign-in: not a dashboard. The tutorial when there
- * are no documents; otherwise one aligned grid of sheets, with filters and
- * sorting once there are enough documents to need them.
+ * The desk (/desk), home after sign-in: not a dashboard. A welcome on the first
+ * visit (no documents, or only the practice one); otherwise one aligned grid
+ * of sheets, with filters and sorting once there are enough documents to need them.
  */
 
 type SortKey = 'urgency' | 'recent' | 'name';
@@ -44,6 +46,7 @@ const GRID_AT = 5;
 /** The desk's first-run tour (only the steps whose controls are on screen run). */
 const DESK_TOUR: TourStep[] = [
   { target: '.home-new', title: 'Start a document', body: 'Write on a blank page, or import a Word file (.docx). Imports are read in your browser and never uploaded.' },
+  { target: '.home-drop--desk', title: 'Bring in a Word file', body: 'Drag a .docx onto the desk, or choose one. Ada checks it the moment it opens.' },
   { target: '.home-find', title: 'Find a document', body: 'Search by title. Ctrl K (⌘K on a Mac) opens it from anywhere on your desk.' },
   { target: '.home-calls', title: 'Questions only you can answer', body: 'Some checks need a person’s judgement, like whether alt text really describes the picture. They wait for you here.' },
   { target: '.tour-account', title: 'Display, Help and more', body: 'Change the theme or text size, read how every check works, or sign out.' },
@@ -341,12 +344,15 @@ export function Home() {
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<SortKey>('urgency');
   const [showAll, setShowAll] = useState(false);
+  const [tourKey, setTourKey] = useState(0);
 
   // The store is browser-only and the hour is the reader's, so both are read
   // after hydration; the server render is the header alone.
   useEffect(() => {
     seedIfEmpty();
-    setDash(loadDashboardData());
+    const loaded = loadDashboardData();
+    // A new account's desk gets the practice document once (flagged off by default).
+    setDash(givePracticeDoc(loaded.docs.length) ? loadDashboardData() : loaded);
     setHello(greeting(new Date().getHours()));
     if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcut('⌘K');
     // Another device's changes (a refresh), a conflict's copy: the desk follows.
@@ -354,8 +360,10 @@ export function Home() {
   }, []);
 
   const docs = dash?.docs ?? [];
-  const mode = !dash ? null : docs.length === 0 ? 'empty' : 'desk';
-  const hasDocs = mode === 'desk';
+  // First visit: nothing yet, or only the practice document.
+  const practice = docs.length === 1 && isPractice(docs[0]!.title) ? docs[0]! : null;
+  const mode = !dash ? null : docs.length === 0 || practice ? 'first' : 'desk';
+  const hasDocs = docs.length > 0;
 
   useEffect(() => {
     if (!hasDocs) return;
@@ -453,7 +461,7 @@ export function Home() {
     // place, or the empty desk's heading when none are left.
     requestAnimationFrame(() => {
       const left = sheetsNow();
-      (left[Math.min(Math.max(at, 0), left.length - 1)] ?? document.getElementById('how-heading'))?.focus();
+      (left[Math.min(Math.max(at, 0), left.length - 1)] ?? document.getElementById('welcome-heading'))?.focus();
     });
   };
 
@@ -497,12 +505,24 @@ export function Home() {
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} docs={docs} />
 
       <main className="home-main">
-        <div className="home-hello">
-          <h1>{hello}</h1>
-          {hasDocs ? <p>{summary(docs, items.length)}</p> : null}
-        </div>
+        {mode === 'desk' ? (
+          <div className="home-hello">
+            <h1>{hello}</h1>
+            <p>{summary(docs, items.length)}</p>
+          </div>
+        ) : null}
         {deleteError && hasDocs ? <p role="alert" className="home-alert">“{deleteError}” couldn’t be deleted. Check your connection and try again.</p> : null}
-        {mode === 'empty' ? <EmptyDesk onNew={() => setNewOpen(true)} onImport={openImport} /> : null}
+        {mode === 'first' ? (
+          <FirstDesk
+            practice={practice}
+            items={items}
+            importError={importError}
+            importing={importing}
+            onNew={() => setNewOpen(true)}
+            onFile={(f) => void onFile(f)}
+            onTour={() => setTourKey((k) => k + 1)}
+          />
+        ) : null}
 
         {mode === 'desk' ? (
           <Desk
@@ -519,27 +539,137 @@ export function Home() {
           />
         ) : null}
       </main>
-      <Tour name="desk" ready={Boolean(dash)} steps={DESK_TOUR} />
+      {/* The first-visit desk offers the tour in its welcome, so no second offer card. */}
+      <Tour name="desk" ready={Boolean(dash)} steps={DESK_TOUR} offer={mode === 'desk'} startKey={tourKey} />
     </div>
   );
 }
 
-function EmptyDesk({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
+/** The pile's top sheet: the practice document, or an example when there is none. */
+function PileSheet({ d }: { d: DocSummary | null }) {
+  if (d) {
+    const w = worst(d);
+    return (
+      <Link href={`/editor/${d.id}`} className="home-pile__top" aria-label={`${d.title}. ${status(d)}. ${checked(d.lastChecked)}. Open in editor.`}>
+        {w ? <SeverityBadge severity={w} /> : <span className="home-sheet__none">No open findings</span>}
+        <span className="home-pile__title">{d.title}</span>
+        {d.excerpt ? <span className="home-pile__excerpt" aria-hidden="true">{d.excerpt}</span> : null}
+        <span className="home-pile__status">{status(d)}</span>
+        <span className="home-pile__when">{checked(d.lastChecked)}</span>
+      </Link>
+    );
+  }
+  // Not a document: a picture of one, named as such, so nobody tries to open it.
   return (
-    <div className="home-empty">
-      <section aria-labelledby="how-heading" className="home-how">
-        <h2 id="how-heading" tabIndex={-1}>Your desk is empty. Here’s how it works.</h2>
-        <ol>
-          <li><span><strong>Write, or bring a file.</strong> Start on a blank page or import a Word file. It lands here as a sheet.</span></li>
-          <li><span><strong>Ada checks as you go.</strong> Each sheet wears a badge — blocks access, fails AA, advisory — so you can see what stands between it and publishing.</span></li>
-          <li><span><strong>Some calls are yours.</strong> When a machine can’t decide — does this alt text describe the image? — it leaves you a note here.</span></li>
-        </ol>
-        <div className="home-how__actions">
-          <Button variant="primary" onClick={onNew}>Create a document</Button>
-          <Button variant="ghost" onClick={onImport}>Import a Word file</Button>
+    <figure className="home-pile__top home-pile__top--example">
+      <figcaption className="home-pile__tag">Example</figcaption>
+      <div aria-hidden="true" className="home-pile__fake">
+        <SeverityBadge severity="blocker" />
+        <span className="home-pile__title">Notice of public hearing</span>
+        <span className="home-pile__excerpt">The Commission will hear comments on the budget at 6 PM in City Hall. <span className="home-pile__flag">Click here</span> for the agenda.</span>
+        <span className="home-pile__status">Can’t publish yet — 1 blocking, 2 failing AA, 1 advisory</span>
+        <span className="home-pile__when">Checked just now</span>
+      </div>
+      <VisuallyHidden>How a document looks on your desk once Ada has checked it: a badge for its most serious problem and a count of what stops it being published.</VisuallyHidden>
+    </figure>
+  );
+}
+
+/** The drop zone on the desk itself: importing is a clerk's likeliest first move. */
+function DeskDrop({ onFile, error, busy }: { onFile: (file: File) => void; error: string; busy: boolean }) {
+  const [dragging, setDragging] = useState(false);
+  const errorId = useId();
+  return (
+    <div className="home-start__drop">
+      <label
+        className="home-drop home-drop--desk"
+        data-dragging={dragging}
+        aria-busy={busy}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); const file = e.dataTransfer.files[0]; if (file) onFile(file); }}
+      >
+        <input
+          type="file"
+          className="ada-visually-hidden"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          {...(error ? { 'aria-describedby': errorId } : {})}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) onFile(file);
+          }}
+        />
+        <span className="home-start__icon"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg></span>
+        <span className="home-start__text">
+          {busy ? <span className="home-start__title">Importing…</span> : (
+            <>
+              <span className="home-start__title home-drop__title--drag">{dragging ? 'Let go to import it' : 'Drag a Word file here'}</span>
+              <span className="home-start__title home-drop__title--tap">Choose a Word file</span>
+              <span className="home-start__sub"><span className="home-drop__or">or <span className="home-drop__pick">choose one from your computer</span>. </span>It’s read in your browser, never uploaded.</span>
+            </>
+          )}
+        </span>
+      </label>
+      {error ? <p id={errorId} role="alert" className="home-alert">{error}</p> : null}
+    </div>
+  );
+}
+
+function FirstDesk({ practice, items, importError, importing, onNew, onFile, onTour }: {
+  practice: DocSummary | null;
+  items: Item[];
+  importError: string;
+  importing: boolean;
+  onNew: () => void;
+  onFile: (file: File) => void;
+  onTour: () => void;
+}) {
+  return (
+    <div className="home-first">
+      <div className="home-welcome">
+        <div>
+          <h1 id="welcome-heading" tabIndex={-1}>Welcome to <em>your</em> desk.</h1>
+          <p className="home-welcome__lede">
+            Everything you write or bring in lands here, sorted by what stops it being published.
+            {practice ? ' We left one on the pile to practise on.' : ''}
+          </p>
+          <div className="home-welcome__actions">
+            {practice ? <Link href={`/editor/${practice.id}`} className="ada-button ada-button--primary">Open the practice document</Link> : null}
+            <Button variant={practice ? 'ghost' : 'secondary'} onClick={onTour}>Take the one-minute tour</Button>
+          </div>
         </div>
-        <p className="home-how__help">New to accessibility checks? <Link href="/help">How Ada Editor works</Link></p>
+        <div className="home-pile">
+          <div className="home-pile__under home-pile__under--back" aria-hidden="true" />
+          <div className="home-pile__under home-pile__under--mid" aria-hidden="true" />
+          <PileSheet d={practice} />
+        </div>
+      </div>
+
+      <section aria-labelledby="start-heading" className="home-start">
+        <h2 id="start-heading">{practice ? 'Or bring in your own' : 'Bring in your first document'}</h2>
+        <div className="home-start__row">
+          <DeskDrop onFile={onFile} error={importError} busy={importing} />
+          <button type="button" className="home-start__blank" onClick={onNew}>
+            <span className="home-start__icon"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M12 11v6M9 14h6" /></svg></span>
+            <span className="home-start__text"><span className="home-start__title">Start on a blank page</span><span className="home-start__sub">Your title becomes the first heading.</span></span>
+          </button>
+        </div>
       </section>
+
+      {practice && items.length ? (
+        <section aria-labelledby="calls-heading" className="home-calls home-first__calls">
+          <div className="home-section__head">
+            <h2 id="calls-heading">Needs your call</h2>
+            <p>Questions a checker can’t decide</p>
+          </div>
+          <ul role="list" className="home-calls__list">
+            {items.slice(0, NOTES).map((item) => <li key={`${item.docId}:${item.question}`}><Note item={item} doc={practice.title} /></li>)}
+          </ul>
+        </section>
+      ) : null}
+
+      <p className="home-first__help">New to accessibility checks? <Link href="/help">How Ada Editor works</Link></p>
     </div>
   );
 }

@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Button, useAnnounce } from '../../design-system/primitives';
+import { Button, OPEN_SEVERITIES, SeverityBadge, useAnnounce } from '../../design-system/primitives';
 import type { User } from '@supabase/supabase-js';
+import { PRACTICE_ON } from '../_data/practice';
 import { getClient } from '../_data/supabase';
 import { count } from '../_site/analytics';
 import { BrandMark } from '../_site/BrandMark';
@@ -41,6 +42,15 @@ function problemFor(error: { code?: string | undefined; message?: string } | nul
   if (step === 'code') return { text: 'That code didn’t work. It may have expired: send a new code and use the newest email.', invalid: true };
   return { text: 'The code couldn’t be sent. Check your connection and try again.', invalid: false };
 }
+
+/** What happens after "Create account", so the desk doesn't arrive unannounced. */
+const NEXT: { lead: string; rest: string }[] = [
+  { lead: 'Code by email.', rest: 'Read it on your phone if that’s easier.' },
+  PRACTICE_ON
+    ? { lead: 'Your desk.', rest: 'A practice document is waiting on it.' }
+    : { lead: 'Your desk.', rest: 'Where everything you write or bring in is kept.' },
+  { lead: 'Your first file.', rest: 'Checked the moment it opens.' },
+];
 
 const COPY = {
   'sign-in': {
@@ -207,34 +217,51 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
     </form>
   );
 
+  const switchLink = (
+    <p className="signin__switch">
+      {mode === 'sign-in'
+        ? <>New to Ada Editor? <Link href="/sign-up">Create an account</Link></>
+        : <>Already have an account? <Link href="/sign-in">Sign in</Link></>}
+    </p>
+  );
+
   return (
     <div className="signin" data-mode={mode}>
       <header className="signin__top">
         <Link href="/" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
       </header>
+      {mode === 'sign-up' ? switchLink : null}
       <main className="signin__main">
         <div className="signin__sheet">
           <h1 className="signin__title">{copy.title}</h1>
           {sentTo === null ? <p className="signin__lede">{copy.lede}</p> : null}
           {form}
-          <p className="signin__switch">
-            {mode === 'sign-in'
-              ? <>New to Ada Editor? <Link href="/sign-up">Create an account</Link></>
-              : <>Already have an account? <Link href="/sign-in">Sign in</Link></>}
-          </p>
+          {mode === 'sign-in' ? switchLink : null}
         </div>
-        {/* After the form in reading order (the task comes first); CSS places it beside. */}
         {mode === 'sign-up' ? (
-          <section className="signin__pitch" aria-labelledby="signin-pitch">
-            <h2 id="signin-pitch">Write documents everyone can read.</h2>
-            <ul role="list">
-              <li>Your documents are saved to your account and follow you between devices.</li>
-              <li>Every finding names the WCAG 2.1 AA or Section 508 criterion it comes from.</li>
-              <li>No password. Each time you sign in, we email you a code.</li>
-            </ul>
-          </section>
+          <ol className="signin__next" role="list" aria-label="What happens next">
+            {NEXT.map((step, i) => (
+              <li key={step.lead}>
+                <span className="signin__step" aria-hidden="true">{i + 1}</span>
+                <span><strong>{step.lead}</strong> {step.rest}</span>
+              </li>
+            ))}
+          </ol>
         ) : null}
       </main>
+      {/* After the form in reading order (the task comes first); CSS places it beside. */}
+      {mode === 'sign-up' ? (
+        <section className="signin__pitch" aria-labelledby="signin-pitch">
+          <h2 id="signin-pitch">Write documents everyone can read.<span className="signin__caret" aria-hidden="true" /></h2>
+          <p className="signin__for">For the people who publish agendas, minutes and public notices, and want every resident to be able to read them.</p>
+          <div className="signin__badges">
+            <p>What Ada tells you, in words as well as colour</p>
+            <ul role="list">
+              {OPEN_SEVERITIES.map((s) => <li key={s}><SeverityBadge severity={s} /></li>)}
+            </ul>
+          </div>
+        </section>
+      ) : null}
       <footer className="signin__foot">
         <Link href="/privacy">Privacy</Link>
         <Link href="/accessibility">Accessibility</Link>

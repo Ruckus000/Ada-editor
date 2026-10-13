@@ -276,7 +276,7 @@ async function signIn(send, email, door = '/sign-in') {
   await typeInto(send, 'input[autocomplete="one-time-code"]', code);
   await key(send, 'Enter');
   // Signed in = the desk homepage rendered its documents (or its empty desk).
-  const landed = await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+  const landed = await waitFor(send, `location.pathname === '/desk' && !!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-first'))`, 20_000);
   if (!landed) { fail(`SIGNIN  did not reach the dashboard (at ${await evaluate(send, 'location.pathname')})`); return null; }
   return evaluate(send, `(() => {
     const k = Object.keys(localStorage).find((n) => /^sb-.*-auth-token$/.test(n));
@@ -350,7 +350,7 @@ const sheetIds = (send) => evaluate(send,
 
 async function goHome(send) {
   await go(send, '/desk');
-  return waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+  return waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-first'))`, 20_000);
 }
 
 /** + (New document) → Create a document → title → the new document's editor. */
@@ -484,7 +484,7 @@ async function firstBrowser() {
     page = 'sign up';
     await sleep(2500); // a push, had anything been seeded, would land by now
     const onDesk = await sheetIds(send);
-    const emptyDesk = await evaluate(send, `!!document.querySelector('.home-how')`);
+    const emptyDesk = await evaluate(send, `!!document.querySelector('.home-first')`);
     const rows = await docsOf(uid);
     if (!emptyDesk || onDesk.length) fail(`EMPTY  a new account should land on an empty desk (layout ${emptyDesk ? 'empty' : 'other'}, sheets ${JSON.stringify(onDesk)})`);
     else if (rows.length) fail(`EMPTY  a new account's server should hold nothing (has ${JSON.stringify(rows.map((r) => r.id))})`);
@@ -684,7 +684,7 @@ async function secondBrowser() {
       if (row) { fail(`DELETE  ${id} is still on the server`); deletedBoth = false; }
     }
     await send('Page.reload');
-    await waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-how'))`, 20_000);
+    await waitFor(send, `!!document.querySelector('.home-main') && !!(document.querySelector('.home-sheet') || document.querySelector('.home-first'))`, 20_000);
     await sleep(2500); // a push, had anything been queued, would land by now
     const resurrected = (await docsOf(uid)).map((r) => r.id).filter((id) => id === CLEAN || id === SYNCED);
     if (resurrected.length) fail(`DELETE  deleted documents came back through sync: ${JSON.stringify(resurrected)}`);
@@ -705,11 +705,11 @@ async function secondBrowser() {
     if (!lastDelete) {
       fail('EMPTY  the last document on the desk has no Delete button');
     } else {
-      const gone = await waitFor(send, `document.querySelectorAll('.home-sheet').length === 0 && document.activeElement?.id === 'how-heading'`, 10_000);
+      const gone = await waitFor(send, `document.querySelectorAll('.home-sheet').length === 0 && document.activeElement?.id === 'welcome-heading'`, 10_000);
       const asked = JSON.parse(await evaluate(send, `sessionStorage.getItem('e2e.confirms') || '[]'`));
       const serverRows = (await docsOf(uid)).length;
       await send('Page.reload');
-      await waitFor(send, `!!document.querySelector('.home-how')`, 20_000);
+      await waitFor(send, `!!document.querySelector('.home-first')`, 20_000);
       await sleep(2500);
       const afterReload = { screen: (await sheetIds(send)).length, server: (await docsOf(uid)).length };
       if (!asked.some((q) => q.includes('can’t be undone'))) fail(`EMPTY  deleting the last document did not ask first (asked ${JSON.stringify(asked)})`);
