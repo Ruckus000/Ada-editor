@@ -1,0 +1,5 @@
+POST /otp: 200 ok
+email: "Confirm your email address" | code: 24920789
+POST /verify: 200 signed in as ade9e3bb
+password grant for same user: 400 invalid_credentials
+RESULT: OTP sign-in WORKS after the fix; password grant rejected (good)
