@@ -853,6 +853,9 @@ check('sortFindings orders by severity, then document position', () => {
   const sorted = sortFindings([f('far-advisory', 'advisory', 30), f('near-advisory', 'advisory', 5), f('far-blocker', 'blocker', 30)]);
   deepEq(sorted.map((x) => x.id), ['far-blocker', 'near-advisory', 'far-advisory'],
     'severity first; within a severity, document position — not insertion order');
+  // A question can still be an A or AA failure; AAA advice never is.
+  deepEq(sortFindings([f('early-advice', 'advisory', 1), f('late-question', 'manual', 40)]).map((x) => x.id),
+    ['late-question', 'early-advice'], '"Needs your call" sorts before advisory');
 });
 
 /* ---------- language of parts (3.1.2) ---------- */

@@ -65,7 +65,9 @@ const SORTS: { key: SortKey; label: string; said: string }[] = [
 const WORDS: Record<OpenSeverity, string> = { blocker: 'blocking', violation: 'failing AA', advisory: 'advisory', manual: 'need your call' };
 
 const total = (d: DocSummary) => OPEN_SEVERITIES.reduce((sum, s) => sum + (d.counts[s] ?? 0), 0);
-const worst = (d: DocSummary): OpenSeverity | null => OPEN_SEVERITIES.find((s) => (d.counts[s] ?? 0) > 0) ?? null;
+// The badge shows the open severity that ranks first in triage (SEVERITY_RANK), not the list order.
+const TRIAGE = [...OPEN_SEVERITIES].sort((a, b) => SEVERITY_RANK[a] - SEVERITY_RANK[b]);
+const worst = (d: DocSummary): OpenSeverity | null => TRIAGE.find((s) => (d.counts[s] ?? 0) > 0) ?? null;
 const has = (d: DocSummary, f: Filter) => f === 'all' || (f === 'clear' ? total(d) === 0 : (d.counts[f] ?? 0) > 0);
 const filterLabel = (f: Exclude<Filter, 'all'>) => (f === 'clear' ? 'No open findings' : SEVERITY_ENCODING[f].label);
 const checked = (when: string) => `Checked ${when === 'Yesterday' ? 'yesterday' : when}`;

@@ -54,7 +54,7 @@ export const SEVERITY_ENCODING: Record<Severity, SeverityEncoding> = {
 export const SEVERITY_RANK: Record<Severity, number> = {
   blocker: 0,
   violation: 1,
-  advisory: 2,
-  manual: 3,
+  manual: 2,
+  advisory: 3,
   checked: 4,
 };
