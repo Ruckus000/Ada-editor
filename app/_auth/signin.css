@@ -117,16 +117,20 @@
 .signin[data-mode='sign-up'] .signin__top .ada-brand { color: var(--ada-action-primary-fg); }
 .signin[data-mode='sign-up'] .signin__top .ada-brand__mark { background: var(--ada-action-primary-fg); color: var(--ada-action-primary-bg); }
 
-.signin[data-mode='sign-up'] > .signin__switch {
+.signin__elsewhere {
   grid-area: switch;
   justify-self: end;
+  padding: 1.5rem 3.5rem 0;
+}
+
+.signin__elsewhere .signin__switch {
   margin: 0;
   line-height: 1.625rem;
-  padding: 1.5rem 3.5rem 0;
+  padding: 0;
   border: 0;
 }
 
-.signin[data-mode='sign-up'] > .signin__switch a { color: var(--ada-action-primary-bg); font-weight: 700; }
+.signin__elsewhere .signin__switch a { color: var(--ada-action-primary-bg); font-weight: 700; }
 
 .signin[data-mode='sign-up'] .signin__main {
   grid-area: main;
@@ -250,7 +254,7 @@
   .signin[data-mode='sign-up'] .signin__top { padding: 1.25rem 1.25rem 0; background: none; }
   .signin[data-mode='sign-up'] .signin__top .ada-brand { color: var(--ada-text-primary); }
   .signin[data-mode='sign-up'] .signin__top .ada-brand__mark { background: var(--ada-text-primary); color: var(--ada-surface-canvas); }
-  .signin[data-mode='sign-up'] > .signin__switch { justify-self: start; padding: 1rem 1.25rem 0; }
+  .signin__elsewhere { justify-self: start; padding: 1rem 1.25rem 0; }
   .signin[data-mode='sign-up'] .signin__main { align-items: stretch; padding: 1.5rem 1.25rem 2.5rem; }
   .signin[data-mode='sign-up'] .signin__sheet { max-inline-size: none; }
   .signin__next { grid-template-columns: minmax(0, 1fr); }

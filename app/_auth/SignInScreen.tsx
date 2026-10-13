@@ -230,7 +230,7 @@ export function SignInScreen({ mode = 'sign-in' }: { mode?: Mode }) {
       <header className="signin__top">
         <Link href="/" className="ada-brand"><span className="ada-brand__mark" aria-hidden="true"><BrandMark /></span>Ada Editor</Link>
       </header>
-      {mode === 'sign-up' ? switchLink : null}
+      {mode === 'sign-up' ? <nav className="signin__elsewhere" aria-label="Already have an account">{switchLink}</nav> : null}
       <main className="signin__main">
         <div className="signin__sheet">
           <h1 className="signin__title">{copy.title}</h1>

@@ -35,6 +35,8 @@ const PICTURE_KEY = createHash('sha256').update(PICTURE).digest('hex');
 const NEXT = resolve(ROOT, 'node_modules/.bin/next');
 const VERBOSE = process.argv.includes('--verbose');
 const KEEP = process.argv.includes('--keep-stack');
+/** Built with the practice document on: a new account starts with it. */
+const PRACTICE = process.env.NEXT_PUBLIC_PRACTICE_DOC === '1';
 if (!CHROME) { console.error('No Chromium found. Set CHROME_PATH.'); process.exit(1); }
 
 const failures = [];
@@ -487,7 +489,7 @@ async function firstBrowser() {
     const emptyDesk = await evaluate(send, `!!document.querySelector('.home-first')`);
     const rows = await docsOf(uid);
     if (!emptyDesk || onDesk.length) fail(`EMPTY  a new account should land on an empty desk (layout ${emptyDesk ? 'empty' : 'other'}, sheets ${JSON.stringify(onDesk)})`);
-    else if (rows.length) fail(`EMPTY  a new account's server should hold nothing (has ${JSON.stringify(rows.map((r) => r.id))})`);
+    else if (rows.map((r) => r.id).join() !== (PRACTICE ? 'practice-notice-of-public-hearing' : '')) fail(`EMPTY  a new account's server should hold ${PRACTICE ? 'only the practice document' : 'nothing'} (has ${JSON.stringify(rows.map((r) => r.id))})`);
     else note('a new account signs up with an emailed code and starts on an empty desk, with nothing on the server');
 
     const putError = await putFixture(uid);

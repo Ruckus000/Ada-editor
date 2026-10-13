@@ -7,7 +7,9 @@
  */
 export const PRACTICE_ON = process.env.NEXT_PUBLIC_PRACTICE_DOC === '1';
 
-/** How the first-visit desk recognises it. Renamed, it's just a document. */
-export const PRACTICE_PREFIX = 'Practice: ';
+export const PRACTICE_TITLE = 'Practice: Notice of Public Hearing';
 
-export const isPractice = (title: string): boolean => title.startsWith(PRACTICE_PREFIX);
+/** Its id: the slug createDoc gives PRACTICE_TITLE on an empty desk. The
+ *  first-visit desk recognises it by id, so a document someone titles
+ *  "Practice: …" is just a document, and a renamed practice one still counts. */
+export const PRACTICE_ID = 'practice-notice-of-public-hearing';

@@ -1,8 +1,9 @@
-import { PRACTICE_ON, PRACTICE_PREFIX } from './practice';
+import { PRACTICE_ID, PRACTICE_ON, PRACTICE_TITLE } from './practice';
 import { SEEDS, buildSeedDocument } from './seed';
 import { createDoc } from './store';
 import { isCloud } from './supabase';
 import { markTourSeen, tourSeen } from './tour';
+import { report } from '../_site/sentry';
 
 /* Kept apart from practice.ts so the sign-up page can read the flag without
  * loading the store and the editor schema. */
@@ -14,13 +15,16 @@ export function givePracticeDoc(docCount: number): boolean {
   if (!PRACTICE_ON || !isCloud || docCount > 0 || tourSeen('practice')) return false;
   const seed = SEEDS.find((s) => s.id === 'hearing-notice');
   if (!seed) return false;
-  markTourSeen('practice');
-  createDoc({
-    title: `${PRACTICE_PREFIX}${seed.content.title}`,
+  const { id, persisted } = createDoc({
+    title: PRACTICE_TITLE,
     header: seed.content.header,
     footer: seed.content.footer,
     content: buildSeedDocument(seed.content).toJSON() as Record<string, unknown>,
     importNotes: [],
   });
+  // Recorded only once it is kept: a copy this browser couldn't store comes
+  // back next visit (unless sync got it to the server, which fills the desk).
+  if (persisted) markTourSeen('practice');
+  if (id !== PRACTICE_ID) report(new Error(`Practice document got id ${id}`));
   return true;
 }

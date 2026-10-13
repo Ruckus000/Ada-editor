@@ -10,7 +10,7 @@ import type { OpenSeverity } from '../../design-system/primitives';
 import type { DocSummary } from '../_data/seed';
 import { createDoc, loadDashboardData, saveDoc, seedIfEmpty, subscribeDocs } from '../_data/store';
 import type { DashboardData } from '../_data/store';
-import { isPractice } from '../_data/practice';
+import { PRACTICE_ID } from '../_data/practice';
 import { givePracticeDoc } from '../_data/practiceDoc';
 import { isCloud } from '../_data/supabase';
 import { removeDoc } from '../_data/sync';
@@ -164,9 +164,8 @@ function HomeDialog({ open, onClose, title, hideTitle, description, className, c
   );
 }
 
-function ImportDialog({ open, onClose, onFile, error, busy }: {
-  open: boolean; onClose: () => void; onFile: (file: File) => void; error: string; busy: boolean;
-}) {
+/** The Word file drop zone: in the import dialog, and laid on the first-visit desk. */
+function DropZone({ onFile, error, busy, onDesk = false }: { onFile: (file: File) => void; error: string; busy: boolean; onDesk?: boolean }) {
   const [dragging, setDragging] = useState(false);
   const errorId = useId();
   const drop = (e: DragEvent) => {
@@ -175,15 +174,23 @@ function ImportDialog({ open, onClose, onFile, error, busy }: {
     const file = e.dataTransfer.files[0];
     if (file) onFile(file);
   };
+  const icon = <svg aria-hidden="true" width={onDesk ? 28 : 32} height={onDesk ? 28 : 32} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg>;
+  const title = onDesk ? 'home-start__title' : 'home-drop__title';
+  const words = busy ? (
+    <span className={title}>Importing…</span>
+  ) : (
+    <>
+      <span className={`${title} home-drop__title--drag`}>{dragging ? 'Let go to import it' : 'Drag a Word file here'}</span>
+      <span className={`${title} home-drop__title--tap`}>Choose a Word file</span>
+      {onDesk
+        ? <span className="home-start__sub"><span className="home-drop__or">or <span className="home-drop__pick">choose one from your computer</span>. </span>It’s read in your browser, never uploaded.</span>
+        : <span className="home-drop__or">or <span className="home-drop__pick">choose one from your computer</span></span>}
+    </>
+  );
   return (
-    <HomeDialog
-      open={open}
-      onClose={onClose}
-      title="Import a Word file"
-      description="The file is read in your browser, not uploaded. Ada checks it as soon as it opens."
-    >
+    <>
       <label
-        className="home-drop"
+        className={onDesk ? 'home-drop home-drop--desk' : 'home-drop'}
         data-dragging={dragging}
         aria-busy={busy}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -201,19 +208,26 @@ function ImportDialog({ open, onClose, onFile, error, busy }: {
             if (file) onFile(file);
           }}
         />
-        <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg>
-        {busy ? (
-          <span className="home-drop__title">Importing…</span>
-        ) : (
-          <>
-            <span className="home-drop__title home-drop__title--drag">{dragging ? 'Let go to import it' : 'Drag a Word file here'}</span>
-            <span className="home-drop__title home-drop__title--tap">Choose a Word file</span>
-            <span className="home-drop__or">or <span className="home-drop__pick">choose one from your computer</span></span>
-          </>
-        )}
-        <span className="home-drop__types">Word documents (.docx)</span>
+        {onDesk ? <span className="home-start__icon">{icon}</span> : icon}
+        {onDesk ? <span className="home-start__text">{words}</span> : words}
+        {onDesk ? null : <span className="home-drop__types">Word documents (.docx)</span>}
       </label>
       {error ? <p id={errorId} role="alert" className="home-alert">{error}</p> : null}
+    </>
+  );
+}
+
+function ImportDialog({ open, onClose, onFile, error, busy }: {
+  open: boolean; onClose: () => void; onFile: (file: File) => void; error: string; busy: boolean;
+}) {
+  return (
+    <HomeDialog
+      open={open}
+      onClose={onClose}
+      title="Import a Word file"
+      description="The file is read in your browser, not uploaded. Ada checks it as soon as it opens."
+    >
+      <DropZone onFile={onFile} error={error} busy={busy} />
       <div className="home-dialog__footer">
         <Dialog.Close asChild><Button variant="secondary">Cancel</Button></Dialog.Close>
       </div>
@@ -352,7 +366,14 @@ export function Home() {
     seedIfEmpty();
     const loaded = loadDashboardData();
     // A new account's desk gets the practice document once (flagged off by default).
-    setDash(givePracticeDoc(loaded.docs.length) ? loadDashboardData() : loaded);
+    const data = givePracticeDoc(loaded.docs.length) ? loadDashboardData() : loaded;
+    setDash(data);
+    // Help's "Take the tour" arrives with #tour. The first-visit desk has no
+    // offer card, so start it; the full desk offers it as usual.
+    if (window.location.hash === '#tour') {
+      history.replaceState(null, '', window.location.pathname);
+      if (data.docs.length === 0 || (data.docs.length === 1 && data.docs[0]!.id === PRACTICE_ID)) setTourKey(1);
+    }
     setHello(greeting(new Date().getHours()));
     if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcut('⌘K');
     // Another device's changes (a refresh), a conflict's copy: the desk follows.
@@ -361,7 +382,7 @@ export function Home() {
 
   const docs = dash?.docs ?? [];
   // First visit: nothing yet, or only the practice document.
-  const practice = docs.length === 1 && isPractice(docs[0]!.title) ? docs[0]! : null;
+  const practice = docs.length === 1 && docs[0]!.id === PRACTICE_ID ? docs[0]! : null;
   const mode = !dash ? null : docs.length === 0 || practice ? 'first' : 'desk';
   const hasDocs = docs.length > 0;
 
@@ -501,7 +522,7 @@ export function Home() {
         </div>
       </header>
       <NewDocumentDialog open={newOpen} onCreate={onCreate} onClose={() => setNewOpen(false)} />
-      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onFile={(f) => void onFile(f)} error={importError} busy={importing} />
+      <ImportDialog open={importOpen} onClose={() => { setImportOpen(false); setImportError(''); }} onFile={(f) => void onFile(f)} error={importError} busy={importing} />
       <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} docs={docs} />
 
       <main className="home-main">
@@ -516,7 +537,7 @@ export function Home() {
           <FirstDesk
             practice={practice}
             items={items}
-            importError={importError}
+            importError={importOpen ? '' : importError}
             importing={importing}
             onNew={() => setNewOpen(true)}
             onFile={(f) => void onFile(f)}
@@ -575,47 +596,6 @@ function PileSheet({ d }: { d: DocSummary | null }) {
   );
 }
 
-/** The drop zone on the desk itself: importing is a clerk's likeliest first move. */
-function DeskDrop({ onFile, error, busy }: { onFile: (file: File) => void; error: string; busy: boolean }) {
-  const [dragging, setDragging] = useState(false);
-  const errorId = useId();
-  return (
-    <div className="home-start__drop">
-      <label
-        className="home-drop home-drop--desk"
-        data-dragging={dragging}
-        aria-busy={busy}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); const file = e.dataTransfer.files[0]; if (file) onFile(file); }}
-      >
-        <input
-          type="file"
-          className="ada-visually-hidden"
-          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          {...(error ? { 'aria-describedby': errorId } : {})}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (file) onFile(file);
-          }}
-        />
-        <span className="home-start__icon"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg></span>
-        <span className="home-start__text">
-          {busy ? <span className="home-start__title">Importing…</span> : (
-            <>
-              <span className="home-start__title home-drop__title--drag">{dragging ? 'Let go to import it' : 'Drag a Word file here'}</span>
-              <span className="home-start__title home-drop__title--tap">Choose a Word file</span>
-              <span className="home-start__sub"><span className="home-drop__or">or <span className="home-drop__pick">choose one from your computer</span>. </span>It’s read in your browser, never uploaded.</span>
-            </>
-          )}
-        </span>
-      </label>
-      {error ? <p id={errorId} role="alert" className="home-alert">{error}</p> : null}
-    </div>
-  );
-}
-
 function FirstDesk({ practice, items, importError, importing, onNew, onFile, onTour }: {
   practice: DocSummary | null;
   items: Item[];
@@ -649,7 +629,8 @@ function FirstDesk({ practice, items, importError, importing, onNew, onFile, onT
       <section aria-labelledby="start-heading" className="home-start">
         <h2 id="start-heading">{practice ? 'Or bring in your own' : 'Bring in your first document'}</h2>
         <div className="home-start__row">
-          <DeskDrop onFile={onFile} error={importError} busy={importing} />
+          {/* The drop zone on the desk itself: importing is a clerk's likeliest first move. */}
+          <div className="home-start__drop"><DropZone onDesk onFile={onFile} error={importError} busy={importing} /></div>
           <button type="button" className="home-start__blank" onClick={onNew}>
             <span className="home-start__icon"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M12 11v6M9 14h6" /></svg></span>
             <span className="home-start__text"><span className="home-start__title">Start on a blank page</span><span className="home-start__sub">Your title becomes the first heading.</span></span>

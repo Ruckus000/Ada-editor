@@ -53,7 +53,7 @@ export function Tour({ name, steps, ready, offer = true, startKey = 0 }: {
     markTourSeen(name);
     announce(said);
     // Land on the control the tour was showing, so focus isn't lost with the panel.
-    if (last) requestAnimationFrame(() => last.querySelector<HTMLElement>('button, a, [tabindex]')?.focus() ?? last.focus());
+    if (last) requestAnimationFrame(() => last.querySelector<HTMLElement>('button, a, input, [tabindex]')?.focus() ?? last.focus());
   };
 
   const start = () => {

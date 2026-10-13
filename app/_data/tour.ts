@@ -50,6 +50,12 @@ export async function resetTours(): Promise<void> {
   await saveToAccount(kept);
 }
 
+/** Signing out: the next person in this browser starts from their own
+ *  account's record, not this one's (adoptTours brings it back on sign-in). */
+export function forgetTours(): void {
+  try { localStorage.removeItem(KEY); } catch { /* storage blocked: nothing kept */ }
+}
+
 /** Signing in on this device: seen anywhere counts as seen here. */
 export function adoptTours(fromAccount: unknown): void {
   if (!fromAccount || typeof fromAccount !== 'object') return;
