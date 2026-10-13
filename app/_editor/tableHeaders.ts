@@ -1,4 +1,5 @@
 import type { Node as PMNode } from 'prosemirror-model';
+import { TableMap } from 'prosemirror-tables';
 import { collapseSpaces } from '../_engine/textHelpers';
 
 /**
@@ -62,6 +63,34 @@ export function looksLikeLayout(table: PMNode): boolean {
     if (words < 4) allLong = false;
   }));
   return filled >= 2 && allLong;
+}
+
+/**
+ * A form laid out as a grid: labels beside empty cells to fill in, so at least
+ * one column is empty in every row. The engine benchmark's D4 (#122) is one:
+ * short labels in columns 1 and 3, columns 2 and 4 always empty, and its one
+ * wrong claim was "no header cells" on it. Columns are grid columns, so a
+ * merged cell counts against every column it covers.
+ * ponytail: at least 3 rows with text, so a data table typed one column at a
+ * time keeps its blocker until it has a few rows. Cells holding only "___"
+ * aren't empty: no table seen has them.
+ */
+export function looksLikeFormGrid(table: PMNode): boolean {
+  const map = TableMap.get(table);
+  const empty = (offset: number) => !table.nodeAt(offset)?.textContent.trim();
+  let rowsWithText = 0;
+  for (let r = 0; r < map.height; r++) {
+    let any = false;
+    for (let c = 0; c < map.width; c++) if (!empty(map.map[r * map.width + c]!)) any = true;
+    if (any) rowsWithText++;
+  }
+  if (rowsWithText < 3) return false;
+  for (let c = 0; c < map.width; c++) {
+    let all = true;
+    for (let r = 0; r < map.height; r++) if (!empty(map.map[r * map.width + c]!)) { all = false; break; }
+    if (all) return true;
+  }
+  return false;
 }
 
 /**

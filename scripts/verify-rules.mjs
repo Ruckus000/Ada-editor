@@ -1461,6 +1461,19 @@ check('table-layout: a table of sentences asks instead of blocking, and header c
   deepEq(tables(doc(table([[contact[0][0], blank]]))), ['table-no-header:blocker'], 'one filled cell is too little to tell');
   // A data table done right never looks like layout: its labels are short.
   deepEq(tables(doc(table([[{ th: 'Contaminant' }, { th: 'Legal limit' }], ['Lead', '15 parts per billion']]))), [], 'seed-style data table: clean');
+  // A form grid (D4 in the six-document run, #122): short labels beside
+  // columns left empty to fill in. Made-up labels, the same shape.
+  const blankCell = () => ({ td: [N.paragraph.create()] });
+  const fill = (rows) => rows.map((r) => r.map((c) => (c === '' ? blankCell() : c)));
+  const form = fill([['Applicant name', '', '', ''], ['Address', '', 'Phone', ''], ['Email', '', '', ''], ['', '', '', ''], ['Agent', '', 'Phone', '']]);
+  const [grid] = checkDocument(doc(table(form)), { prose: false }).filter((f) => f.id.startsWith('table-'));
+  deepEq(tables(doc(table(form))), ['table-layout:manual'], 'a form grid asks, and doesn’t block');
+  assert(/like a form/.test(grid.explanation) && /label comes just before its field/.test(grid.explanation), 'it asks about label-then-field order');
+  deepEq(tables(doc(table([form[0].map((c) => (typeof c === 'string' ? { th: c } : { th: [N.paragraph.create()] })), ...form.slice(1)]))), ['table-layout:manual'], 'a form grid with a header row: asked about');
+  deepEq(tables(doc(table(fill([['Day', ''], ['Monday', ''], ['', '']])))), ['table-no-header:blocker'], 'two rows with text: still the blocker (a table being typed)');
+  deepEq(tables(doc(table(fill([['Mayor', 'Commissioner, District 1'], ['Vice Mayor', ''], ['Clerk', '']])))), ['table-no-header:blocker'], 'no column empty in every row: still the blocker');
+  deepEq(tables(doc(table(fill([['Trail lighting', '✓'], ['Pool repairs', ''], ['Dog park fence', '✓']])))), ['table-no-header:blocker'], 'a ✓ column with blanks is data');
+  deepEq(tables(doc(table(fill([[{ td: 'Applicant name and address', colspan: 2 }], ['Phone', ''], ['Email', '']])))), ['table-no-header:blocker', 'table-merged-cells:advisory'], 'a label merged across the blank column fills it');
 });
 
 check('table-no-header: a layout table turns into text, in reading order', () => {

@@ -116,6 +116,8 @@ question on row 30.
 - **Layout grids with short cells still get the blocker.** Examples are the
   walkthrough's grid of officials ("Mayor", "Vice Mayor") and the corpus's
   avatar grids. This is no worse than before.
+  *2026-10-13: form grids (labels beside empty cells) now ask instead:
+  [decision 5, form grids](decision-5-form-grid.md).*
 - **A data table with long cells and no header row now asks instead of
   failing.** An example is agenda items beside long descriptions. Its
   question still says to turn on Header row if it holds data.
