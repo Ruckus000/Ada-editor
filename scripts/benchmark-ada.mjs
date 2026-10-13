@@ -46,10 +46,10 @@ for (const path of args) {
   };
   const findings = mod.check.checkDocument(doc, { prose: true, title: r.title }).map((f) => {
     const pos = f.anchor?.kind === 'figure' && figures[f.anchor.figureId] ? figures[f.anchor.figureId].pos : f.from;
-    return { id: f.id, severity: f.severity, title: f.title, excerpt: f.excerpt ?? '', under: typeof pos === 'number' ? under(pos) : '(document)' };
+    return { id: f.id, rule: f.ruleId, severity: f.severity, title: f.title, excerpt: f.excerpt ?? '', under: typeof pos === 'number' ? under(pos) : '(document)' };
   });
   for (const f of mod.editorFindings.sectionFindings({ headerImage: r.headerImage, footerImage: r.footerImage })) {
-    findings.push({ id: f.id, severity: f.severity, title: f.title, excerpt: f.excerpt, under: `(${f.anchor.section})` });
+    findings.push({ id: f.id, rule: f.ruleId, severity: f.severity, title: f.title, excerpt: f.excerpt, under: `(${f.anchor.section})` });
   }
   result[name] = {
     title: r.title,
