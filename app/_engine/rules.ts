@@ -56,7 +56,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { OpenSeverity } from '../../design-system/primitives/openSeverity';
 import type { FindingFix } from '../_editor/findings';
 import { figureNoun, schema } from '../_editor/editorSchema';
-import { hasHeaderCell, hasMergedCells, looksLikeLayout, tableText } from '../_editor/tableHeaders';
+import { hasHeaderCell, hasMergedCells, looksLikeFormGrid, looksLikeLayout, tableText } from '../_editor/tableHeaders';
 import {
   COLOUR_REFERENCE,
   COLOUR_WORDS,
@@ -181,7 +181,7 @@ export const RULES: readonly RuleInfo[] = [
   // the writer's call. W3C names both ways a layout table fails: header cells
   // on it (F46, 1.3.1) and an order that only makes sense by eye (F49, 1.3.2).
   { id: 'table-layout', name: 'Tables that may only lay text out', criterion: '1.3.1 Info and Relationships', level: 'A', kind: 'structural',
-    about: 'Every cell holds a sentence or a long phrase, which is how layout tables look. A screen reader reads a table row by row, and announces header cells with every cell below them.',
+    about: 'Tables of sentences, or of labels beside empty cells like a form, usually lay text out rather than hold data. A screen reader reads a table row by row, and announces header cells with every cell below them.',
     fix: 'If it only lays text out, choose Turn into text, or check it reads in order row by row and has no header cells. If it holds data, turn on Header row and dismiss this.' },
   // Engine-only. Advisory: merged cells aren't a failure, but a table the
   // editor can't give explicit header links to deserves a human check.
@@ -774,7 +774,11 @@ export function summarizeTable(node: PMNode): RawFinding[] {
   const out: RawFinding[] = [];
   const snippet = tableText(node).slice(0, 50);
   const headed = hasHeaderCell(node);
-  const layout = looksLikeLayout(node);
+  // A form grid (labels beside empty cells) is layout too: the six-document
+  // run's one wrong claim was "no header cells" on one, which the standard
+  // passes under A18 (#122; decision 5, 2026-10-13).
+  const form = !looksLikeLayout(node) && looksLikeFormGrid(node);
+  const layout = form || looksLikeLayout(node);
   // Port of the spike: any header cell anywhere passes. A table that looks like
   // layout is left to table-layout, which asks: asserting "no header cells" on a
   // correct layout table was the engine benchmark's one wrong claim on its good
@@ -800,11 +804,16 @@ export function summarizeTable(node: PMNode): RawFinding[] {
       severity: 'manual',
       criterion: crit('table-layout'),
       title: headed ? 'Table may only lay text out, but has header cells' : 'Table may only lay text out',
-      explanation: headed
-        ? 'Every cell holds a sentence or a long phrase. If the table only lays text out, its header cells are wrong: a screen reader announces them with every cell below. Turn it into text. If it holds data, dismiss this.'
-        : 'Every cell holds a sentence or a long phrase. A screen reader reads a table row by row, left to right: check the text makes sense in that order, or turn it into text. If it holds data, turn on Header row.',
+      explanation: (form ? 'Its labels sit beside empty cells, like a form. ' : 'Every cell holds a sentence or a long phrase. ') + (headed
+        ? `If the table only lays text out, its header cells are wrong: a screen reader announces them with every cell below. ${form ? 'Turn off Header row' : 'Turn it into text'}. If it holds data, dismiss this.`
+        : form
+          ? 'A screen reader reads a table row by row, left to right: check each label comes just before its field in that order. If it holds data, turn on Header row.'
+          : 'A screen reader reads a table row by row, left to right: check the text makes sense in that order, or turn it into text. If it holds data, turn on Header row.'),
       snippet,
-      hint: headed ? 'Turn into text, or dismiss if it holds data' : 'Check the reading order, or turn it into text',
+      // Turn into text drops empty cells, so a form's blanks would go: its hints don't offer it.
+      hint: headed
+        ? (form ? 'Turn off the header row, or dismiss if it holds data' : 'Turn into text, or dismiss if it holds data')
+        : (form ? 'Check each label comes before its field' : 'Check the reading order, or turn it into text'),
       anchor: { kind: 'table' },
     });
   }

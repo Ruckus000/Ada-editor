@@ -102,6 +102,9 @@ now been scored. P1, P2, P4 and P5 were wrong; P3, P6 and P7 held.
   only recognises tables of sentences, and its record names grids with short
   cells as a known miss. A change for form grids would go through decision
   5. It isn't made here.
+  *Later the same day: it went through, judged on the second test:
+  [decision 5, form grids](decision-5-form-grid.md). The P5 result above
+  stays as scored.*
 - **Ada's cost is mostly the AAA advice.** 27 of its 32 questions are
   reading level and sentence length, which no A or AA failure requires.
   Decision 5's last paragraph lists rules that catch no row and only ask on
