@@ -2275,13 +2275,6 @@ await acheck('benchmark packs: every finding pinned by heading; the good twin as
   deepEq(Object.values(byHeading('benchmark-row30-language.docx')), [['document-language:manual']], 'row 30');
 });
 
-// Decision 5's ledger lists every rule; a rule added or removed without its row fails here.
-check('rule ledger: one row per rule in RULES', () => {
-  const ledger = readFileSync(resolve(ROOT, 'docs/audit/engine-benchmark-2026-10/rule-ledger.md'), 'utf8');
-  const rows = [...ledger.matchAll(/^\| `([a-z0-9-]+)` \|/gm)].map((m) => m[1]);
-  deepEq(rows.slice().sort(), RULES.map((r) => r.id).sort(), 'ledger rows match RULES');
-});
-
 await acheck('import: a bold first row without Word’s header-row mark stays data, and is flagged', async () => {
   const r = await importDocx(docx({
     body: tbl([tr([tc('Day'), tc('Hours')].map((c) => c.replace('<w:t', '<w:rPr><w:b/></w:rPr><w:t'))), tr([tc('Monday'), tc('9 to 6')])]),

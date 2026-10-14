@@ -57,7 +57,7 @@ A dash means silent.
 | `table-no-header` | 1.3.1 A | blocker | 28 | — | — | Earns its place |
 | `table-layout` | 1.3.1 A | manual | 16, 17 | 1 question | 1 question (D4) | Earns its place (#117, #124) |
 | `table-merged-cells` | 1.3.1 A | advisory | — | — | — | Outside the key |
-| `form-blank` | 1.3.1 A | manual | — | — | 2 questions (D3, D4), both contested | **Candidate** |
+| `form-blank` | 1.3.1 A | manual | — | — | 2 questions (D3, D4), both contested | Candidate, ruled kept (2026-10-14) |
 | `reading-level` | 3.1.5 AAA | advisory | — | — | 5 questions | AAA, exempt (#125) |
 | `long-sentence` | 3.1.5 AAA | advisory | — | — | 4 questions | AAA, exempt (#125, #130) |
 
@@ -70,7 +70,8 @@ A dash means silent.
   and it's silent on the good twin and the six. Decision 5 can't credit it
   or charge it.
 - **Candidate:** it catches no row, and its only output on clean documents
-  is questions. That's the brief's test.
+  is questions. That's the brief's test. A candidate is kept or deleted by
+  the owner's ruling, and both candidates were kept.
 
 ## The candidate: `form-blank`
 
@@ -89,13 +90,21 @@ can't be filled in on screen and are read as a run of lines.
   digitally with typed blanks. W3C has no failure technique for it, as with
   `img-long-description`.
 
-**It isn't deleted here:** the brief keeps listing apart from deciding.
-**The owner's choices:**
-- **keep it**, as `img-long-description` was kept;
-- **narrow it** to blanks the standard doesn't contest;
-- **delete it.**
-
-A narrowing would go through decision 5 like any other change.
+*Ruled 2026-10-14 by the owner: **kept, unchanged**, for the same reason
+as `img-long-description` (#126):*
+- *Its cost on clean documents is 2 questions, both on spots the
+  standard couldn't decide. That isn't harm shown. It already asks only
+  once per document.*
+- *What it's for has no row in the key, so the benchmark can't weigh it
+  either way. That's a form someone fills in on screen, or for a printed
+  form, a way to respond that doesn't need the form. An accessibility aid
+  isn't cut without a case showing it does harm.*
+- *It comes back here if a real document shows it asking about something
+  that isn't a fill-in blank.*
+- *Narrowing it to the spots the standard doesn't contest wasn't an option.
+  "Contested" is a ruling about a spot, and nothing in a document shows it.
+  A narrowing fitted to D3 and D4 would also use up the six as unseen
+  evidence.*
 
 ## Outside the key
 
@@ -122,9 +131,11 @@ How often each fires on the parity corpus is in
 [the spike's record](../rule-set-spike.md). That corpus is open-source
 READMEs, not clerks' documents, so it doesn't enter this ledger.
 
-## Keeping it current
+## A snapshot
 
-- **A pull request that adds, changes or removes a rule** updates its row
-  here, beside the pack pins in `verify-rules.mjs`.
-- **`verify-rules.mjs` fails** if this table's rules and the engine's
-  `RULES` differ.
+This ledger was measured at 06c833f, like every record in this folder, and
+it isn't kept current by hand.
+- **The living version of the "Rows caught" column** is the pack pins in
+  `scripts/verify-rules.mjs`, which every rule change has to update.
+- **When a question about a rule comes up,** measure again with
+  `scripts/benchmark-ada.mjs` and add a dated ledger.
