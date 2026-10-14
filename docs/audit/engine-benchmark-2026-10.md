@@ -338,3 +338,26 @@ are in, scored by the adjudication standard. Word ran first, then Ada at
   questions, 27 of them reading level or sentence length.
 - **P5 was wrong** for Ada (1 document, not 2 or more) and held for Word.
   **P6 held.** All seven predictions are now scored.
+
+## Addition, 2026-10-14: the rule ledger
+
+[The rule ledger](engine-benchmark-2026-10/rule-ledger.md) is decision 5's
+list, for all 22 rules at once.
+- **11 rules earn their place,** and between them Ada at main catches 18
+  rows.
+- **3 are AAA,** exempt by design.
+- **6 are outside the key:** they're silent on clean documents, and there's
+  no row for them to catch.
+- **2 are candidates.** `img-long-description` was already ruled kept, so
+  `form-blank` is the only new one. Its 2 questions on the six are on
+  contested spots. Listing isn't deleting; the owner decides.
+
+## Addition, 2026-10-14: every step is done
+
+Step 4 is complete. The local script,
+[`scripts/benchmark-ada.mjs`](../../scripts/benchmark-ada.mjs), came with
+the pack results (#115). The pack check has run in `verify-rules.mjs` since
+#128: it pins every finding on the planted files, by heading except for row
+30's document-wide one, and fails if the good twin gets an assertion. With
+the title check (step 6, #120), all six steps are done, step 2 as amended by
+[the adjudication standard](engine-benchmark-2026-10/adjudication-standard.md).

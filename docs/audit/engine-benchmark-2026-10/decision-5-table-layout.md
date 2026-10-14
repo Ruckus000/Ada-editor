@@ -124,3 +124,6 @@ question on row 30.
 - **P5 and P6 haven't run.** When the six documents are confirmed, the
   registered run still uses 7b2ce34. This change's questions on them get
   counted then, as cost.
+  *2026-10-14: [the six have run](results-six.md). This rule didn't exist
+  at 7b2ce34, and in main's column (3ccd873) it asked nothing on them. Since
+  [form grids](decision-5-form-grid.md) it asks once, on D4's form grid.*

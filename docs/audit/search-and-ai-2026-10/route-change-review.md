@@ -1,6 +1,6 @@
 # Review of the route change (landing page to /, desk to /desk) before it was built
 
-Written on 2026-10-09 by a research agent working from public sources, and kept as it was delivered (minus 0 line(s) about this session's tooling). Claims carry their own sources and dates. The decisions drawn from it are in [the decision record](../search-and-ai-2026-10.md).
+Written on 2026-10-09 by a research agent working from public sources, and kept as it was delivered (minus 0 line(s) about this session's tooling). Claims carry their own sources and dates. The decisions drawn from it are in [the decision record](../search-and-ai-2026-10.md). Local folder prefixes were trimmed to repo paths on 2026-10-14.
 
 ---
 
@@ -18,39 +18,39 @@ I reviewed this read-only and changed nothing. The design is sound overall, but 
 ## A. References the plan missed
 
 **App code**
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_auth/SignInScreen.tsx:198` — the brand link `href="/welcome"` should become `/`. The plan only covers lines 84 and 123.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_site/SiteAccount.tsx:37` — "Start writing" uses `isCloud ? '/sign-up' : '/'`, a copy of `START`. Use `START`, or in local mode it will point at the landing page instead of the desk.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_auth/AccountMenu.tsx:36` — this also renders the closed `DisplayDialog`. The desk's current HTML has h2 "Display" before h1 "Hello.". Put the mount-on-first-open logic inside `DisplayDialog.tsx` so both callers get it.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_auth/DisplayDialog.tsx:29-30` — `id="display-title"` duplicates `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/help/page.tsx:131-132`.
+- `app/_auth/SignInScreen.tsx:198` — the brand link `href="/welcome"` should become `/`. The plan only covers lines 84 and 123.
+- `app/_site/SiteAccount.tsx:37` — "Start writing" uses `isCloud ? '/sign-up' : '/'`, a copy of `START`. Use `START`, or in local mode it will point at the landing page instead of the desk.
+- `app/_auth/AccountMenu.tsx:36` — this also renders the closed `DisplayDialog`. The desk's current HTML has h2 "Display" before h1 "Hello.". Put the mount-on-first-open logic inside `DisplayDialog.tsx` so both callers get it.
+- `app/_auth/DisplayDialog.tsx:29-30` — `id="display-title"` duplicates `app/help/page.tsx:131-132`.
   - On /help, the "Display settings" section is labelled by the dialog's "Display" heading, because that comes first in the DOM.
   - axe's `duplicate-id-aria` rule is `reviewOnFail`, so the gate files it under "incomplete" and never sees it.
   - Use `useId()`. Lazy mounting only hides the clash until the dialog is opened.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/manifest.ts:13` — change `start_url` to `/desk`, and add `id: '/'` so existing home-screen shortcuts keep their identity.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/layout.tsx:14-18` — the shared Open Graph fields go here (see C). Never put `alternates` or `robots` here: not-found, the desk and the editor would inherit them.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/editor/[docId]/page.tsx` — add `robots` only, never `title`. As the comment at layout.tsx:8-11 explains, a server title outranks the `<title>` that EditorRoute renders.
-- Help, accessibility and privacy pages — `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/help/page.tsx:11`, `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/accessibility/page.tsx:7`, `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/privacy/page.tsx:6`. All three ship the root description today; I checked the current `.next` output. The registry must give each its own.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/welcome/page.tsx:3-5` — after the move the imports become `../design-system/primitives/SeverityBadge` (keep the file import, not the barrel) plus the new routes module. Then delete `app/welcome/`.
+- `app/manifest.ts:13` — change `start_url` to `/desk`, and add `id: '/'` so existing home-screen shortcuts keep their identity.
+- `app/layout.tsx:14-18` — the shared Open Graph fields go here (see C). Never put `alternates` or `robots` here: not-found, the desk and the editor would inherit them.
+- `app/editor/[docId]/page.tsx` — add `robots` only, never `title`. As the comment at layout.tsx:8-11 explains, a server title outranks the `<title>` that EditorRoute renders.
+- Help, accessibility and privacy pages — `app/help/page.tsx:11`, `app/accessibility/page.tsx:7`, `app/privacy/page.tsx:6`. All three ship the root description today; I checked the current `.next` output. The registry must give each its own.
+- `app/welcome/page.tsx:3-5` — after the move the imports become `../design-system/primitives/SeverityBadge` (keep the file import, not the barrel) plus the new routes module. Then delete `app/welcome/`.
 - Comments that describe the old routing:
-  - `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_data/display.ts:64-71`
-  - `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_auth/AuthGate.tsx:13-19,56-59` — the note that crawlers see "Your desk" is resolved by this PR; delete it.
-  - `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_site/Site.tsx:8-13`
-  - `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_site/site.css:1`
-  - `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_data/supabase.ts:19-20`
-  - `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_home/Home.tsx:31`
+  - `app/_data/display.ts:64-71`
+  - `app/_auth/AuthGate.tsx:13-19,56-59` — the note that crawlers see "Your desk" is resolved by this PR; delete it.
+  - `app/_site/Site.tsx:8-13`
+  - `app/_site/site.css:1`
+  - `app/_data/supabase.ts:19-20`
+  - `app/_home/Home.tsx:31`
 
 **Gates, CI and docs**
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/scripts/verify-a11y-app.mjs`
+- `scripts/verify-a11y-app.mjs`
   - `:507` — `upload()` navigates to `${origin}/`. Change it to `/desk`, or `fromPlus` fails with "no New document (+) button".
   - `:1299-1311` — `statusScreens()` expects a link named "Back to all documents" on `/no-such-page` too. With "Go to the home page" that fails. Make the expected link name per screen, and check its href.
   - `:243, 329, 348, 375, 411, 443, 1448, 1488, 1530` — the `page = '/ …'` labels should read `/desk …`, or failure messages will name the wrong route.
   - `:1361-1386` — `staticPage()` should exercise the header's Display button. Assert no `<dialog>` exists before opening, `dialog[open]` after Enter, run axe, then Escape returns focus to "Display". Nothing opens SiteAccount's dialog today.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/scripts/verify-e2e.mjs`
+- `scripts/verify-e2e.mjs`
   - Line-by-line: `:265-267` (signIn landing), `:337-340` (`goHome` should go to `/desk`), `:364`, `:377-383`, `:410-413`, and `:646-650` (also assert the "Your desk" href is `/desk`).
   - Add three checks: a signed-in full load of `/` ends on `/desk`; signed-out `/desk` ends on `/sign-in`; `/welcome` ends on `/`.
   - This is the only gate that exercises the PREPAINT bounce, because the a11y gate runs in local mode.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/package.json:22` — append `&& node scripts/verify-seo.mjs --no-build` to `verify`, and add an `"seo"` script.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/.github/workflows/design-system.yml:134-135` — CI never runs `npm run verify`. Add a step after the app a11y gate: `node scripts/verify-seo.mjs --verbose --no-build`.
-- `/Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/README.md:6` — the live demo link points at the alias you're about to redirect; change it to https://www.adaedit.com. Also update `:189` (mention `/desk`) and `:190` (list the SEO gate).
+- `package.json:22` — append `&& node scripts/verify-seo.mjs --no-build` to `verify`, and add an `"seo"` script.
+- `.github/workflows/design-system.yml:134-135` — CI never runs `npm run verify`. Add a step after the app a11y gate: `node scripts/verify-seo.mjs --verbose --no-build`.
+- `README.md:6` — the live demo link points at the alias you're about to redirect; change it to https://www.adaedit.com. Also update `:189` (mention `/desk`) and `:190` (list the SEO gate).
 
 **Nothing to change in:**
 - `design-system/` — `harness.js` contains no route strings.
@@ -226,8 +226,8 @@ Sources:
 - [Next.js: How to implement JSON-LD](https://nextjs.org/docs/app/guides/json-ld)
 
 ### Critical Files for Implementation
-- /Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_auth/AuthGate.tsx
-- /Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/app/_data/display.ts
-- /Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/next.config.ts
-- /Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/scripts/verify-a11y-app.mjs
-- /Users/jphilistin/Documents/Coding/ADA Editor/Ada-editor/scripts/verify-e2e.mjs
+- app/_auth/AuthGate.tsx
+- app/_data/display.ts
+- next.config.ts
+- scripts/verify-a11y-app.mjs
+- scripts/verify-e2e.mjs

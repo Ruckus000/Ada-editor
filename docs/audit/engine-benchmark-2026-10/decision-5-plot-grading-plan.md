@@ -74,6 +74,8 @@ has been seen.
   unasked. That's the rule's own condition. It could come from the six
   documents once the owner confirms them, or from a correction someone
   files.
+  *2026-10-14: the six have run, and none has alt text naming a plot or
+  grading plan.*
 - **The owner adding F67 to the key** through the brief's "What would
   change this". That's a change to the benchmark, not to this rule.
 
