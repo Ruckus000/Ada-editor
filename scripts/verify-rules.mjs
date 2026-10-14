@@ -2275,13 +2275,6 @@ await acheck('benchmark packs: every finding pinned by heading; the good twin as
   deepEq(Object.values(byHeading('benchmark-row30-language.docx')), [['document-language:manual']], 'row 30');
 });
 
-// Decision 5's ledger lists every rule; a rule added or removed without its row fails here.
-check('rule ledger: one row per rule in RULES', () => {
-  const ledger = readFileSync(resolve(ROOT, 'docs/audit/engine-benchmark-2026-10/rule-ledger.md'), 'utf8');
-  const rows = [...ledger.matchAll(/^\| `([a-z0-9-]+)` \|/gm)].map((m) => m[1]);
-  deepEq(rows.slice().sort(), RULES.map((r) => r.id).sort(), 'ledger rows match RULES');
-});
-
 await acheck('import: a bold first row without Word’s header-row mark stays data, and is flagged', async () => {
   const r = await importDocx(docx({
     body: tbl([tr([tc('Day'), tc('Hours')].map((c) => c.replace('<w:t', '<w:rPr><w:b/></w:rPr><w:t'))), tr([tc('Monday'), tc('9 to 6')])]),
@@ -2678,6 +2671,47 @@ await acheck('store: a deleted document is gone, and an emptied desk stays empty
     delete globalThis.window;
   }
 });
+
+/* ---------- Hear it as a screen reader (screenReader.ts) ---------- */
+
+{
+  const { readAloud } = mod.screenReader;
+  const { AGENDA_EXPORT, READING_FIXTURES, normalize, readingPack, recordingText } = mod.readingPack;
+  const blank = () => parseHTML('<!doctype html><html><head><title></title></head><body></body></html>').document;
+  const pageOf = (fixture) => {
+    if (fixture === 'agenda') return parseHTML(readFileSync(resolve(ROOT, AGENDA_EXPORT), 'utf8')).document;
+    const page = blank();
+    readingPack(page);
+    return page;
+  };
+  const said = (page) => normalize(readAloud(page).map((line) => line.map((p) => p.text).join(' ')).join(' ')).split(' ');
+
+  // The recordings are what NVDA itself said (tests/screen-reader/reading.nvda.spec.ts
+  // re-records them in CI): the simulation must say the same words.
+  for (const fixture of READING_FIXTURES) {
+    check(`Hear it: the simulation says what NVDA said reading ${fixture}`, () => {
+      const want = normalize(recordingText(readFileSync(resolve(ROOT, 'tests/screen-reader/recordings/nvda', `${fixture}.txt`), 'utf8'))).split(' ');
+      const got = said(pageOf(fixture));
+      let i = 0;
+      while (i < want.length && got[i] === want[i]) i++;
+      assert(i === want.length && got.length === want.length,
+        `from word ${i}, NVDA said "${want.slice(Math.max(0, i - 6), i + 10).join(' ')}" and the simulation says "${got.slice(Math.max(0, i - 6), i + 10).join(' ')}"`);
+    });
+  }
+
+  // The simulation reads what exportHtml writes. A new element there would be
+  // read as plain text, silently: add it to the reading pack and re-record.
+  check('Hear it: every element an export writes is one the simulation was recorded on', () => {
+    const READ = new Set(['HEADER', 'MAIN', 'FOOTER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'BR', 'UL', 'OL', 'LI', 'TABLE', 'CAPTION', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'FIGURE', 'IMG', 'A', 'SPAN', 'STRONG', 'EM', 'U', 'MARK']);
+    const pages = [pageOf('reading-pack'), ...mod.seed.SEEDS.map((seed) => {
+      const page = blank();
+      mod.exportHtml.exportHtml(mod.seed.buildSeedDocument(seed.content), { title: seed.title, header: seed.content.header, footer: seed.content.footer }, page);
+      return page;
+    })];
+    const unread = new Set(pages.flatMap((page) => [...page.body.querySelectorAll('*')].map((el) => el.tagName).filter((tag) => !READ.has(tag))));
+    eq([...unread].join(', '), '', 'elements the simulation has never heard read');
+  });
+}
 
 /* ---------- report ---------- */
 

@@ -38,7 +38,7 @@ export const PAGES = [
     title: 'Help · Ada Editor',
     description: 'How Ada Editor checks a document: every rule and the WCAG criterion it cites, what each severity means, shortcuts, exports and posting to agenda systems.',
     published: '2026-10-06',
-    updated: '2026-10-13',
+    updated: '2026-10-14',
   },
   {
     path: '/accessibility',

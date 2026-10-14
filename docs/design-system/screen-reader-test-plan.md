@@ -37,6 +37,13 @@ reading cursor while expecting focus to move.
   38450046081), and one with "VoiceOver cannot be started" (38298709444). A red
   VoiceOver job is a finding only if the failed step is `VoiceOver` and its
   transcript shows the page.
+
+  As of 2026-10-14 the setup no longer uses the deprecated `setup-action`; it
+  runs `@guidepup/setup` 0.29.2 directly. Under the action the retry had never
+  rescued a run (0 of 5), and 0.29.2 is the first version whose retry rewrites
+  the permissions instead of keeping a refusal already recorded. That fix is
+  unproven until a first attempt fails again, which has been about one run in
+  20. The "VoiceOver cannot be started" failure is separate and unchanged.
 - **NVDA: working since CI run 36448190005.** It said only `blank` until the
   browser ran headed (`playwright.config.ts`): headless Chromium has no window
   for NVDA to read. Reading for real, it found three bugs; see *NVDA, verified

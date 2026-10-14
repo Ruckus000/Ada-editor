@@ -98,7 +98,8 @@ test can't rest on "it only asks". It rests on what a clean document is:
 So if it asserts on one of the six, either the pattern matched something
 that isn't a default, which is a bug in this check, or the document isn't
 clean. When the six run, this branch's column gets run beside main's, and
-either case is reported.
+either case is reported. *2026-10-14: [the six have run](results-six.md),
+and this rule asserted nothing on them.*
 
 ## Considered and cut
 

@@ -172,7 +172,8 @@ nothing is planted, so every finding there counts as a cost, not a catch.
 
 - Word with a light page (rows 25 and 29).
 - Word for Windows, or Word on the web.
-- The six real documents (P5, P6).
+- The six real documents (P5, P6). *Done 2026-10-13:
+  [the six-document results](results-six.md).*
 - The pack check in `verify-rules.mjs` (step 4's first half). The runner
   here is the second half. *Done 2026-10-13: `verify-rules.mjs` now runs
   this runner on the four files, pins every finding by heading, and fails
