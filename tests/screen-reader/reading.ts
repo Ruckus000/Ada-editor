@@ -3,7 +3,7 @@ import { parseHTML } from 'linkedom';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ScreenReader, Step } from './assertions';
-import { AGENDA_EXPORT, normalize, readingPack, type ReadingFixture } from './readingPack';
+import { AGENDA_EXPORT, normalize, readingPack, recordingText, type ReadingFixture } from './readingPack';
 
 /**
  * A real screen reader reads one exported page from the top, and what it says
@@ -30,10 +30,6 @@ const lastWords = (html: string) => {
   return normalize(texts.at(-1) ?? '').split(' ').slice(-4).join(' ');
 };
 
-/** A recording: one spoken phrase per line; lines starting with # are notes. */
-export const readRecording = (file: string) =>
-  readFileSync(file, 'utf8').split('\n').filter((l) => l.trim() && !l.startsWith('#'));
-
 export async function assertReadsAsRecorded(
   pw: Page, sr: ScreenReader, reader: 'nvda' | 'voiceover', fixture: ReadingFixture, step: Step, info: TestInfo,
 ) {
@@ -56,5 +52,5 @@ export async function assertReadsAsRecorded(
   const file = resolve(RECORDINGS, reader, `${fixture}.txt`);
   expect(existsSync(file), `No recording of ${reader} reading ${fixture} yet. Review ${out} (uploaded with this run) and commit it as ${file}.`).toBe(true);
   expect(normalize(heard.join(' ')), `${reader} no longer reads ${fixture} as recorded. What it said now is in ${out}.`)
-    .toBe(normalize(readRecording(file).join(' ')));
+    .toBe(normalize(recordingText(readFileSync(file, 'utf8'))));
 }

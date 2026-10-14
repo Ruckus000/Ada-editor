@@ -27,6 +27,10 @@ export const AGENDA_EXPORT = 'docs/audit/clerk-walkthrough-2026-10/agenda-export
  */
 export const normalize = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
+/** A recording's text: one spoken phrase per line; lines starting with # are notes. */
+export const recordingText = (file: string) =>
+  file.split('\n').filter((l) => l.trim() && !l.startsWith('#')).join(' ');
+
 const N = schema.nodes;
 const M = schema.marks;
 const KEY = 'a'.repeat(64);

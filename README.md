@@ -174,6 +174,9 @@ documents in this browser's localStorage only, exactly as before accounts.
 - **[Checking engine benchmark](docs/audit/engine-benchmark-2026-10.md)** —
   W3C's failure list as the answer key, Ada against Word's checker, the
   predictions registered before the first run, and the bar a new rule must clear
+- **[Hearing a document as a screen reader would](docs/audit/screen-reader-simulation-2026-10.md)**
+  — why the simulation reads the export, why a screen reader gets words only
+  once it's recorded, and what NVDA's recordings changed
 
 ## Architecture
 

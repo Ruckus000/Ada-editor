@@ -1,0 +1,45 @@
+# NVDA reading agenda with Down Arrow in Chrome, as reading.nvda.spec.ts does: one spoken phrase per line.
+# Recorded by screen-reader.yml run 38573095047 (2026-10-14), NVDA as guidepup/setup-action's pinned commit installs it; the run's retry said the same.
+# Committed by hand after reading it against the page. Never regenerate this automatically.
+heading, level 1, Agenda
+figure, graphic, City seal
+out of figure, heading, level 2, CITY COMMISSION WORKSHOP MEETING
+heading, level 2, AGENDA
+Tuesday, March 3, 2026 — 6:00 PM
+City Hall, Commission Chambers
+Mayor
+Commissioner, District 1
+Commissioner, District 2
+Vice Mayor
+Commissioner, District 3
+City Manager
+To watch the meeting live,, link, use the city's You Tube channel, dot The agenda and backup are also posted at
+https: slash slash example dot legistar dot com slash Calendar dot aspx
+heading, level 2, PUBLIC APPEARANCES BEFORE THE CITY COMMISSION
+Anyone who wants to speak to the City Commission should fill in a speaker card at the back of the
+room before the meeting starts. Each speaker has three minutes. Please give your name for the
+record, and speak to the Commission as a whole rather than to one member, a member of staff or
+someone in the audience.
+heading, level 2, COMMUNICATIONS TO CITY COMMISSION
+Communications to the City Commission (Commission Districts 1, 2, 3 and 4). Two or more members of
+the Parks Advisory Board may attend and take part in the discussion.
+heading, level 2, CITY COMMISSIONERS' REPORTS
+heading, level 2, MAYOR'S REPORT
+heading, level 2, CITY MANAGER'S REPORT
+CM-1 Status of Commission Requests and Memos to the Commission – City Manager's Office
+(Commission Districts 1, 2, 3 and 4)
+heading, level 2, CITY ATTORNEY'S REPORT
+heading, level 2, WORKSHOP REPORTS
+WS-1 Review of Fleet Fuel Card Controls – Internal Audit (Commission Districts 1, 2, 3 and 4)
+heading, level 2, OLD slash NEW BUSINESS
+NB-1 Stormwater Pump Station Repairs Update – Public Works Department (Commission Districts 2 and
+4)
+NB-2 Downtown Corridor Plan Presentation – Planning Department (Commission District 4)
+NB-3 Presentation on a Proposed Ordinance on Shared Scooters in City Parks – Police Department
+(Commission Districts 1, 2, 3 and 4)
+NB-4 Presentation on Street Lighting Upgrades Along School Routes – Transportation Department
+(Commission Districts 1, 2, 3 and 4)
+heading, level 2, ADJOURNMENT
+Any person requiring auxiliary aids and services for this meeting may call the City Clerk's Office
+at 555-0100 two days prior to the meeting. If a person decides to appeal any decision made by the
+City Commission, that person will need a record of the proceedings.

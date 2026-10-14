@@ -1,11 +1,12 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactNode, RefObject } from 'react';
 import { figureNoun, safeHref } from './editorSchema';
 import type { FigureAlign, FigureSize } from './editorSchema';
 import type { Section } from './findings';
+import type { Heard } from './screenReader';
 import type { SectionImage } from '../_data/store';
 import { acquireUrl, releaseUrl } from '../_data/images';
 import styles from './editor.module.css';
@@ -581,5 +582,55 @@ export function ImageIcon({ size }: { size: number }) {
       <circle cx="8.5" cy="8.5" r="1.5" />
       <polyline points="21 15 16 10 5 21" />
     </svg>
+  );
+}
+
+/* ---------- hear it as a screen reader ---------- */
+
+/**
+ * What a screen reader says, step by step, reading the HTML export
+ * (screenReader.ts). Speech is the browser's own, played only when asked:
+ * someone using a real screen reader would otherwise hear two at once.
+ */
+export function HearDialog({ heard, missing, onClose }: { heard: Heard[] | null; missing: string; onClose: () => void }) {
+  const [speaking, setSpeaking] = useState(false);
+  const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const stop = () => { if (canSpeak) window.speechSynthesis.cancel(); setSpeaking(false); };
+  // Queued speech outlives the dialog, and the editor, unless it's cancelled.
+  useEffect(() => () => { if (canSpeak) window.speechSynthesis.cancel(); }, [canSpeak]);
+  const play = () => {
+    if (!heard?.length) return;
+    window.speechSynthesis.cancel();
+    const parts = heard.flat();
+    parts.forEach((part, i) => {
+      const u = new SpeechSynthesisUtterance(part.text);
+      u.lang = part.lang; // a marked language is spoken in its own voice, where the browser has one
+      if (i === parts.length - 1) u.onend = () => setSpeaking(false);
+      window.speechSynthesis.speak(u);
+    });
+    setSpeaking(true);
+  };
+
+  return (
+    <Shell
+      open={heard !== null}
+      onOpenChange={(o) => { if (!o) { stop(); onClose(); } }}
+      title="Hear it as a screen reader"
+      description="What NVDA with Chrome says, step by step, reading this document’s HTML export. It’s a simulation from recordings of the real screen reader: versions and settings change what one says, and the PDF isn’t simulated."
+      footer={<Dialog.Close className={styles.btnPrimary} type="button">Done</Dialog.Close>}
+    >
+      {canSpeak ? <div><button type="button" className={styles.btnSubtle} onClick={speaking ? stop : play}>{speaking ? 'Stop' : 'Play aloud'}</button></div> : null}
+      {missing ? <p className={styles.choiceHint}>{missing}</p> : null}
+      <ol className={styles.heard}>
+        {heard?.map((line, i) => (
+          <li key={i} lang={line[0]?.lang}>
+            {line.map((part, j) => (
+              <Fragment key={j}>{j ? (line[j - 1]!.text.endsWith(',') ? ' ' : ', ') : ''}{part.lang === line[0]?.lang ? part.text : <span lang={part.lang}>{part.text}</span>}</Fragment>
+            ))}
+          </li>
+        ))}
+      </ol>
+      <p className={styles.choiceHint}>To hear a real screen reader: VoiceOver is built into every Mac (Command-F5), and Narrator into Windows (Control-Windows-Enter).</p>
+    </Shell>
   );
 }
