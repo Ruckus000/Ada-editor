@@ -1,0 +1,55 @@
+# NVDA reading reading-pack with Down Arrow in Chrome, as reading.nvda.spec.ts does: one spoken phrase per line.
+# Recorded by screen-reader.yml run 38573095047 (2026-10-14), NVDA as guidepup/setup-action's pinned commit installs it; the run's retry said the same.
+# Committed by hand after reading it against the page. Never regenerate this automatically.
+banner landmark, graphic, Town seal, Town of Example
+main landmark, heading, level 1, Reading test
+A paragraph with a link to, link, the agenda, dot
+Line one
+line two.
+Important, ,, stressed, and, highlighted, highlighted, out of highlighted, words.
+heading, level 2, Lists
+list, with 2 items, bullet
+Apples
+bullet
+Pears
+list, with 2 items, white bullet
+Green
+list, with 1 item, black square
+Light
+out of list, white bullet
+Red
+out of list, out of list, list, with 2 items, 3.
+Third
+4.
+Fourth
+out of list, heading, level 3, Tables
+table, with 3 rows and 2 columns, caption, Park fund
+out of caption, row 1, column 1, Item
+column 2, Amount
+row 2, Item, column 1, Budget
+Amount, column 2, 100
+row 3, Item, column 1, Spent
+Amount, column 2, 80
+out of table, table, with 4 rows and 2 columns, row 1, column 1, Member
+column 2, Vote
+row 2, Member, column 1, through 2, Consent agenda
+row 3, through 4, Member, column 1, Mayor
+row 3, Vote, column 2, Yes
+row 4, Vote, column 1, No
+out of table, table, with 3 rows and 2 columns, row 1, column 1, Name:
+column 2
+row 2, column 1, Date:
+column 2
+row 3, column 1, Signed:
+column 2
+out of table, heading, level 2, Pictures
+figure, graphic, Map of the park
+out of figure, graphic, Site plan of the shelter
+heading, level 2, Links and language
+An unsafe link.
+Web address:, link, https: slash slash example dot org slash agenda
+In Spanish:, Spanish (not supported), Llame al 311.
+Say, Spanish (not supported), hola, to the clerk.
+Parks and Recreation: 1.5 miles, 50 percent off, call number 3 or write to clerk at example dot org.
+Name:
+content info landmark, Posted October 2026

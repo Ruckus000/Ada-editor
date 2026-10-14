@@ -1059,6 +1059,7 @@ async function editor() {
     else if (!sheet || sheet.left < 0 || sheet.right > sheet.w || sheet.top < 0 || sheet.bottom > sheet.h) fail(`PHONE  the colour menu is clipped or off screen at 390px: ${JSON.stringify(sheet)}`);
     else note('phone: the toolbar is one row, and its colour menu opens whole along the bottom of the screen');
     await checkColourSchemes(send);
+    await checkHear(send);
     await checkExport(send);
   } finally {
     await shutdown(send, ws, proc);
@@ -1332,6 +1333,30 @@ async function pictureLayout(send) {
 // Export: the downloaded page must be exactly as accessible as the findings
 // say, and a hostile title from localStorage (a trust boundary) must stay
 // text. Last step of editor(): it navigates away from the editor.
+// Hear it as a screen reader: a dialog listing what NVDA says reading the
+// export. Before checkExport, which renames the document and leaves the page.
+async function checkHear(send) {
+  await openMenu(send, 'Export');
+  if (!(await focusByName(send, 'button', 'Hear it as a screen reader'))) { fail('HEAR  no "Hear it as a screen reader" in the Export menu'); return; }
+  await key(send, 'Enter');
+  await sleep(600);
+  const heard = await evaluate(send, `(() => {
+    const d = document.querySelector('[role=dialog]');
+    if (!d) return null;
+    const lines = [...d.querySelectorAll('ol > li')].map((li) => li.textContent);
+    return { inside: d.contains(document.activeElement), lines, heading: lines.some((t) => /heading, level 1, /.test(t)), link: lines.some((t) => /\\blink, /.test(t)) };
+  })()`);
+  if (!heard) { fail('HEAR  the dialog did not open'); return; }
+  if (!heard.inside) fail('HEAR  focus did not move into the dialog');
+  if (!heard.heading || !heard.link) fail(`HEAR  the dialog should list the main heading and a link as NVDA says them: ${JSON.stringify(heard)}`);
+  else note(`hear: ${heard.lines.length} lines, the main heading and a link among them`);
+  await runAxe(send, ' (hear dialog)');
+  await key(send, 'Escape');
+  await sleep(300);
+  const back = await evaluate(send, `!document.querySelector('[role=dialog]') && document.activeElement?.textContent.trim()`);
+  if (back !== 'Export') fail(`HEAR  closing the dialog should return focus to Export (focus: ${JSON.stringify(back)})`);
+}
+
 async function checkExport(send) {
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
   const hostile = 'Notice </title><script>window.__pwned = 1</script>';

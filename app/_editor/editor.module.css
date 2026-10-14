@@ -749,6 +749,9 @@
 .conflictOption { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .check input { width: 18px; height: 18px; margin: 0; }
 
+/* Hear it as a screen reader: one line per thing said. */
+.heard { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-inline-start: 1.75rem; font-size: 0.875rem; line-height: 1.5; color: var(--as-text); }
+
 .fieldError { margin: -10px 0 0; font-size: 0.8125rem; font-weight: 600; color: var(--as-blocker); }
 .deleteError { margin: 0; padding: 10px 24px; font-size: 0.875rem; font-weight: 600; color: var(--as-blocker); background: var(--as-surface); border-bottom: 1px solid var(--as-border); }
 
