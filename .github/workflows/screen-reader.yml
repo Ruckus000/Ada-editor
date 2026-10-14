@@ -19,12 +19,15 @@ name: screen readers
 # branch with an open PR no longer runs everything twice (push + pull_request).
 # Pushes to main still run, so every merge is checked. workflow_dispatch runs a
 # branch by hand before it has a PR.
+#
+# The reading specs (reading.*.spec.ts) read exported pages, so the export's
+# own files are watched too: a change there changes what is said.
 on:
   push:
     branches: [main]
-    paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml']
+    paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml', 'app/_editor/exportHtml.ts', 'app/_editor/editorSchema.ts', 'app/_editor/tableHeaders.ts', 'docs/audit/clerk-walkthrough-2026-10/agenda-export.html']
   pull_request:
-    paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml']
+    paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml', 'app/_editor/exportHtml.ts', 'app/_editor/editorSchema.ts', 'app/_editor/tableHeaders.ts', 'docs/audit/clerk-walkthrough-2026-10/agenda-export.html']
   workflow_dispatch:
 
 # The screen readers' asset installer, pinned. Unpinned, npx took each new
@@ -38,7 +41,8 @@ jobs:
   nvda:
     name: NVDA (Windows)
     runs-on: windows-latest
-    timeout-minutes: 20
+    # The reading specs step through two pages a line at a time.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
