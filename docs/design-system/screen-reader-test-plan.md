@@ -26,6 +26,21 @@ reading cursor while expecting focus to move.
   VoiceOver, so the two control tests step the VO cursor instead, which is how
   VoiceOver users move through a page anyway. All four assertions then passed
   on two consecutive runs (CI run 35872345691, attempts 1 and 2).
+
+  It does not always start. From 2026-10-12 to 2026-10-14 the VoiceOver job
+  failed 5 of 79 runs, and none of them was an assertion failing on the page:
+  four failed in the Guidepup setup retry with "Not authorized to send Apple
+  events to System Events (-2700)" (runs 38269149658, 38305479314, 38436609521,
+  38450046081), and one with "VoiceOver cannot be started" (38298709444). A red
+  VoiceOver job is a finding only if the failed step is `VoiceOver` and its
+  transcript shows the page.
+
+  As of 2026-10-14 the setup no longer uses the deprecated `setup-action`; it
+  runs `@guidepup/setup` 0.29.2 directly. Under the action the retry had never
+  rescued a run (0 of 5), and 0.29.2 is the first version whose retry rewrites
+  the permissions instead of keeping a refusal already recorded. That fix is
+  unproven until a first attempt fails again, which has been about one run in
+  20. The "VoiceOver cannot be started" failure is separate and unchanged.
 - **NVDA: still says only `blank`**, with `--force-renderer-accessibility` set
   and with `navigateToWebContent()`. Its cause is undiagnosed, and no Windows
   machine has been available to look directly.
