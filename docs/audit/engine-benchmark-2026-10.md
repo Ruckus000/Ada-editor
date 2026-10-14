@@ -339,6 +339,19 @@ are in, scored by the adjudication standard. Word ran first, then Ada at
 - **P5 was wrong** for Ada (1 document, not 2 or more) and held for Word.
   **P6 held.** All seven predictions are now scored.
 
+## Addition, 2026-10-14: the rule ledger
+
+[The rule ledger](engine-benchmark-2026-10/rule-ledger.md) is decision 5's
+list, for all 22 rules at once.
+- **11 rules earn their place,** and between them Ada at main catches 18
+  rows.
+- **3 are AAA,** exempt by design.
+- **6 are outside the key:** they're silent on clean documents, and there's
+  no row for them to catch.
+- **2 are candidates.** `img-long-description` was already ruled kept, so
+  `form-blank` is the only new one. Its 2 questions on the six are on
+  contested spots. Listing isn't deleting; the owner decides.
+
 ## Addition, 2026-10-14: every step is done
 
 Step 4 is complete. The local script,
