@@ -1,0 +1,22 @@
+name: local paths
+
+# A path from someone's machine put an account name into the public docs twice
+# (#71, #121). design-system.yml's path filter skips docs-only PRs, so this
+# check runs on every PR and every push to main. The pattern can't match itself.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: No local machine paths in tracked files
+        run: |
+          if git grep -nIE '/Users/[[:alnum:]._-]+/|/private/(tmp|var/folders)/'; then
+            echo "::error::Local machine paths found. Write repo-relative paths."
+            exit 1
+          fi
