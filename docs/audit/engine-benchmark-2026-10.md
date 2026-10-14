@@ -344,6 +344,7 @@ are in, scored by the adjudication standard. Word ran first, then Ada at
 Step 4 is complete. The local script,
 [`scripts/benchmark-ada.mjs`](../../scripts/benchmark-ada.mjs), came with
 the pack results (#115). The pack check has run in `verify-rules.mjs` since
-#128: it pins every finding on the planted files by heading, and fails if
-the good twin gets an assertion. With the title check (step 6, #120), all
-six steps are done.
+#128: it pins every finding on the planted files, by heading except for row
+30's document-wide one, and fails if the good twin gets an assertion. With
+the title check (step 6, #120), all six steps are done, step 2 as amended by
+[the adjudication standard](engine-benchmark-2026-10/adjudication-standard.md).
