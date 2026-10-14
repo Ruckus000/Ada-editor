@@ -120,6 +120,8 @@ now been scored. P1, P2, P4 and P5 were wrong; P3, P6 and P7 held.
   [its record](decision-5-plot-grading-plan.md#found-along-the-way-img-long-description-itself)
   says. It has now caught no row, and its only cost is one question on the
   good twin.
+  *Later the same day it was ruled kept, in #126. On 2026-10-14
+  [the rule ledger](rule-ledger.md) listed every rule against decision 5.*
 - **Decision 5's second test, on the six, for the changes since
   registration:**
   - layout tables (#117) and the title check (#120) add no assertion;
