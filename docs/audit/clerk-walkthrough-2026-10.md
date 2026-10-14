@@ -111,6 +111,6 @@ That H1 is a visible line, not a hidden property. pandoc writes `agenda.html`'s 
 
 ## Addition, 2026-10-14: what the screen readers in CI read
 
-"What I didn't check" says CI runs NVDA, VoiceOver and Orca against the app. It doesn't. All three read only the design system's preview page, four finding cards built from the real components. None of them reads the app's screens, this agenda or its export. JAWS isn't run at all.
+"What I didn't check" says CI runs NVDA, VoiceOver and Orca against the app. It doesn't. All three read the design system's preview page, four finding cards built from the real components, and none of them reads the app's own screens.
 
-So screen readers are unchecked for the whole path a clerk takes, not just for this agenda. What CI does cover, and how reliably, is in the [screen reader test plan](../design-system/screen-reader-test-plan.md#where-the-ci-screen-readers-stand).
+Since 2026-10-14, NVDA does read this agenda's export ([`agenda-export.html`](clerk-walkthrough-2026-10/agenda-export.html)) top to bottom in CI, and fails if what it says differs from the committed recording; see the [screen reader simulation](screen-reader-simulation-2026-10.md). VoiceOver and Orca don't, and JAWS isn't run at all. So on the path a clerk takes, the export has one real screen reader on it and the editor's screens have none. What CI covers, and how reliably, is in the [screen reader test plan](../design-system/screen-reader-test-plan.md#where-the-ci-screen-readers-stand).

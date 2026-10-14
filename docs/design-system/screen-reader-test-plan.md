@@ -1,6 +1,6 @@
 # Screen reader test plan
 
-**Status: automated and blocking in CI for Orca, NVDA and VoiceOver, on the design-system preview only. VoiceOver sometimes fails to start; JAWS is not covered.**
+**Status: automated and blocking in CI for Orca, NVDA and VoiceOver. All three check the design-system preview; NVDA also reads two exported pages. VoiceOver sometimes fails to start; JAWS is not covered.**
 
 All six steps below now run as a gate — `node scripts/verify-orca.mjs` — rather
 than as a manual checklist. It drives Orca and asserts on what it actually says,
@@ -9,9 +9,13 @@ and it found a real defect the tree-level gate had missed.
 NVDA and VoiceOver equivalents live in `tests/screen-reader/` and run in CI on
 Windows (Chromium) and macOS (WebKit) runners, in
 `.github/workflows/screen-reader.yml`. **Both pass all four assertions and block
-the branch.** All three readers read only `design-system/preview.html`, the four
-finding cards built from the real components; none of them reads the app or an
-exported document. **JAWS is not covered** — commercial, licensed, and not
+the branch.** All three readers check `design-system/preview.html`, the four
+finding cards built from the real components. NVDA also reads two exported
+pages top to bottom, the reading pack (`tests/screen-reader/readingPack.ts`)
+and the clerk walkthrough's agenda export, and fails if it says anything other
+than the committed recording (see the
+[screen reader simulation](../audit/screen-reader-simulation-2026-10.md)). None
+of them reads the app's own screens. **JAWS is not covered** — commercial, licensed, and not
 driven by Guidepup.
 
 ### Where the CI screen readers stand
