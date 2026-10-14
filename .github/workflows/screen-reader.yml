@@ -27,12 +27,17 @@ on:
     paths: ['design-system/**', 'scripts/**', 'tests/**', 'playwright.config.ts', 'package.json', 'package-lock.json', '.github/workflows/screen-reader.yml']
   workflow_dispatch:
 
-# The screen readers' asset installer, pinned. Unpinned, npx took each new
-# release unannounced: 0.29.2 (2026-10-10) changed how macOS permissions are
-# written. 0.29.1 is what every green run used. Bump it on purpose, in a PR of
-# its own, and watch both jobs. (setup-action, below, bundles its own copy.)
+# The screen readers' setup CLI, pinned. Unpinned, npx took each new release
+# unannounced. Bump it on purpose, in a PR of its own, and watch both jobs.
+# Both jobs install assets with it; the VoiceOver job also runs its macOS
+# setup. (NVDA's setup-action, below, bundles its own copy, 0.23.0.)
+#
+# 0.29.2 (2026-10-10) changed how macOS permissions are written: it overwrites
+# existing rows where 0.29.1 ignored them. The VoiceOver setup's retry depends
+# on that (see the "Guidepup setup" step). Apart from that, 0.29.2 adds command
+# timeouts; its download code is the same as 0.29.1's.
 env:
-  GUIDEPUP_SETUP: '@guidepup/setup@0.29.1'
+  GUIDEPUP_SETUP: '@guidepup/setup@0.29.2'
 
 jobs:
   nvda:
@@ -115,22 +120,31 @@ jobs:
       # Enables VoiceOver and grants the automation permissions it needs.
       #
       # It intermittently fails before any test runs: it writes the automation
-      # permissions, then at once drives Control Center to turn on Do Not
-      # Disturb, and macOS refuses — "Not authorized to send Apple events to
-      # System Events (-2700)". Upstream already retries that script 5 times,
-      # 500ms apart (guidepup/setup enableDoNotDisturb.ts), and it still fails;
-      # a later, fresh attempt passes. 2 of 32 first attempts failed this way
-      # (runs 35992468630, 35998157585); every re-run passed. This pin is the
-      # latest release, and there is no option to skip Do Not Disturb.
+      # permissions into TCC.db, then at once drives Control Center to turn on
+      # Do Not Disturb, and macOS refuses — "Not authorized to send Apple events
+      # to System Events (-2700)". Upstream already retries that script 5 times
+      # (guidepup/setup enableDoNotDisturb.ts, about 105s in all) and it still
+      # fails. --ci always turns on Do Not Disturb; there is no option to skip it.
       #
-      # So: one retry after a pause. A second failure still fails the job.
-      # Ceiling: one retry. Upgrade trigger: the retry ever fails too, or
-      # upstream adds a way to skip Do Not Disturb.
+      # Once it fails on a runner, it stays failed there. Under setup-action
+      # (which bundles 0.23.0), a retry 30s later failed all 5 times it ran
+      # (runs 37538131712, 38269149658, 38305479314, 38436609521, 38450046081;
+      # 2026-10-06 to 10-13), while re-runs on fresh runners passed. 0.23.0
+      # and 0.29.1 write the permissions with INSERT OR IGNORE, so a refusal
+      # macOS has already recorded in TCC.db stays put; that is the likely
+      # reason. 0.29.2 overwrites the existing rows, so its retry rewrites the
+      # grant. setup-action is deprecated upstream with no newer code, so this
+      # runs the pinned CLI directly, as upstream now says to.
+      #
+      # On failure the CLI's logger can crash on Node 22 (Error.isError); the
+      # real error is the "[!] Error" line above the TypeError.
+      #
+      # Ceiling: one retry, on 0.29.2. Upgrade trigger: the retry fails again
+      # on 0.29.2 or later, or upstream adds a way to skip Do Not Disturb.
       - name: Guidepup setup
         id: guidepup
         continue-on-error: true
-        # Pinned to a commit: the action publishes no version tags.
-        uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+        run: npx --yes "$GUIDEPUP_SETUP" setup --ci
       - name: Wait before retrying Guidepup setup
         if: steps.guidepup.outcome == 'failure'
         run: |
@@ -138,7 +152,7 @@ jobs:
           sleep 30
       - name: Guidepup setup (retry)
         if: steps.guidepup.outcome == 'failure'
-        uses: guidepup/setup-action@acf1a64cc26292ebe0db6a28d1341bd1bae93c65
+        run: npx --yes "$GUIDEPUP_SETUP" setup --ci
 
       # As in the NVDA job: pinned, one retry.
       - name: Install Guidepup screen reader assets
