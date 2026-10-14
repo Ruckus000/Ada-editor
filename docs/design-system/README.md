@@ -105,8 +105,9 @@ accessibility-tree and keyboard audit. The application built on them — rule
 engine, persistence and sign-in — is described in the root README.
 
 It has been run with a real screen reader — Orca 46.1, driven headlessly — which
-found and fixed a focus-management defect the automated gate had missed. NVDA,
-JAWS and VoiceOver are still untested. See
+found and fixed a focus-management defect the automated gate had missed. NVDA
+and VoiceOver now run in CI too, and NVDA found three more bugs. All three read
+the design-system preview, not the app. JAWS is untested. See
 [`screen-reader-test-plan.md`](./screen-reader-test-plan.md) for what Orca
 actually said, and [known gaps](./accessibility-standard.md#known-gaps) for the
 rest.

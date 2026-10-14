@@ -1,14 +1,17 @@
 # Screen reader test plan
 
-**Status: automated and blocking in CI for Orca and VoiceOver; NVDA written but not yet reaching the page.**
+**Status: automated and blocking in CI for Orca, NVDA and VoiceOver, on the design-system preview only. VoiceOver sometimes fails to start; JAWS is not covered.**
 
 All six steps below now run as a gate — `node scripts/verify-orca.mjs` — rather
 than as a manual checklist. It drives Orca and asserts on what it actually says,
 and it found a real defect the tree-level gate had missed.
 
 NVDA and VoiceOver equivalents live in `tests/screen-reader/` and run in CI on
-Windows and macOS runners. **VoiceOver passes all four assertions and blocks the
-branch; NVDA still fails all four and is non-blocking.** **JAWS is not covered** — commercial, licensed, and not
+Windows (Chromium) and macOS (WebKit) runners, in
+`.github/workflows/screen-reader.yml`. **Both pass all four assertions and block
+the branch.** All three readers read only `design-system/preview.html`, the four
+finding cards built from the real components; none of them reads the app or an
+exported document. **JAWS is not covered** — commercial, licensed, and not
 driven by Guidepup.
 
 ### Where the CI screen readers stand
@@ -26,14 +29,22 @@ reading cursor while expecting focus to move.
   VoiceOver, so the two control tests step the VO cursor instead, which is how
   VoiceOver users move through a page anyway. All four assertions then passed
   on two consecutive runs (CI run 35872345691, attempts 1 and 2).
-- **NVDA: still says only `blank`**, with `--force-renderer-accessibility` set
-  and with `navigateToWebContent()`. Its cause is undiagnosed, and no Windows
-  machine has been available to look directly.
 
-For NVDA, until a transcript shows it reading this page, the four assertions
-are untested rather than wrong. Do not tune them: the guard in `open()` fails
-first precisely so that nothing downstream reports a confident result about an
-application it was never reading.
+  It does not always start. From 2026-10-12 to 2026-10-14 the VoiceOver job
+  failed 5 of 79 runs, and none of them was an assertion failing on the page:
+  four failed in the Guidepup setup retry with "Not authorized to send Apple
+  events to System Events (-2700)" (runs 38269149658, 38305479314, 38436609521,
+  38450046081), and one with "VoiceOver cannot be started" (38298709444). A red
+  VoiceOver job is a finding only if the failed step is `VoiceOver` and its
+  transcript shows the page.
+- **NVDA: working since CI run 36448190005.** It said only `blank` until the
+  browser ran headed (`playwright.config.ts`): headless Chromium has no window
+  for NVDA to read. Reading for real, it found three bugs; see *NVDA, verified
+  September 2026* below.
+
+Do not tune the assertions to a reader that is not reading the page: the guard
+in `open()` fails first precisely so that nothing downstream reports a
+confident result about an application it was never reading.
 
 The manual steps below remain the specification; the gate automates them.
 
@@ -179,6 +190,8 @@ Three things are easy to get wrong:
 | 2026-09-17 | VoiceOver / WebKit | CI run 5 | FAIL | FAIL | FAIL | FAIL | n/a | n/a | Screen reader starts; assertions fail |
 | 2026-09-23 | VoiceOver / WebKit | CI run 35872345691 (×2) | PASS | PASS | PASS | PASS | n/a | n/a | Automated; passed on two consecutive runs; now blocking |
 | 2026-09-23 | Orca 46.1 / Chromium 131 | CI runs 35919865962, 35920193543 | PASS | PASS | PASS | PASS | PASS | PASS | First runner transcript to read the page; passed on two consecutive runs; now blocking |
+| 2026-09-28 | NVDA / Chromium | CI run 36448190005 | PASS | PASS | PASS | PASS | n/a | n/a | Headed browser; found three bugs (below); now blocking |
+| 2026-10-12 to 14 | VoiceOver / WebKit | CI, 79 runs | PASS | PASS | PASS | PASS | n/a | n/a | Passed in 74; the other 5 failed before reading the page (Guidepup setup -2700 ×4, VoiceOver not starting ×1) |
 | | JAWS / Chrome | | | | | | | | not covered |
 
 ### What Orca actually said
@@ -263,6 +276,6 @@ tree gates had all passed:
   absolutely positioned box), so NVDA read "Apply fixfor…" and "Blocks
   access(Fails…". Chrome's computed names were right; NVDA reads the text runs.
 
-**Still unverified:** JAWS. Orca and VoiceOver are real screen readers
+**Still unverified:** JAWS. Orca, NVDA and VoiceOver are real screen readers
 consuming the real platform accessibility API, but browse-mode behaviour differs
 between implementations, and step 6 (keyboard trap) was not exercised.
