@@ -64,8 +64,9 @@ Stated plainly rather than discovered later.
 
 1. **NVDA and VoiceOver run in CI and block; JAWS is not covered.** NVDA
    (Windows, Chromium) and VoiceOver (macOS, WebKit) pass all four assertions
-   on the design-system preview's four finding cards, as Orca does. NVDA also
-   reads two exported pages and must match its committed recordings. None of
+   on the design-system preview's four finding cards, as Orca does. NVDA and
+   VoiceOver also read two exported pages, each matching its own committed
+   recordings. None of
    them reads the app's own screens. VoiceOver sometimes fails to start
    on the runner, which fails the job before it reads anything. The evidence
    and run numbers are in the test plan's
