@@ -23,7 +23,7 @@ export const READERS: Readonly<Record<Reader, { name: string; browser: string }>
 };
 
 /** One part of a step, in the language a voice should say it in. `glued`:
- *  the same sentence going on in another language, so no pause before it. */
+ *  the same sentence going on in another language, shown without a comma. */
 export interface HeardPart { text: string; lang: string; glued?: boolean }
 /** One step of the reader (NVDA's Down Arrow, VoiceOver's VO-Right): what it says. */
 export type Heard = HeardPart[];
@@ -318,7 +318,12 @@ function readVoiceOver(page: Document): Heard[] {
       if (last?.lang === lang) last.text += t; else into.push({ text: t, lang, glued: into.length > 0 });
       return;
     }
+    // A line break or a paragraph ends a word: two paragraphs in a cell, or a
+    // heading's two lines, aren't one run-on word.
+    const ends = node.nodeType === 1 && ((node as Element).tagName === 'BR' || isBlock(node as Element));
+    if (ends && into.length) into.at(-1)!.text += ' ';
     for (const c of node.childNodes) text(c, into);
+    if (ends && into.length) into.at(-1)!.text += ' ';
   };
   const tidy = (parts: HeardPart[]) => parts
     .map((p) => ({ ...p, text: p.text.replace(/\s+/g, ' ').trim() }))
@@ -372,9 +377,11 @@ function readVoiceOver(page: Document): Heard[] {
     if (tag === 'UL' || tag === 'OL') {
       const items = [...el.children].filter((c) => c.tagName === 'LI');
       let level = 1;
-      for (let e = el.parentElement; e; e = e.parentElement) if (e.tagName === 'UL' || e.tagName === 'OL') level++;
       let bullets = 0;
-      for (let e = el.parentElement; e; e = e.parentElement) if (e.tagName === 'UL') bullets++;
+      for (let e = el.parentElement; e; e = e.parentElement) {
+        if (e.tagName === 'UL' || e.tagName === 'OL') level++;
+        if (e.tagName === 'UL') bullets++;
+      }
       step(said('list', `${items.length} item${items.length === 1 ? '' : 's'}`, ...(level > 1 ? [`level ${level}`] : [])));
       const start = Number(el.getAttribute('start') ?? 1);
       items.forEach((li, i) => {

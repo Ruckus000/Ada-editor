@@ -9,7 +9,7 @@ export const FIXTURES: Issue[] = [
     id: 'alt-missing',
     severity: 'blocker',
     title: 'Image has no alternative text',
-    explanation: 'Screen readers will announce nothing for this chart, so its content is unavailable.',
+    explanation: 'Screen readers skip this chart or say only “image”, so its content is unavailable.',
     criterion: '1.1.1 Non-text Content',
     from: 34,
     to: 66,

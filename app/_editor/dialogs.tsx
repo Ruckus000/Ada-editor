@@ -1,13 +1,13 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactNode, RefObject } from 'react';
 import { figureNoun, safeHref } from './editorSchema';
 import type { FigureAlign, FigureSize } from './editorSchema';
 import type { Section } from './findings';
-import { READERS } from './screenReader';
-import type { Heard, Reader } from './screenReader';
+import { READERS, readAloud } from './screenReader';
+import type { Reader } from './screenReader';
 import type { SectionImage } from '../_data/store';
 import { acquireUrl, releaseUrl } from '../_data/images';
 import styles from './editor.module.css';
@@ -593,14 +593,15 @@ export function ImageIcon({ size }: { size: number }) {
  * (screenReader.ts). Speech is the browser's own, played only when asked:
  * someone using a real screen reader would otherwise hear two at once.
  */
-export function HearDialog({ heard, missing, onClose }: { heard: Record<Reader, Heard[]> | null; missing: string; onClose: () => void }) {
+export function HearDialog({ page, missing, onClose }: { page: Document | null; missing: string; onClose: () => void }) {
   const [reader, setReader] = useState<Reader>('nvda');
   const [speaking, setSpeaking] = useState(false);
   const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
   const stop = () => { if (canSpeak) window.speechSynthesis.cancel(); setSpeaking(false); };
   // Queued speech outlives the dialog, and the editor, unless it's cancelled.
   useEffect(() => () => { if (canSpeak) window.speechSynthesis.cancel(); }, [canSpeak]);
-  const lines = heard?.[reader] ?? null;
+  // Only the reader shown is read, once per page.
+  const lines = useMemo(() => (page ? readAloud(page, reader) : null), [page, reader]);
   const play = () => {
     if (!lines?.length) return;
     window.speechSynthesis.cancel();
@@ -617,7 +618,7 @@ export function HearDialog({ heard, missing, onClose }: { heard: Record<Reader, 
 
   return (
     <Shell
-      open={heard !== null}
+      open={page !== null}
       onOpenChange={(o) => { if (!o) { stop(); onClose(); } }}
       title="Hear it as a screen reader"
       description={`What ${name} with ${browser} says, step by step, reading this document’s HTML export. It’s a simulation from recordings of the real screen reader: versions and settings change what one says, and the PDF isn’t simulated.`}

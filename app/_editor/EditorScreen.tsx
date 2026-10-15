@@ -67,8 +67,6 @@ import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sectionFindings, sortFindings, summaryLine } from './findings';
 import { exportHtml } from './exportHtml';
-import { readAloud } from './screenReader';
-import type { Heard, Reader } from './screenReader';
 import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import type { TableAction } from './Toolbar';
@@ -144,7 +142,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [linkInitial, setLinkInitial] = useState('');
   const [tableOpen, setTableOpen] = useState(false);
   const [captionInitial, setCaptionInitial] = useState<string | null>(null);
-  const [heard, setHeard] = useState<{ items: Record<Reader, Heard[]>; missing: string } | null>(null);
+  const [heard, setHeard] = useState<{ page: Document; missing: string } | null>(null);
 
   /* ---------- refs shared with ProseMirror ---------- */
   const mountRef = useRef<HTMLDivElement>(null);
@@ -625,7 +623,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     try {
       const built = await buildHtml();
       if (!built) return;
-      setHeard({ items: { nvda: readAloud(built.page, 'nvda'), voiceover: readAloud(built.page, 'voiceover') }, missing: unavailable(built.missing).trim() });
+      setHeard({ page: built.page, missing: unavailable(built.missing).trim() });
     } catch (error) {
       report(error);
       announce('The web page could not be built, so it can’t be read aloud. Try again.');
@@ -1364,7 +1362,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         onSave={saveLayout}
         onClose={() => setLayoutTarget(null)}
       />
-      <HearDialog heard={heard?.items ?? null} missing={heard?.missing ?? ''} onClose={() => setHeard(null)} />
+      <HearDialog page={heard?.page ?? null} missing={heard?.missing ?? ''} onClose={() => setHeard(null)} />
       <InsertTableDialog open={tableOpen} onInsert={doInsertTable} onClose={() => setTableOpen(false)} focusDocument={() => viewRef.current?.focus()} />
       <TableCaptionDialog open={captionInitial !== null} initial={captionInitial ?? ''} onSave={saveCaption} onClose={() => setCaptionInitial(null)} focusDocument={() => viewRef.current?.focus()} />
       <LinkDialog
