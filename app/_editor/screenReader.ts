@@ -176,11 +176,15 @@ function readNvda(page: Document): Heard[] {
   // A cell's first line: its row and column, said already, waiting for what
   // the cell holds (a paragraph, a picture, a list) to go on the same line.
   let held: Line | null = null;
+  // A heading whose line broke: its next line, if anything follows, says
+  // "heading, level N" again, as NVDA did.
+  let headingGoesOn: Element | null = null;
   const open = (at: Element) => {
     if (line) return;
     if (held) { line = held; held = null; line.chain = chainOf(at); return; }
     line = { chain: chainOf(at), parts: [], inText: false, run: null };
     lines.push(line);
+    if (headingGoesOn) { const h = headingGoesOn; headingGoesOn = null; announce('heading'); announce(`level ${h.tagName[1]}`); }
   };
   const close = () => { flush(); if (line && !line.parts.length) lines.pop(); line = null; };
 
@@ -190,7 +194,7 @@ function readNvda(page: Document): Heard[] {
     if (node.nodeType !== 1) return;
     const el = node as Element;
     switch (el.tagName) {
-      case 'BR': close(); return;
+      case 'BR': close(); headingGoesOn = el.closest('h1, h2, h3, h4, h5, h6'); return;
       case 'IMG': {
         const alt = el.getAttribute('alt')?.trim();
         if (alt) { open(owner); announce('graphic'); say(alt, langOf(el)); flush(); line!.inText = false; }
@@ -222,11 +226,10 @@ function readNvda(page: Document): Heard[] {
     const tag = el.tagName;
     if (/^H[1-6]$/.test(tag)) {
       if (!el.textContent?.trim()) return; // an empty heading isn't read at all
-      // Every line of a heading says it's one: a line break starts another.
-      const intro = () => { close(); open(el); announce('heading'); announce(`level ${tag[1]}`); };
-      intro();
-      for (const child of el.childNodes) if (child.nodeType === 1 && (child as Element).tagName === 'BR') intro(); else inline(child, el);
+      close(); open(el); announce('heading'); announce(`level ${tag[1]}`);
+      for (const child of el.childNodes) inline(child, el);
       close();
+      headingGoesOn = null; // a break at its very end starts nothing
       return;
     }
     if (tag === 'LI') {
@@ -338,9 +341,8 @@ function readVoiceOver(page: Document): Heard[] {
       if (last?.lang === lang) last.text += t; else into.push({ text: t, lang, glued: into.length > 0 });
       return;
     }
-    // A line break or a paragraph ends a word: two paragraphs in a cell, or a
-    // heading's two lines, aren't one run-on word.
-    const ends = node.nodeType === 1 && ((node as Element).tagName === 'BR' || isBlock(node as Element));
+    // A line break ends a word: a link's two lines aren't one run-on word.
+    const ends = node.nodeType === 1 && (node as Element).tagName === 'BR';
     if (ends && into.length) into.at(-1)!.text += ' ';
     for (const c of node.childNodes) text(c, into);
     if (ends && into.length) into.at(-1)!.text += ' ';
