@@ -107,6 +107,7 @@ export default function Page() {
                 <ul>
                   <li>NVDA on Windows</li>
                   <li>VoiceOver on macOS</li>
+                  <li>Orca on Linux</li>
                   <li>Run against the design-system components</li>
                 </ul>
               </div>

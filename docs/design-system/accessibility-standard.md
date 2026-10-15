@@ -62,18 +62,18 @@ These are not machine-checkable yet. They are the review checklist:
 
 Stated plainly rather than discovered later.
 
-1. **NVDA and VoiceOver run in CI but do not pass.** As of run 5 on
-   `4e45d6c`, both screen readers start and drive the page for roughly two and
-   a half minutes each, and all four assertions fail on both platforms. The
-   infrastructure is proven; the assertions are not. The visible failure is
-   real rather than environmental — after `sr.act()` the finding is never
-   removed, so the navigation helper is probably not landing on a button that
-   removes anything, the same class of mistake the Orca gate needed
-   structural navigation to fix.
+1. **NVDA and VoiceOver run in CI and block; JAWS is not covered.** NVDA
+   (Windows, Chromium) and VoiceOver (macOS, WebKit) pass all four assertions
+   on the design-system preview's four finding cards, as Orca does. NVDA and
+   VoiceOver also read two exported pages, each matching its own committed
+   recordings. None of
+   them reads the app's own screens. VoiceOver sometimes fails to start
+   on the runner, which fails the job before it reads anything. The evidence
+   and run numbers are in the test plan's
+   [Where the CI screen readers stand](./screen-reader-test-plan.md#where-the-ci-screen-readers-stand).
 
    **JAWS is not covered at all** — commercial, licensed, and not driven by
-   Guidepup. Treat NVDA and VoiceOver as **attempted and failing**, which is a
-   better position than untested but is not verification.
+   Guidepup.
 2. **The Orca gate runs and blocks in CI.** It passes 7 checks on a GitHub
    runner and gates the branch, and a skip is a failure when `CI` is set. It was
    non-blocking until 2026-09-23 because on a runner Orca read only

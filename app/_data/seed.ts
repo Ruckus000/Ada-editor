@@ -9,13 +9,12 @@ import { schema } from '../_editor/editorSchema';
  * finding shown in the app is computed by the real engine (app/_engine).
  *
  * The seed content is deliberately crafted so the ported rules fire across all
- * four severities — a figure without alt (blocker), generic and raw-URL links
- * (violation), a heading-level jump with its mechanical fix (violation), text
- * colours below 4.5:1 with their one-click fix (violation), typed fill-in
- * blanks (manual), dense
- * and overlong prose (advisory), a terse alt and a colour-only instruction
- * (manual) — and two documents stay clean so the "no open findings" states are
- * real, not authored.
+ * four severities — a figure without alt (blocker), text colours below 4.5:1
+ * with their one-click fix (violation), dense and overlong prose (advisory),
+ * generic and raw-URL links, a heading-level jump with its mechanical fix,
+ * typed fill-in blanks, a terse alt and a colour-only instruction (manual) —
+ * and two documents stay clean so the "no open findings" states are real, not
+ * authored. scripts/verify-rules.mjs pins the counts per document.
  */
 
 export interface DocSummary {
