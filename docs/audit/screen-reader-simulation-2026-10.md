@@ -43,6 +43,12 @@ VoiceOver reads the same pages differently, and the dialog shows each reader's o
 - **A cell's column header is said only when the column changes.** Below a cell spanning two rows, "No" follows "Yes" in the same column, so it gets no "Vote" at all.
 - **An empty table cell is "blank", and an empty heading is skipped**, as in NVDA.
 
+### What's inside a heading or a cell
+
+The first recordings had only plain headings and one paragraph per cell, so how the simulator read anything richer was a guess, marked `shortcut:`. The reading pack now has a section with a heading split by a line break, a heading with a link, and a table whose cells hold two paragraphs, a link, a picture and a list. Both readers read it twice in run 38806202320, identically, and the guesses were wrong for both:
+- **NVDA repeats "heading, level 3" on each line of a heading with a line break.** Inside a cell, a picture or a list is announced after the cell's row and column: "row 3, Item, column 1, figure, graphic, Ward map", and "Notes, column 2, list, with 2 items, bullet". A second paragraph is a line of its own, with no row or column.
+- **VoiceOver keeps a heading as one step, however many pieces a link or a break makes of it, and counts them:** "heading level 3, See the, link, minutes, 2 items". A cell's step says only the first thing in the cell ("Ward map image", "list 2 items", or a paragraph up to its link), then "column 1 of 2". The rest of the cell follows as steps of its own: "Item B", "link the plan", the list's items.
+
 ### 3. Correct the copy the recordings contradict
 
 Two rules described NVDA wrongly, and the dialog would have shown the contradiction next to the finding:
@@ -69,7 +75,7 @@ The dialog sits beside the export it describes, so the top bar gains nothing. It
 
 ## What would change these decisions
 
-- **Something the recordings don't hold**, such as a list inside a merged cell, or a symbol NVDA names that isn't recorded yet. It is read as plain text until it is added to the reading pack and re-recorded.
+- **Something the recordings don't hold**, such as a table inside a cell, or a symbol NVDA names that isn't recorded yet. It is read as plain text until it is added to the reading pack and re-recorded.
 - **A runner update that changes a reader's words.** NVDA is pinned by setup-action's commit; VoiceOver changes with `macos-latest`. The spec fails, and the recording is read again and re-committed.
 - **A way to record JAWS, or a PDF reader, in CI.** Either would get its own recordings and words.
 - **People needing to edit while they listen.** The dialog would become a panel beside the page.

@@ -1,5 +1,5 @@
 # VoiceOver reading reading-pack with VO-Right in Safari, as reading.voiceover.spec.ts does: one spoken phrase per line, from the page's second item (reading.ts).
-# Recorded by screen-reader.yml run 38749420697 (2026-10-15), VoiceOver on macos-latest with its instructions off; the run's retry said the same.
+# Recorded by screen-reader.yml run 38806202320 (2026-10-15), VoiceOver on macos-latest with its instructions off; the run's retry said the same.
 # Committed by hand after reading it against the page. Never regenerate this automatically.
 Town seal image
 Town of Example
@@ -65,6 +65,24 @@ Map of the park image
 image
 Site plan of the shelter image
 image
+heading level 2 Inside headings and cells
+heading level 3 Public Comment 2 items
+heading level 3 See the link minutes 2 items
+table 2 columns, 3 rows
+Item column 1 of 2
+Notes column 2 of 2
+row 2 of 3 Item Item A column 1 of 2
+Item B
+Notes See column 2 of 2
+link the plan
+row 3 of 3 Item Ward map image column 1 of 2
+Notes list 2 items column 2 of 2
+• 1 of 2
+One
+• 2 of 2
+Two
+end of list
+end of table
 heading level 2 Links and language
 An unsafe link.
 Web address:

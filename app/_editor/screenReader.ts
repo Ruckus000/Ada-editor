@@ -140,7 +140,7 @@ function cellIntro(table: Element, cell: Element, prevRow: string | null): { sai
 /** A line as it's built: the fields it sits in, what it says, whether the
  *  last part is text (which the next text joins) or an announcement, and the
  *  run of text not yet made speakable. */
-interface Line { chain: Element[]; parts: HeardPart[]; inText: boolean; run: HeardPart | null }
+interface Line { chain: Element[]; parts: HeardPart[]; inText: boolean; run: HeardPart | null; cell?: { el: Element; intro: number } }
 
 function readNvda(page: Document): Heard[] {
   const pageLang = page.documentElement.getAttribute('lang') || 'en';
@@ -173,7 +173,19 @@ function readNvda(page: Document): Heard[] {
     line!.inText = true;
   };
   const announce = (text: string) => { flush(); line!.parts.push({ text, lang: pageLang }); line!.inText = false; };
-  const open = (at: Element) => { if (!line) { line = { chain: chainOf(at), parts: [], inText: false, run: null }; lines.push(line); } };
+  // A cell's first line: its row and column, said already, waiting for what
+  // the cell holds (a paragraph, a picture, a list) to go on the same line.
+  let held: Line | null = null;
+  // A heading whose line broke: its next line, if anything follows, says
+  // "heading, level N" again, as NVDA did.
+  let headingGoesOn: Element | null = null;
+  const open = (at: Element) => {
+    if (line) return;
+    if (held) { line = held; held = null; line.chain = chainOf(at); return; }
+    line = { chain: chainOf(at), parts: [], inText: false, run: null };
+    lines.push(line);
+    if (headingGoesOn) { const h = headingGoesOn; headingGoesOn = null; announce('heading'); announce(`level ${h.tagName[1]}`); }
+  };
   const close = () => { flush(); if (line && !line.parts.length) lines.pop(); line = null; };
 
   // Inline content: text, links, highlights, other languages, images, breaks.
@@ -182,7 +194,7 @@ function readNvda(page: Document): Heard[] {
     if (node.nodeType !== 1) return;
     const el = node as Element;
     switch (el.tagName) {
-      case 'BR': close(); return;
+      case 'BR': close(); headingGoesOn = el.closest('h1, h2, h3, h4, h5, h6'); return;
       case 'IMG': {
         const alt = el.getAttribute('alt')?.trim();
         if (alt) { open(owner); announce('graphic'); say(alt, langOf(el)); flush(); line!.inText = false; }
@@ -217,6 +229,7 @@ function readNvda(page: Document): Heard[] {
       close(); open(el); announce('heading'); announce(`level ${tag[1]}`);
       for (const child of el.childNodes) inline(child, el);
       close();
+      headingGoesOn = null; // a break at its very end starts nothing
       return;
     }
     if (tag === 'LI') {
@@ -237,15 +250,20 @@ function readNvda(page: Document): Heard[] {
         const intro = cellIntro(el, cell, prevRow.get(el) ?? null);
         prevRow.set(el, intro.row);
         for (const s of intro.said) announce(s);
+        line!.cell = { el: cell, intro: line!.parts.length };
+        held = line;
+        line = null;
         let first = true;
         for (const child of cell.childNodes) {
           if (child.nodeType === 1 && (child as Element).tagName === 'P') {
             if (!first) { close(); open(cell); }
-            first = false;
             for (const c of child.childNodes) inline(c, child as Element);
-          } else inline(child, cell);
+          } else if (child.nodeType === 1 && isBlock(child as Element)) block(child as Element);
+          else inline(child, cell);
+          first = false;
         }
         close();
+        held = null; // an empty cell: its row and column are all there is
       }
       return;
     }
@@ -278,11 +296,16 @@ function readNvda(page: Document): Heard[] {
   // the spec can start NVDA at the top with nothing focused, and re-record.
   const first = page.body.querySelector('a[href]');
   let prev: Element[] = first ? chainOf(first) : [];
-  return lines.map(({ chain, parts }) => {
+  // A field inside a cell (a figure, a list) is said after the cell's row and
+  // column: "row 3, Item, column 1, figure, graphic, Ward map".
+  const said = (texts: string[]) => texts.map((text) => ({ text, lang: pageLang }));
+  return lines.map(({ chain, parts, cell }) => {
     const left = prev.filter((f) => !chain.includes(f)).reverse().flatMap(exit);
-    const entered = chain.filter((f) => !prev.includes(f)).flatMap(enter);
+    const entered = chain.filter((f) => !prev.includes(f));
+    const inCell = entered.filter((f) => cell?.el.contains(f));
     prev = chain;
-    return [...[...left, ...entered].map((text) => ({ text, lang: pageLang })), ...parts];
+    const intro = parts.slice(0, cell?.intro ?? 0);
+    return [...said([...left, ...entered.filter((f) => !inCell.includes(f)).flatMap(enter)]), ...intro, ...said(inCell.flatMap(enter)), ...parts.slice(intro.length)];
   });
 }
 
@@ -318,9 +341,8 @@ function readVoiceOver(page: Document): Heard[] {
       if (last?.lang === lang) last.text += t; else into.push({ text: t, lang, glued: into.length > 0 });
       return;
     }
-    // A line break or a paragraph ends a word: two paragraphs in a cell, or a
-    // heading's two lines, aren't one run-on word.
-    const ends = node.nodeType === 1 && ((node as Element).tagName === 'BR' || isBlock(node as Element));
+    // A line break ends a word: a link's two lines aren't one run-on word.
+    const ends = node.nodeType === 1 && (node as Element).tagName === 'BR';
     if (ends && into.length) into.at(-1)!.text += ' ';
     for (const c of node.childNodes) text(c, into);
     if (ends && into.length) into.at(-1)!.text += ' ';
@@ -329,6 +351,9 @@ function readVoiceOver(page: Document): Heard[] {
     .map((p) => ({ ...p, text: p.text.replace(/\s+/g, ' ').trim() }))
     .filter((p) => p.text)
     .map((p, i) => (i ? p : { text: p.text, lang: p.lang }));
+
+  /** The steps `read` makes, taken back out of the reading. */
+  const stepsOf = (read: () => void) => { const at = steps.length; read(); return steps.splice(at); };
 
   // A picture: its name, then "image"; unnamed, just "image".
   const picture = (name: string | null | undefined, lang: string) =>
@@ -366,12 +391,10 @@ function readVoiceOver(page: Document): Heard[] {
       return;
     }
     if (/^H[1-6]$/.test(tag)) {
-      // shortcut: a heading is one step, links in it included; none of the
-      // recorded pages has a link in a heading. Upgrade: record one.
-      const name: HeardPart[] = [];
-      text(el, name);
-      const t = tidy(name);
-      if (t.length) step(said('heading level', tag[1]!), ...t); // an empty one isn't a step at all
+      // One step, however many pieces a link or a line break makes of it,
+      // and then how many: "heading level 3, See the, link, minutes, 2 items".
+      const pieces = stepsOf(() => inline(el.childNodes));
+      if (pieces.length) step(said('heading level', tag[1]!), ...pieces.flat(), ...(pieces.length > 1 ? [said(`${pieces.length} items`)] : [])); // an empty one isn't a step at all
       return;
     }
     if (tag === 'UL' || tag === 'OL') {
@@ -413,13 +436,11 @@ function readVoiceOver(page: Document): Heard[] {
         }
         if (p.colspan > 1) parts.push(said(`spans ${p.colspan} columns`));
         if (p.rowspan > 1) parts.push(said(`spans ${p.rowspan} rows`));
-        // shortcut: a cell is one step, whatever is in it; none of the
-        // recorded pages has a link or a picture in a cell. Upgrade: record one.
-        const content: HeardPart[] = [];
-        text(p.cell, content);
-        const t = tidy(content);
-        parts.push(...(t.length ? t : [said('blank')]), said(`column ${p.col + 1} of ${cols}`));
-        step(...parts);
+        // The cell's step says the first thing in it (a paragraph's text up to
+        // a link, a picture, "list 2 items"); the rest follow as steps of their own.
+        const [first, ...rest] = stepsOf(() => children(p.cell));
+        step(...parts, ...(first ?? [said('blank')]), said(`column ${p.col + 1} of ${cols}`));
+        steps.push(...rest);
         row = p.row;
         col = p.col;
       }
