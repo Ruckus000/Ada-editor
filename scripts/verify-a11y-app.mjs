@@ -1333,8 +1333,9 @@ async function pictureLayout(send) {
 // Export: the downloaded page must be exactly as accessible as the findings
 // say, and a hostile title from localStorage (a trust boundary) must stay
 // text. Last step of editor(): it navigates away from the editor.
-// Hear it as a screen reader: a dialog listing what NVDA says reading the
-// export. Before checkExport, which renames the document and leaves the page.
+// Hear it as a screen reader: a dialog listing what NVDA, or VoiceOver, says
+// reading the export. Before checkExport, which renames the document and
+// leaves the page.
 async function checkHear(send) {
   await openMenu(send, 'Export');
   if (!(await focusByName(send, 'button', 'Hear it as a screen reader'))) { fail('HEAR  no "Hear it as a screen reader" in the Export menu'); return; }
@@ -1350,6 +1351,19 @@ async function checkHear(send) {
   if (!heard.inside) fail('HEAR  focus did not move into the dialog');
   if (!heard.heading || !heard.link) fail(`HEAR  the dialog should list the main heading and a link as NVDA says them: ${JSON.stringify(heard)}`);
   else note(`hear: ${heard.lines.length} lines, the main heading and a link among them`);
+  // The reader switch, by keyboard: VoiceOver's words replace NVDA's.
+  if (!(await focusByName(send, 'button', 'VoiceOver'))) fail('HEAR  no VoiceOver switch in the dialog');
+  else {
+    await key(send, 'Enter');
+    await sleep(300);
+    const vo = await evaluate(send, `(() => {
+      const d = document.querySelector('[role=dialog]');
+      const lines = [...d.querySelectorAll('ol > li')].map((li) => li.textContent);
+      return { pressed: d.querySelector('button[aria-pressed=true]')?.textContent, heading: lines.some((t) => /heading level 1, /.test(t)) };
+    })()`);
+    if (vo.pressed !== 'VoiceOver' || !vo.heading) fail(`HEAR  switching to VoiceOver should press it and list the main heading as VoiceOver says it: ${JSON.stringify(vo)}`);
+    else note('hear: the VoiceOver switch lists VoiceOver\'s words');
+  }
   await runAxe(send, ' (hear dialog)');
   await key(send, 'Escape');
   await sleep(300);

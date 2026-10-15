@@ -1,0 +1,78 @@
+# VoiceOver reading reading-pack with VO-Right in Safari, as reading.voiceover.spec.ts does: one spoken phrase per line, from the page's second item (reading.ts).
+# Recorded by screen-reader.yml run 38749420697 (2026-10-15), VoiceOver on macos-latest with its instructions off; the run's retry said the same.
+# Committed by hand after reading it against the page. Never regenerate this automatically.
+Town seal image
+Town of Example
+end of banner
+main
+heading level 1 Reading test
+A paragraph with a link to
+link the agenda
+.
+Line one
+line two.
+Important, stressed and highlighted words.
+heading level 2 Lists
+list 2 items
+• 1 of 2
+Apples
+• 2 of 2
+Pears
+list 2 items level 2
+◦ 1 of 2
+Green
+list 1 item level 3
+■
+Light
+end of list
+◦ 2 of 2
+Red
+end of list
+end of list
+list 2 items
+3
+Third
+4
+Fourth
+end of list
+heading level 3 Tables
+Park fund table 2 columns, 3 rows
+Item column 1 of 2
+Amount column 2 of 2
+row 2 of 3 Item Budget column 1 of 2
+Amount 100 column 2 of 2
+row 3 of 3 Item Spent column 1 of 2
+Amount 80 column 2 of 2
+end of table
+table 2 columns, 4 rows
+Member column 1 of 2
+Vote column 2 of 2
+row 2 of 4 Member spans 2 columns Consent agenda column 1 of 2
+row 3 of 4 spans 2 rows Mayor column 1 of 2
+Vote Yes column 2 of 2
+row 4 of 4 No column 2 of 2
+end of table
+table 2 columns, 3 rows
+Name: column 1 of 2
+blank column 2 of 2
+row 2 of 3 Date: column 1 of 2
+blank column 2 of 2
+row 3 of 3 Signed: column 1 of 2
+blank column 2 of 2
+end of table
+heading level 2 Pictures
+Map of the park image
+image
+Site plan of the shelter image
+image
+heading level 2 Links and language
+An unsafe link.
+Web address:
+link https://example.org/agenda
+In Spanish: Llame al 311.
+Say hola to the clerk.
+Parks & Recreation: 1.5 miles, 50% off, call #3 or write to clerk@example.org.
+Name: ________
+end of main
+content information
+Posted October 2026

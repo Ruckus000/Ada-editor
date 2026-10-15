@@ -1,22 +1,35 @@
 import { languageName, primaryTag } from '../_engine/textHelpers';
 
 /**
- * "Hear it as a screen reader": what NVDA says, line by line, reading the HTML
- * export. No DOM of its own and no React: it reads the Document exportHtml
- * has just built (the page the user downloads), in the browser or under
- * linkedom in the Node gate.
+ * "Hear it as a screen reader": what NVDA or VoiceOver says, step by step,
+ * reading the HTML export. No DOM of its own and no React: it reads the
+ * Document exportHtml has just built (the page the user downloads), in the
+ * browser or under linkedom in the Node gate.
  *
- * Every phrase here was heard. NVDA with Chrome, as Guidepup installs them
- * in CI, read the pages in tests/screen-reader/readingPack.ts with Down Arrow
- * (reading.nvda.spec.ts), and scripts/verify-rules.mjs holds this file to
- * those recordings word for word. A construct the recordings don't hold is read as its plain text: grow
- * the reading pack and re-record before giving it words.
+ * Every phrase here was heard. NVDA with Chrome and VoiceOver with Safari, as
+ * Guidepup installs them in CI, read the pages in
+ * tests/screen-reader/readingPack.ts a step at a time (reading.nvda.spec.ts,
+ * reading.voiceover.spec.ts), and scripts/verify-rules.mjs holds this file to
+ * those recordings word for word. A construct the recordings don't hold is
+ * read as its plain text: grow the reading pack and re-record before giving
+ * it words.
  */
 
-/** One part of a line, in the language a voice should say it in. */
-export interface HeardPart { text: string; lang: string }
-/** One step of the reader (one Down Arrow): what it says. */
+/** The readers recorded so far (tests/screen-reader/recordings/<reader>/). */
+export type Reader = 'nvda' | 'voiceover';
+export const READERS: Readonly<Record<Reader, { name: string; browser: string }>> = {
+  nvda: { name: 'NVDA', browser: 'Chrome' },
+  voiceover: { name: 'VoiceOver', browser: 'Safari' },
+};
+
+/** One part of a step, in the language a voice should say it in. `glued`:
+ *  the same sentence going on in another language, so no pause before it. */
+export interface HeardPart { text: string; lang: string; glued?: boolean }
+/** One step of the reader (NVDA's Down Arrow, VoiceOver's VO-Right): what it says. */
 export type Heard = HeardPart[];
+
+export const readAloud = (page: Document, reader: Reader): Heard[] =>
+  reader === 'nvda' ? readNvda(page) : readVoiceOver(page);
 
 const LANDMARK: Readonly<Record<string, string>> = { header: 'banner landmark', main: 'main landmark', footer: 'content info landmark' };
 // What NVDA calls each level of bullet, as heard: the browser's disc, circle, square.
@@ -129,7 +142,7 @@ function cellIntro(table: Element, cell: Element, prevRow: string | null): { sai
  *  run of text not yet made speakable. */
 interface Line { chain: Element[]; parts: HeardPart[]; inText: boolean; run: HeardPart | null }
 
-export function readAloud(page: Document): Heard[] {
+function readNvda(page: Document): Heard[] {
   const pageLang = page.documentElement.getAttribute('lang') || 'en';
   const lines: Line[] = [];
   let line: Line | null = null;
@@ -275,3 +288,156 @@ export function readAloud(page: Document): Heard[] {
 
 const BLOCKS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'TABLE', 'CAPTION', 'FIGURE', 'HEADER', 'MAIN', 'FOOTER']);
 const isBlock = (el: Element) => BLOCKS.has(el.tagName);
+
+/* ---------- VoiceOver ---------- */
+
+const VO_LANDMARK: Readonly<Record<string, string>> = { HEADER: 'banner', MAIN: 'main', FOOTER: 'content information' };
+const VO_BULLETS = ['•', '◦', '■'];
+
+/**
+ * VoiceOver with Safari, a VO-Right at a time, as heard. Each landmark, list
+ * and table is a step of its own going in and another ("end of …") coming
+ * out. Text goes on until a link, a line break or a picture interrupts it:
+ * bold, highlight and another language don't (the voice changes, nothing is
+ * said). The text itself is what Guidepup logs, not how it's pronounced, so
+ * symbols stay as written.
+ */
+function readVoiceOver(page: Document): Heard[] {
+  const pageLang = page.documentElement.getAttribute('lang') || 'en';
+  const steps: Heard[] = [];
+  const langOf = (el: Element) => el.closest('[lang]')?.getAttribute('lang') || pageLang;
+  const said = (...words: string[]) => ({ text: words.join(' '), lang: pageLang });
+  const step = (...parts: HeardPart[]) => { const kept = parts.filter((p) => p.text); if (kept.length) steps.push(kept); };
+
+  /** Text as one sentence: a run per language, glued together. */
+  const text = (node: Node, into: HeardPart[]) => {
+    if (node.nodeType === 3) {
+      const t = node.textContent ?? '';
+      const lang = langOf(node.parentElement!);
+      const last = into.at(-1);
+      if (last?.lang === lang) last.text += t; else into.push({ text: t, lang, glued: into.length > 0 });
+      return;
+    }
+    for (const c of node.childNodes) text(c, into);
+  };
+  const tidy = (parts: HeardPart[]) => parts
+    .map((p) => ({ ...p, text: p.text.replace(/\s+/g, ' ').trim() }))
+    .filter((p) => p.text)
+    .map((p, i) => (i ? p : { text: p.text, lang: p.lang }));
+
+  // A picture: its name, then "image"; unnamed, just "image".
+  const picture = (name: string | null | undefined, lang: string) =>
+    step(...(name?.trim() ? [{ text: name.trim(), lang }] : []), said('image'));
+
+  // Inline content, interrupted at links, breaks and pictures.
+  const inline = (nodes: Iterable<Node>) => {
+    let run: HeardPart[] = [];
+    const flush = () => { step(...tidy(run)); run = []; };
+    const walk = (node: Node) => {
+      if (node.nodeType === 3) { text(node, run); return; }
+      if (node.nodeType !== 1) return;
+      const e = node as Element;
+      if (e.tagName === 'BR') { flush(); return; }
+      if (e.tagName === 'IMG') { flush(); picture(e.getAttribute('alt'), langOf(e)); return; }
+      if (e.tagName === 'A' && e.hasAttribute('href')) {
+        flush();
+        const name: HeardPart[] = [];
+        text(e, name);
+        step(said('link'), ...tidy(name));
+        return;
+      }
+      for (const c of e.childNodes) walk(c);
+    };
+    for (const c of nodes) walk(c);
+    flush();
+  };
+
+  const block = (el: Element) => {
+    const tag = el.tagName;
+    if (tag in VO_LANDMARK) {
+      step(said(VO_LANDMARK[tag]!));
+      children(el);
+      step(said('end of', VO_LANDMARK[tag]!));
+      return;
+    }
+    if (/^H[1-6]$/.test(tag)) {
+      // shortcut: a heading is one step, links in it included; none of the
+      // recorded pages has a link in a heading. Upgrade: record one.
+      const name: HeardPart[] = [];
+      text(el, name);
+      const t = tidy(name);
+      if (t.length) step(said('heading level', tag[1]!), ...t); // an empty one isn't a step at all
+      return;
+    }
+    if (tag === 'UL' || tag === 'OL') {
+      const items = [...el.children].filter((c) => c.tagName === 'LI');
+      let level = 1;
+      for (let e = el.parentElement; e; e = e.parentElement) if (e.tagName === 'UL' || e.tagName === 'OL') level++;
+      let bullets = 0;
+      for (let e = el.parentElement; e; e = e.parentElement) if (e.tagName === 'UL') bullets++;
+      step(said('list', `${items.length} item${items.length === 1 ? '' : 's'}`, ...(level > 1 ? [`level ${level}`] : [])));
+      const start = Number(el.getAttribute('start') ?? 1);
+      items.forEach((li, i) => {
+        // As heard: a bullet says where it is ("• 1 of 2", but a lone "■");
+        // a number says only itself.
+        const bullet = VO_BULLETS[Math.min(bullets, VO_BULLETS.length - 1)]!;
+        step(said(tag === 'OL' ? String(start + i) : items.length > 1 ? `${bullet} ${i + 1} of ${items.length}` : bullet));
+        children(li);
+      });
+      step(said('end of list'));
+      return;
+    }
+    if (tag === 'TABLE') {
+      const { rows, cols, cells } = grid(el);
+      const caption = [...el.children].find((c) => c.tagName === 'CAPTION')?.textContent?.trim();
+      step(...(caption ? [{ text: caption, lang: langOf(el) }] : []), said('table'), said(`${cols} column${cols === 1 ? '' : 's'}, ${rows.length} row${rows.length === 1 ? '' : 's'}`));
+      // The row is said when it changes (not for the first), and the column's
+      // header when the column does: below a cell spanning two rows, "No" in
+      // the same column as the "Yes" before it gets no "Vote".
+      let row = 0;
+      let col = -1;
+      for (const p of cells) {
+        const parts: HeardPart[] = [];
+        if (p.row !== row) parts.push(said(`row ${p.row + 1} of ${rows.length}`));
+        const isHeader = p.cell.tagName === 'TH' && p.cell.getAttribute('scope') === 'col';
+        if (!isHeader && p.col !== col) {
+          const header = cells.find((h) => h.col === p.col && h.cell.tagName === 'TH' && h.cell.getAttribute('scope') === 'col')?.cell.textContent?.trim();
+          if (header) parts.push({ text: header, lang: langOf(p.cell) });
+        }
+        if (p.colspan > 1) parts.push(said(`spans ${p.colspan} columns`));
+        if (p.rowspan > 1) parts.push(said(`spans ${p.rowspan} rows`));
+        // shortcut: a cell is one step, whatever is in it; none of the
+        // recorded pages has a link or a picture in a cell. Upgrade: record one.
+        const content: HeardPart[] = [];
+        text(p.cell, content);
+        const t = tidy(content);
+        parts.push(...(t.length ? t : [said('blank')]), said(`column ${p.col + 1} of ${cols}`));
+        step(...parts);
+        row = p.row;
+        col = p.col;
+      }
+      step(said('end of table'));
+      return;
+    }
+    if (tag === 'FIGURE') {
+      // A placeholder is role="img": its label, or nothing; its text is hidden.
+      const img = el.querySelector('img');
+      picture(img ? img.getAttribute('alt') : el.getAttribute('aria-label'), langOf(el));
+      return;
+    }
+    if (tag === 'P') { inline(el.childNodes); return; }
+    children(el);
+  };
+  // Blocks in turn; inline content between them (a band's picture and text)
+  // runs together, as in a paragraph.
+  const children = (el: Element) => {
+    let loose: Node[] = [];
+    for (const c of el.childNodes) {
+      if (c.nodeType === 1 && isBlock(c as Element)) { inline(loose); loose = []; block(c as Element); } else loose.push(c);
+    }
+    inline(loose);
+  };
+
+  children(page.body);
+  return steps;
+}

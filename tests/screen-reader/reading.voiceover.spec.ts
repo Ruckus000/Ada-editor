@@ -18,8 +18,9 @@ import { assertReadsAsRecorded } from './reading';
 voiceOverTest.use({ voiceOverStartOptions: { capture: true, settings: { SCRShouldOutputVOInstructions: false } } });
 
 voiceOverTest.describe('VoiceOver reading an export', () => {
-  // A VO cursor move at a time, each waited out: minutes, not the suite's 5.
-  voiceOverTest.describe.configure({ timeout: 10 * 60 * 1000 });
+  // A VO cursor move at a time, each waited out (about 7s): the pack took
+  // 8.4 minutes in run 38749420697.
+  voiceOverTest.describe.configure({ timeout: 15 * 60 * 1000 });
   for (const fixture of READING_FIXTURES) {
     // The VO cursor (VO-Right), as voiceover.spec.ts moves: keystrokes never
     // moved focus under VoiceOver in CI.

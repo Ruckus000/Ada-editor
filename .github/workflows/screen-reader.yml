@@ -94,8 +94,9 @@ jobs:
   voiceover:
     name: VoiceOver (macOS)
     runs-on: macos-latest
-    # The reading specs step through two pages an item at a time.
-    timeout-minutes: 35
+    # The reading specs step through two pages an item at a time: about 13
+    # minutes of the job's 23 in run 38749420697, and twice that on a retry.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

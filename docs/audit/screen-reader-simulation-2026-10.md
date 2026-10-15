@@ -8,10 +8,11 @@
 - The two exports. `exportHtml` writes the whole document-to-HTML mapping in one place. `exportPdf` builds its tags inside its layout pass, and the two differ in small ways: language spans, header and footer placeholders, and heading levels above 6.
 - Every place the product describes what a screen reader says (`app/_engine/rules.ts`, `app/_editor/findings.ts`, Help, the guides).
 - NVDA itself, reading two exported pages a line at a time in CI: the [reading pack](../../tests/screen-reader/readingPack.ts), one of each thing the HTML export writes, and the [clerk walkthrough's agenda](clerk-walkthrough-2026-10/agenda-export.html). There were two runs, 38571242354 and 38573095047, and each was retried. All four readings of the agenda were identical, and so were both readings of each version of the pack.
+- VoiceOver, with Safari, reading the same two pages a VO-Right at a time in CI. It took five runs to get a reading that didn't change from run to run (decision 4); the recordings come from run 38749420697, whose retry read both pages identically.
 
 ## The one-line verdict
 
-**Yes, as a simulation: Export › "Hear it as a screen reader" lists what NVDA says, line by line, reading the document's HTML export. On both recorded pages it says exactly the words NVDA said, and it says that it's a simulation.**
+**Yes, as a simulation: Export › "Hear it as a screen reader" lists what NVDA or VoiceOver says, step by step, reading the document's HTML export. On both recorded pages it says exactly the words each reader said, and it says that it's a simulation.**
 
 ## Decisions
 
@@ -22,7 +23,7 @@ The simulator (`app/_editor/screenReader.ts`) reads the page `exportHtml` has ju
 ### 2. A screen reader gets words only once it has been recorded
 
 Nothing in the repo had ever recorded what a screen reader says about a document, so any phrasing would have been a guess. The order was recordings first, then the simulation. Two gates now hold them together:
-- `reading.nvda.spec.ts` has NVDA read both pages in CI and fails if it says anything different from the committed recording.
+- `reading.nvda.spec.ts` and `reading.voiceover.spec.ts` have each reader read both pages in CI and fail if it says anything different from the committed recording.
 - `scripts/verify-rules.mjs` fails if the simulation's words differ from that recording.
 
 A recording is committed by hand after reading it, never regenerated automatically.
@@ -35,17 +36,28 @@ The recordings settled things the code could only guess at:
 - **A typed blank (`____`) isn't read at all.**
 - **Spanish text on a computer without a Spanish voice is read as "Spanish (not supported)"** and then in the English voice.
 
+VoiceOver reads the same pages differently, and the dialog shows each reader's own words:
+- **Every landmark, list and table is a step going in and another going out:** "banner" … "end of banner", "list 2 items" … "end of list".
+- **Text runs on until a link, a line break or a picture.** Bold, highlight and Spanish don't interrupt it, and nothing announces the change of language.
+- **An image with no alt text is announced as "image"**, where NVDA says nothing. A placeholder without a description is "image" too.
+- **A cell's column header is said only when the column changes.** Below a cell spanning two rows, "No" follows "Yes" in the same column, so it gets no "Vote" at all.
+- **An empty table cell is "blank", and an empty heading is skipped**, as in NVDA.
+
 ### 3. Correct the copy the recordings contradict
 
 Two rules described NVDA wrongly, and the dialog would have shown the contradiction next to the finding:
 - `link-text-raw-url` said an address is read "character by character".
 - `heading-empty` said an empty heading "is announced as a heading with nothing in it".
 
-Both now say what NVDA was heard doing. Three claims held, and I left them: an image with no alt text is "silent" and "announces nothing", and a blank is read as "a run of underscores, or not at all". [Decorative images](decorative-images-2026-10.md) says a screen reader "may read out the file name" of an image with no `alt`. For the exports' embedded pictures, NVDA doesn't.
+Both now say what NVDA was heard doing. VoiceOver contradicted a third: `img-alt-missing` said an image with no alt text is "silent" and that screen readers "announce nothing", and VoiceOver says "image". It now says screen readers skip it or say only "image". One claim held for both readers, and I left it: a blank is read as "a run of underscores, or not at all". [Decorative images](decorative-images-2026-10.md) says a screen reader "may read out the file name" of an image with no `alt`. For the exports' embedded pictures, NVDA doesn't.
 
-### 4. NVDA first, VoiceOver next, no JAWS
+### 4. NVDA and VoiceOver, no JAWS
 
-Guidepup drives NVDA and VoiceOver and nothing else. JAWS needs a licence, and nothing here can record it, so a JAWS profile would be words nobody heard. VoiceOver gets its own recordings once its CI job is reliable (#135); until then the dialog names NVDA only.
+Guidepup drives NVDA and VoiceOver and nothing else. JAWS needs a licence, and nothing here can record it, so a JAWS profile would be words nobody heard.
+
+VoiceOver came second, once its CI job was reliable (#135), and its first readings weren't repeatable. Two things made them change from run to run, and the spec now removes both:
+- **VoiceOver's instructions** ("You are currently on a heading level 2", "To click this link, press…") come after a pause, so whether a step caught one was timing. Once, one arriving mid-capture replaced the paragraph it followed. They describe how to use VoiceOver, not the page, so the recordings have them turned off (`SCRShouldOutputVOInstructions`, VoiceOver's own name for the setting, read from the runner).
+- **Where VoiceOver starts.** Guidepup leaves the cursor on the page's first item or its second, and logged what it said there only sometimes. The spec steps back to the first item, then listens. So VoiceOver's recordings start at the second item, and the gate skips the simulation's first step: a `shortcut:` until that first item is heard every time.
 
 ### 5. The HTML export only, not the PDF
 
@@ -58,6 +70,6 @@ The dialog sits beside the export it describes, so the top bar gains nothing. It
 ## What would change these decisions
 
 - **Something the recordings don't hold**, such as a list inside a merged cell, or a symbol NVDA names that isn't recorded yet. It is read as plain text until it is added to the reading pack and re-recorded.
-- **A runner update that changes NVDA's words.** The NVDA spec fails, and the recording is read again and re-committed.
+- **A runner update that changes a reader's words.** NVDA is pinned by setup-action's commit; VoiceOver changes with `macos-latest`. The spec fails, and the recording is read again and re-committed.
 - **A way to record JAWS, or a PDF reader, in CI.** Either would get its own recordings and words.
 - **People needing to edit while they listen.** The dialog would become a panel beside the page.
