@@ -165,7 +165,7 @@ export function imageFinding(imageId: string, label: string, anchor: Anchor, at 
     ruleId: 'img-alt-missing',
     severity: 'blocker',
     title: 'Image has no alternative text',
-    explanation: `Screen readers will announce nothing for this ${figureNoun(label)}, so residents using one will miss its content entirely.`,
+    explanation: `Screen readers skip this ${figureNoun(label)} or say only “image”, so residents using one will miss its content entirely.`,
     criterion: '1.1.1 Non-text Content',
     excerpt: label,
     hint: 'Add a description',

@@ -535,7 +535,7 @@ check('img-alt-missing fires on a figure with no alt text', () => {
 check('a numbered label names the picture, but a sentence says "this image"', () => {
   const [f] = blockFindings(doc(figure('img-1', '', 'image 1')), 'img-alt-missing');
   eq(f.snippet, 'image 1', 'the excerpt keeps the name');
-  eq(f.explanation, 'Screen readers will announce nothing for this image, so its content is unavailable.', 'not "this image 1"');
+  eq(f.explanation, 'Screen readers skip this image or say only “image”, so its content is unavailable.', 'not "this image 1"');
   const { figureNoun } = mod.editorSchema;
   for (const [label, noun] of [['pasted image 12', 'pasted image'], ['inserted image 3', 'inserted image'], ['header image', 'header image'], ['parcel map', 'parcel map'], ['Budget 2026', 'Budget 2026'], ['', 'image']]) {
     eq(figureNoun(label), noun, `"${label}" reads as "this ${noun}"`);
@@ -2684,19 +2684,32 @@ await acheck('store: a deleted document is gone, and an emptied desk stays empty
     readingPack(page);
     return page;
   };
-  const said = (page) => normalize(readAloud(page).map((line) => line.map((p) => p.text).join(' ')).join(' ')).split(' ');
+  const said = (page, reader) => {
+    const steps = readAloud(page, reader).map((line) => line.map((p) => p.text).join(' '));
+    // A recording stops at the page's last words; VoiceOver's "end of …"
+    // after them is a step the spec never takes.
+    while (/^end of /.test(steps.at(-1) ?? '')) steps.pop();
+    // shortcut: VoiceOver's recordings start at the second item, where the
+    // spec starts listening (reading.ts). Upgrade when its speech for the
+    // item it lands on is logged every time.
+    if (reader === 'voiceover') steps.shift();
+    return normalize(steps.join(' ')).split(' ');
+  };
 
-  // The recordings are what NVDA itself said (tests/screen-reader/reading.nvda.spec.ts
-  // re-records them in CI): the simulation must say the same words.
-  for (const fixture of READING_FIXTURES) {
-    check(`Hear it: the simulation says what NVDA said reading ${fixture}`, () => {
-      const want = normalize(recordingText(readFileSync(resolve(ROOT, 'tests/screen-reader/recordings/nvda', `${fixture}.txt`), 'utf8'))).split(' ');
-      const got = said(pageOf(fixture));
-      let i = 0;
-      while (i < want.length && got[i] === want[i]) i++;
-      assert(i === want.length && got.length === want.length,
-        `from word ${i}, NVDA said "${want.slice(Math.max(0, i - 6), i + 10).join(' ')}" and the simulation says "${got.slice(Math.max(0, i - 6), i + 10).join(' ')}"`);
-    });
+  // The recordings are what each reader itself said (tests/screen-reader/
+  // reading.<reader>.spec.ts re-records them in CI): the simulation must say
+  // the same words.
+  for (const reader of ['nvda', 'voiceover']) {
+    for (const fixture of READING_FIXTURES) {
+      check(`Hear it: the simulation says what ${reader} said reading ${fixture}`, () => {
+        const want = normalize(recordingText(readFileSync(resolve(ROOT, 'tests/screen-reader/recordings', reader, `${fixture}.txt`), 'utf8'))).split(' ');
+        const got = said(pageOf(fixture), reader);
+        let i = 0;
+        while (i < want.length && got[i] === want[i]) i++;
+        assert(i === want.length && got.length === want.length,
+          `from word ${i}, ${reader} said "${want.slice(Math.max(0, i - 6), i + 10).join(' ')}" and the simulation says "${got.slice(Math.max(0, i - 6), i + 10).join(' ')}"`);
+      });
+    }
   }
 
   // The simulation reads what exportHtml writes. A new element there would be

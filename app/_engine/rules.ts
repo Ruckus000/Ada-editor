@@ -110,7 +110,7 @@ export interface RuleInfo {
 
 export const RULES: readonly RuleInfo[] = [
   { id: 'img-alt-missing', name: 'Images without alternative text', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural',
-    about: 'An image with no alternative text is silent to a screen reader: its content simply isn’t there for someone who can’t see it.',
+    about: 'An image with no alternative text tells a screen reader nothing (NVDA skips it, VoiceOver says only “image”): its content simply isn’t there for someone who can’t see it.',
     fix: 'Select the image’s “Add alt text” and describe what it shows and why it matters here, in a sentence or two.' },
   { id: 'img-alt-suspicious', name: 'Alternative text that may not describe the image', criterion: '1.1.1 Non-text Content', level: 'A', kind: 'structural',
     about: 'Alt text that starts “Image of…” is read twice (screen readers already say it’s an image), and very short or file-name-like alt text often doesn’t describe the picture. Only a person can judge that.',
@@ -500,7 +500,7 @@ export function summarizeBlock(node: PMNode, pageLang = 'en'): BlockSummary {
         severity: 'blocker',
         criterion: crit('img-alt-missing'),
         title: 'Image has no alternative text',
-        explanation: `Screen readers will announce nothing for this ${figureNoun(label)}, so its content is unavailable.`,
+        explanation: `Screen readers skip this ${figureNoun(label)} or say only “image”, so its content is unavailable.`,
         snippet: label,
         hint: 'Add a description',
         anchor: { kind: 'figure', figureId: id },
