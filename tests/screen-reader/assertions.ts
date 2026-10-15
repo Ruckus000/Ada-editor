@@ -8,6 +8,8 @@ import { expect, type Page } from '@playwright/test';
 export interface ScreenReader {
   /** Move the reading cursor to the next item. Equivalent to Down Arrow. */
   next(): Promise<void>;
+  /** Move the reading cursor to the previous item. Equivalent to Up Arrow. */
+  previous(): Promise<void>;
   /** Move the reading cursor to the next heading. */
   nextHeading(): Promise<void>;
   /** Perform the default action on the item in the cursor. Equivalent to Enter. */

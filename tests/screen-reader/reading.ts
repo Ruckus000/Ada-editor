@@ -36,13 +36,17 @@ export async function assertReadsAsRecorded(
   const html = page(fixture);
   const end = lastWords(html);
   await pw.setContent(html, { waitUntil: 'load' });
-  // VoiceOver lands on the page's first item, but whether its speech for it
-  // was logged varied run to run ("main" in 38735916918, not in 38740866535),
-  // so its reading starts at the second; the simulator's gate skips the first.
-  const navigated = reader === 'voiceover';
-  if (navigated) await sr.navigateToWebContent();
+  // VoiceOver lands on the page's first item or its second, run to run, and
+  // its speech for that was logged only sometimes (runs 38735916918,
+  // 38740866535, 38746345950). Stepping back stops at the first item, so it
+  // starts there every time, unheard: its reading starts at the second, and
+  // the simulator's gate skips the first.
+  if (reader === 'voiceover') {
+    await sr.navigateToWebContent();
+    for (let i = 0; i < 3; i++) await sr.previous();
+  }
   const before = (await sr.spokenPhraseLog()).length;
-  if (!navigated) await sr.navigateToWebContent();
+  if (reader === 'nvda') await sr.navigateToWebContent();
   const out = info.outputPath(`${reader}-${fixture}.txt`);
   let heard: string[] = [];
   for (let i = 0; i < LIMIT; i++) {
