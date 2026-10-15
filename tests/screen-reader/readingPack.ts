@@ -40,12 +40,14 @@ const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
 type Inline = string | PMNode;
 const inline = (c: Inline) => (typeof c === 'string' ? schema.text(c) : c);
 const p = (...children: Inline[]) => N.paragraph!.create(null, children.map(inline));
-const h = (level: number, s: string) => N.heading!.create({ level }, s ? schema.text(s) : undefined);
+const h = (level: number, ...children: Inline[]) => N.heading!.create({ level }, children.filter((c) => c !== '').map(inline));
 const a = (href: string, s: string) => schema.text(s, [M.link!.create({ href })]);
 const li = (...blocks: PMNode[]) => N.list_item!.create(null, blocks);
-type Cell = string | { th: string } | { td: string; colspan?: number; rowspan?: number };
+// A cell is text, a header, a merged cell, or blocks (a cell holds any `flow`).
+type Cell = string | PMNode[] | { th: string } | { td: string; colspan?: number; rowspan?: number };
 const cell = (c: Cell) => typeof c === 'string'
   ? N.table_cell!.create(null, p(...(c ? [c] : [])))
+  : Array.isArray(c) ? N.table_cell!.create(null, c)
   : 'th' in c ? N.table_header!.create(null, p(c.th)) : N.table_cell!.create({ colspan: c.colspan ?? 1, rowspan: c.rowspan ?? 1 }, p(c.td));
 const es = (s: string) => schema.text(s, [M.lang!.create({ lang: 'es' })]);
 const table = (rows: Cell[][], caption = '') => N.table!.create({ caption }, rows.map((r) => N.table_row!.create(null, r.map(cell))));
@@ -70,6 +72,14 @@ const pack = N.doc!.create({ lang: 'en' }, [
   // No picture to hand: the placeholders the sample documents are made of.
   N.figure!.create({ id: 'img-3', alt: 'Site plan of the shelter', label: 'site plan' }),
   N.figure!.create({ id: 'img-4', alt: '', label: 'chart' }),
+  h(2, 'Inside headings and cells'),
+  h(3, 'Public', N.hard_break!.create(), 'Comment'),
+  h(3, 'See the ', a('https://example.org/minutes', 'minutes')),
+  table([
+    [{ th: 'Item' }, { th: 'Notes' }],
+    [[p('Item A'), p('Item B')], [p('See ', a('https://example.org/plan', 'the plan'))]],
+    [[N.figure!.create({ id: 'img-5', alt: 'Ward map', label: 'map', image: KEY, width: 120, height: 80 })], [N.bullet_list!.create(null, [li(p('One')), li(p('Two'))])]],
+  ]),
   h(2, 'Links and language'),
   p(a('javascript:void(0)', 'An unsafe link'), '.'),
   p('Web address: ', a('https://example.org/agenda', 'https://example.org/agenda')),
