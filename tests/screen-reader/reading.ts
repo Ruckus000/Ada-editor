@@ -38,15 +38,16 @@ export async function assertReadsAsRecorded(
   await pw.setContent(html, { waitUntil: 'load' });
   const before = (await sr.spokenPhraseLog()).length;
   await sr.navigateToWebContent();
+  const out = info.outputPath(`${reader}-${fixture}.txt`);
   let heard: string[] = [];
   for (let i = 0; i < LIMIT; i++) {
     heard = (await sr.spokenPhraseLog()).slice(before);
+    // Written every step: a reading that times out still leaves what was said.
+    writeFileSync(out, `${heard.join('\n')}\n`);
     if (normalize(heard.join(' ')).includes(end)) break;
     await step(sr);
   }
 
-  const out = info.outputPath(`${reader}-${fixture}.txt`);
-  writeFileSync(out, `${heard.join('\n')}\n`);
   expect(normalize(heard.join(' ')), `${reader} never reached the end of ${fixture} ("${end}"). What it said is in ${out}.`).toContain(end);
 
   const file = resolve(RECORDINGS, reader, `${fixture}.txt`);
