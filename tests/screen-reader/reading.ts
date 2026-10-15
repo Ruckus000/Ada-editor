@@ -36,17 +36,27 @@ export async function assertReadsAsRecorded(
   const html = page(fixture);
   const end = lastWords(html);
   await pw.setContent(html, { waitUntil: 'load' });
+  // VoiceOver lands on the page's first item or its second, run to run, and
+  // its speech for that was logged only sometimes (runs 38735916918,
+  // 38740866535, 38746345950). Stepping back stops at the first item, so it
+  // starts there every time, unheard: its reading starts at the second, and
+  // the simulator's gate skips the first.
+  if (reader === 'voiceover') {
+    await sr.navigateToWebContent();
+    for (let i = 0; i < 3; i++) await sr.previous();
+  }
   const before = (await sr.spokenPhraseLog()).length;
-  await sr.navigateToWebContent();
+  if (reader === 'nvda') await sr.navigateToWebContent();
+  const out = info.outputPath(`${reader}-${fixture}.txt`);
   let heard: string[] = [];
   for (let i = 0; i < LIMIT; i++) {
     heard = (await sr.spokenPhraseLog()).slice(before);
+    // Written every step: a reading that times out still leaves what was said.
+    writeFileSync(out, `${heard.join('\n')}\n`);
     if (normalize(heard.join(' ')).includes(end)) break;
     await step(sr);
   }
 
-  const out = info.outputPath(`${reader}-${fixture}.txt`);
-  writeFileSync(out, `${heard.join('\n')}\n`);
   expect(normalize(heard.join(' ')), `${reader} never reached the end of ${fixture} ("${end}"). What it said is in ${out}.`).toContain(end);
 
   const file = resolve(RECORDINGS, reader, `${fixture}.txt`);

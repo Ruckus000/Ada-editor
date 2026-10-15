@@ -67,8 +67,6 @@ import { checkDocument, reconcile } from '../_engine/check';
 import { isRtlLanguage, languageName, primaryTag } from '../_engine/textHelpers';
 import { carryPositions, dismissKeyOf, imageFinding, imageIdFloor, sectionFindings, sortFindings, summaryLine } from './findings';
 import { exportHtml } from './exportHtml';
-import { readAloud } from './screenReader';
-import type { Heard } from './screenReader';
 import type { EditorFinding, Section } from './findings';
 import { LANGUAGE_MENU, Toolbar } from './Toolbar';
 import type { TableAction } from './Toolbar';
@@ -144,7 +142,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
   const [linkInitial, setLinkInitial] = useState('');
   const [tableOpen, setTableOpen] = useState(false);
   const [captionInitial, setCaptionInitial] = useState<string | null>(null);
-  const [heard, setHeard] = useState<{ items: Heard[]; missing: string } | null>(null);
+  const [heard, setHeard] = useState<{ page: Document; missing: string } | null>(null);
 
   /* ---------- refs shared with ProseMirror ---------- */
   const mountRef = useRef<HTMLDivElement>(null);
@@ -625,7 +623,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
     try {
       const built = await buildHtml();
       if (!built) return;
-      setHeard({ items: readAloud(built.page), missing: unavailable(built.missing).trim() });
+      setHeard({ page: built.page, missing: unavailable(built.missing).trim() });
     } catch (error) {
       report(error);
       announce('The web page could not be built, so it can’t be read aloud. Try again.');
@@ -1092,7 +1090,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
           >
             <li><button type="button" className={styles.barItem} onClick={() => void onExport()}>Export HTML<span>A web page with its structure and alt text</span></button></li>
             <li><button type="button" className={styles.barItem} onClick={() => void onExportPdf()}>Export PDF<span>A tagged PDF (PDF/UA-1)</span></button></li>
-            <li><button type="button" className={styles.barItem} onClick={() => void onHear()}>Hear it as a screen reader<span>A simulation of NVDA reading the HTML export</span></button></li>
+            <li><button type="button" className={styles.barItem} onClick={() => void onHear()}>Hear it as a screen reader<span>A simulation of NVDA or VoiceOver reading the HTML export</span></button></li>
           </Popover>
           <Popover
             label="More actions"
@@ -1364,7 +1362,7 @@ export function EditorScreen({ doc, stored }: { doc: DocSummary; stored: StoredD
         onSave={saveLayout}
         onClose={() => setLayoutTarget(null)}
       />
-      <HearDialog heard={heard?.items ?? null} missing={heard?.missing ?? ''} onClose={() => setHeard(null)} />
+      <HearDialog page={heard?.page ?? null} missing={heard?.missing ?? ''} onClose={() => setHeard(null)} />
       <InsertTableDialog open={tableOpen} onInsert={doInsertTable} onClose={() => setTableOpen(false)} focusDocument={() => viewRef.current?.focus()} />
       <TableCaptionDialog open={captionInitial !== null} initial={captionInitial ?? ''} onSave={saveCaption} onClose={() => setCaptionInitial(null)} focusDocument={() => viewRef.current?.focus()} />
       <LinkDialog
