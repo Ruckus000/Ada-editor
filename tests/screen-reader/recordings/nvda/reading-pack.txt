@@ -1,5 +1,5 @@
 # NVDA reading reading-pack with Down Arrow in Chrome, as reading.nvda.spec.ts does: one spoken phrase per line.
-# Recorded by screen-reader.yml run 38573095047 (2026-10-14), NVDA as guidepup/setup-action's pinned commit installs it; the run's retry said the same.
+# Recorded by screen-reader.yml run 38806202320 (2026-10-15), NVDA as guidepup/setup-action's pinned commit installs it; the run's retry said the same.
 # Committed by hand after reading it against the page. Never regenerate this automatically.
 banner landmark, graphic, Town seal, Town of Example
 main landmark, heading, level 1, Reading test
@@ -45,7 +45,21 @@ column 2
 out of table, heading, level 2, Pictures
 figure, graphic, Map of the park
 out of figure, graphic, Site plan of the shelter
-heading, level 2, Links and language
+heading, level 2, Inside headings and cells
+heading, level 3, Public
+heading, level 3, Comment
+heading, level 3, See the, link, minutes
+table, with 3 rows and 2 columns, row 1, column 1, Item
+column 2, Notes
+row 2, Item, column 1, Item A
+Item B
+Notes, column 2, See, link, the plan
+row 3, Item, column 1, figure, graphic, Ward map
+out of figure, Notes, column 2, list, with 2 items, bullet
+One
+bullet
+Two
+out of list, out of table, heading, level 2, Links and language
 An unsafe link.
 Web address:, link, https: slash slash example dot org slash agenda
 In Spanish:, Spanish (not supported), Llame al 311.
