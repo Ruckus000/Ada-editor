@@ -94,7 +94,8 @@ jobs:
   voiceover:
     name: VoiceOver (macOS)
     runs-on: macos-latest
-    timeout-minutes: 20
+    # The reading specs step through two pages an item at a time.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
